@@ -1,0 +1,45 @@
+package com.gachi.gacha.backend.store.application.dto;
+
+import com.gachi.gacha.backend.common.util.BaseUtils;
+import java.util.List;
+import lombok.Builder;
+
+public record StoreNearbyResult(
+        CenterInfo center,
+        Integer radius,
+        List<StoreInfo> stores
+) {
+
+    public static StoreNearbyResult of(
+            final Double latitude,
+            final Double longitude,
+            final Integer radius,
+            final List<StoreInfo> stores
+    ) {
+        return new StoreNearbyResult(
+                new CenterInfo(latitude, longitude),
+                radius,
+                BaseUtils.copyOrEmpty(stores)
+        );
+    }
+
+    public record CenterInfo(
+            Double latitude,
+            Double longitude
+    ) {
+    }
+
+    @Builder
+    public record StoreInfo(
+            Long storeId,
+            String name,
+            String thumbnailUrl,
+            String address,
+            Integer floor,
+            String unit,
+            Double latitude,
+            Double longitude,
+            Double distance
+    ) {
+    }
+}

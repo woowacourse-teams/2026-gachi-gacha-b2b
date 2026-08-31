@@ -1,0 +1,19 @@
+package com.gachi.gacha.backend.store.domain;
+
+import com.gachi.gacha.backend.common.exception.ErrorCode;
+import com.gachi.gacha.backend.store.domain.exception.StoreNotFoundException;
+import org.jspecify.annotations.NonNull;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Slice;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+@Repository
+public interface StoreDetailJpaRepository extends JpaRepository<StoreDetail, Long> {
+
+    default StoreDetail getByStoreId(@NonNull final Long storeId) {
+        return findById(storeId).orElseThrow(() -> new StoreNotFoundException(ErrorCode.STORE_NOT_FOUND));
+    }
+
+    Slice<StoreDetail> findAllByInstagramIdIsNotNull(Pageable pageable);
+}

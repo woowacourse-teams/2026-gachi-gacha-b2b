@@ -1,22 +1,38 @@
 server:
-  port: 8081
   servlet:
     context-path: /api/v1
 
 spring:
   application:
     name: gachi-gacha-b2b-backend
-
+  servlet:
+    multipart:
+      max-file-size: 100MB
+      max-request-size: 100MB
   datasource:
     driver-class-name: org.postgresql.Driver
     url: ${DB_URL}
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
-
   flyway:
-    enabled: false
-
+    enabled: true
+    locations: classpath:db/migration
   jpa:
     hibernate:
-      ddl-auto: ${JPA_DDL_AUTO:validate}
-    open-in-view: false
+      ddl-auto: ${JPA_DDL_AUTO}
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+cloud:
+  aws:
+    region: ${AWS_REGION}
+    s3:
+      bucket: ${AWS_S3_BUCKET}
+      folder: ${AWS_S3_FOLDER}
+
+instagram:
+  api:
+    uri: "https://graph.facebook.com/v26.0"
+    user-id: ${META_IG_USER_ID}
+    access-token: ${META_ACCESS_TOKEN}
