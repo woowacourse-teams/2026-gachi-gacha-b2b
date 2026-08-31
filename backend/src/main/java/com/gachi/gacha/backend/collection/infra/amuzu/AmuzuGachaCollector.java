@@ -49,22 +49,22 @@ public class AmuzuGachaCollector implements GachaCollector {
 
     @Override
     public List<CollectedGacha> collect() {
-        final Map<String, CollectedGacha> collected = new LinkedHashMap<>();
-        final Set<String> visitedUrls = new HashSet<>();
+        Map<String, CollectedGacha> collected = new LinkedHashMap<>();
+        Set<String> visitedUrls = new HashSet<>();
         String currentUrl = listUrl;
 
         for (int page = 1; page <= maxPages && visitedUrls.add(currentUrl); page++) {
-            final Document document = Jsoup.parse(htmlFetcher.fetch(currentUrl), currentUrl);
-            final List<Element> titleLinks = document.select(".p-list-item__title-link[href]");
+            Document document = Jsoup.parse(htmlFetcher.fetch(currentUrl), currentUrl);
+            List<Element> titleLinks = document.select(".p-list-item__title-link[href]");
             if (titleLinks.isEmpty()) {
                 break;
             }
 
-            for (final Element titleLink : titleLinks) {
+            for (Element titleLink : titleLinks) {
                 toCollectedGacha(titleLink).ifPresent(gacha -> collected.putIfAbsent(gacha.productCode(), gacha));
             }
 
-            final String nextUrl = nextPageUrl(document, page + 1);
+            String nextUrl = nextPageUrl(document, page + 1);
             if (nextUrl == null) {
                 break;
             }
@@ -75,19 +75,19 @@ public class AmuzuGachaCollector implements GachaCollector {
     }
 
     private Optional<CollectedGacha> toCollectedGacha(final Element titleLink) {
-        final Element card = titleLink.closest(".p-list-item");
+        Element card = titleLink.closest(".p-list-item");
         if (card == null) {
             return Optional.empty();
         }
 
-        final Element imageElement = card.selectFirst(".p-list-item__image-link img");
+        Element imageElement = card.selectFirst(".p-list-item__image-link img");
         if (imageElement == null) {
             return Optional.empty();
         }
 
-        final String href = titleLink.absUrl("href");
-        final String productCode = extractProductCode(card.text(), href);
-        final String imageUrl = imageElement.absUrl("src");
+        String href = titleLink.absUrl("href");
+        String productCode = extractProductCode(card.text(), href);
+        String imageUrl = imageElement.absUrl("src");
         if (productCode == null || imageUrl.isBlank()) {
             return Optional.empty();
         }
@@ -102,12 +102,12 @@ public class AmuzuGachaCollector implements GachaCollector {
     }
 
     private String extractProductCode(final String cardText, final String href) {
-        final Matcher textMatcher = PRODUCT_CODE_TEXT_PATTERN.matcher(cardText);
+        Matcher textMatcher = PRODUCT_CODE_TEXT_PATTERN.matcher(cardText);
         if (textMatcher.find()) {
             return textMatcher.group(1);
         }
 
-        final Matcher urlMatcher = PRODUCT_CODE_URL_PATTERN.matcher(href);
+        Matcher urlMatcher = PRODUCT_CODE_URL_PATTERN.matcher(href);
         if (urlMatcher.find()) {
             return urlMatcher.group(1);
         }
@@ -115,7 +115,7 @@ public class AmuzuGachaCollector implements GachaCollector {
     }
 
     private String nextPageUrl(final Document document, final int nextPage) {
-        final Element nextLink = document.selectFirst("a[href*='next_page=" + nextPage + "']");
+        Element nextLink = document.selectFirst("a[href*='next_page=" + nextPage + "']");
         if (nextLink == null || nextLink.absUrl("href").isBlank()) {
             return null;
         }

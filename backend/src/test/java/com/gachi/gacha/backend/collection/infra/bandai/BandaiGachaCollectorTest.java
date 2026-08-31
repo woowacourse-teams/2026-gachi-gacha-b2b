@@ -14,7 +14,7 @@ class BandaiGachaCollectorTest {
 
     @Test
     void 상품목록의_모든_페이지를_수집한다() {
-        final HtmlFetcher htmlFetcher = url -> {
+        HtmlFetcher htmlFetcher = url -> {
             if (url.endsWith("pageNo=1")) {
                 return """
                         <div class="wm-column-item">
@@ -37,9 +37,9 @@ class BandaiGachaCollectorTest {
                     </div>
                     """;
         };
-        final BandaiGachaCollector collector = new BandaiGachaCollector(htmlFetcher, LIST_URL, 1, 10);
+        BandaiGachaCollector collector = new BandaiGachaCollector(htmlFetcher, LIST_URL, 1, 10);
 
-        final List<CollectedGacha> result = collector.collect();
+        List<CollectedGacha> result = collector.collect();
 
         assertThat(result).hasSize(2);
         assertThat(result.getFirst()).satisfies(gacha -> {
@@ -53,7 +53,7 @@ class BandaiGachaCollectorTest {
 
     @Test
     void 지정한_페이지부터_수집한다() {
-        final HtmlFetcher htmlFetcher = url -> {
+        HtmlFetcher htmlFetcher = url -> {
             assertThat(url).endsWith("pageNo=2");
             return """
                     <div class="wm-column-item">
@@ -64,9 +64,9 @@ class BandaiGachaCollectorTest {
                     </div>
                     """;
         };
-        final BandaiGachaCollector collector = new BandaiGachaCollector(htmlFetcher, LIST_URL, 2, 1);
+        BandaiGachaCollector collector = new BandaiGachaCollector(htmlFetcher, LIST_URL, 2, 1);
 
-        final List<CollectedGacha> result = collector.collect();
+        List<CollectedGacha> result = collector.collect();
 
         assertThat(result).singleElement()
                 .extracting(CollectedGacha::productCode)

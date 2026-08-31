@@ -19,12 +19,12 @@ class GachaCollectionSchedulerTest {
 
     @Test
     void 스케줄이_실행되면_모든_출처를_수집한다() {
-        final GachaCollectionFacade facade = mock(GachaCollectionFacade.class);
-        final Instant startedAt = Instant.now();
+        GachaCollectionFacade facade = mock(GachaCollectionFacade.class);
+        Instant startedAt = Instant.now();
         given(facade.collectAll()).willReturn(List.of(
                 CollectionResult.success(CollectionSource.BANDAI, 2, 1, startedAt)
         ));
-        final GachaCollectionScheduler scheduler = new GachaCollectionScheduler(facade);
+        GachaCollectionScheduler scheduler = new GachaCollectionScheduler(facade);
 
         scheduler.collectGachas();
 
@@ -33,17 +33,17 @@ class GachaCollectionSchedulerTest {
 
     @Test
     void 이전_수집이_진행_중이면_중복_실행을_건너뛴다() throws InterruptedException {
-        final GachaCollectionFacade facade = mock(GachaCollectionFacade.class);
-        final CountDownLatch collectionStarted = new CountDownLatch(1);
-        final CountDownLatch collectionCanFinish = new CountDownLatch(1);
+        GachaCollectionFacade facade = mock(GachaCollectionFacade.class);
+        CountDownLatch collectionStarted = new CountDownLatch(1);
+        CountDownLatch collectionCanFinish = new CountDownLatch(1);
         given(facade.collectAll()).willAnswer(invocation -> {
             collectionStarted.countDown();
             collectionCanFinish.await();
             return List.of();
         });
-        final GachaCollectionScheduler scheduler = new GachaCollectionScheduler(facade);
+        GachaCollectionScheduler scheduler = new GachaCollectionScheduler(facade);
 
-        final Thread firstExecution = Thread.ofVirtual().start(scheduler::collectGachas);
+        Thread firstExecution = Thread.ofVirtual().start(scheduler::collectGachas);
         try {
             assertThat(collectionStarted.await(1, TimeUnit.SECONDS)).isTrue();
             scheduler.collectGachas();

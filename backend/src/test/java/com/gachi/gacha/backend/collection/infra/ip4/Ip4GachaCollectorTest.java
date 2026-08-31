@@ -24,7 +24,7 @@ class Ip4GachaCollectorTest {
 
     @Test
     void 상세페이지의_게시물_ID를_상품코드로_수집한다() {
-        final HtmlFetcher htmlFetcher = url -> {
+        HtmlFetcher htmlFetcher = url -> {
             if (url.equals(LIST_URL)) {
                 return """
                         <div id="cupsuletoy">
@@ -58,7 +58,7 @@ class Ip4GachaCollectorTest {
             }
             throw new IllegalArgumentException("예상하지 못한 URL: " + url);
         };
-        final Ip4GachaCollector collector = new Ip4GachaCollector(
+        Ip4GachaCollector collector = new Ip4GachaCollector(
                 htmlFetcher,
                 LIST_URL_TEMPLATE,
                 100,
@@ -67,7 +67,7 @@ class Ip4GachaCollectorTest {
                 CLOCK
         );
 
-        final List<CollectedGacha> result = collector.collect();
+        List<CollectedGacha> result = collector.collect();
 
         assertThat(result).singleElement().satisfies(gacha -> {
             assertThat(gacha.source()).isEqualTo(CollectionSource.IP4);
@@ -80,9 +80,9 @@ class Ip4GachaCollectorTest {
 
     @Test
     void 다음_페이지_링크가_있으면_계속_수집한다() {
-        final String secondPageUrl = "https://ip4.example/cupsuletoy_top/page/2/?search_date=201603";
-        final List<String> fetchedUrls = new ArrayList<>();
-        final HtmlFetcher htmlFetcher = url -> {
+        String secondPageUrl = "https://ip4.example/cupsuletoy_top/page/2/?search_date=201603";
+        List<String> fetchedUrls = new ArrayList<>();
+        HtmlFetcher htmlFetcher = url -> {
             fetchedUrls.add(url);
             if (url.equals(LIST_URL)) {
                 return """
@@ -95,7 +95,7 @@ class Ip4GachaCollectorTest {
             }
             throw new IllegalArgumentException("예상하지 못한 URL: " + url);
         };
-        final Ip4GachaCollector collector = new Ip4GachaCollector(
+        Ip4GachaCollector collector = new Ip4GachaCollector(
                 htmlFetcher,
                 LIST_URL_TEMPLATE,
                 100,
@@ -111,12 +111,12 @@ class Ip4GachaCollectorTest {
 
     @Test
     void 현재_월을_포함해_최근_12개월을_수집한다() {
-        final List<String> fetchedUrls = new ArrayList<>();
-        final HtmlFetcher htmlFetcher = url -> {
+        List<String> fetchedUrls = new ArrayList<>();
+        HtmlFetcher htmlFetcher = url -> {
             fetchedUrls.add(url);
             return "<div id=\"cupsuletoy\"><ul></ul></div>";
         };
-        final Ip4GachaCollector collector = new Ip4GachaCollector(
+        Ip4GachaCollector collector = new Ip4GachaCollector(
                 htmlFetcher,
                 LIST_URL_TEMPLATE,
                 100,
@@ -145,12 +145,12 @@ class Ip4GachaCollectorTest {
 
     @Test
     void 시작_월_간격을_지정하면_이전_달부터_수집한다() {
-        final List<String> fetchedUrls = new ArrayList<>();
-        final HtmlFetcher htmlFetcher = url -> {
+        List<String> fetchedUrls = new ArrayList<>();
+        HtmlFetcher htmlFetcher = url -> {
             fetchedUrls.add(url);
             return "<div id=\"cupsuletoy\"><ul></ul></div>";
         };
-        final Ip4GachaCollector collector = new Ip4GachaCollector(
+        Ip4GachaCollector collector = new Ip4GachaCollector(
                 htmlFetcher,
                 LIST_URL_TEMPLATE,
                 100,

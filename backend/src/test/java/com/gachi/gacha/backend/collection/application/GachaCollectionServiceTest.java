@@ -41,8 +41,8 @@ class GachaCollectionServiceTest {
     @Test
     @SuppressWarnings("unchecked")
     void source와_productCode가_같은_기존_가챠는_저장하지_않는다() {
-        final GachaCollectionService service = service();
-        final List<CollectedGacha> collectedGachas = List.of(
+        GachaCollectionService service = service();
+        List<CollectedGacha> collectedGachas = List.of(
                 gacha(CollectionSource.BANDAI, "existing", "기존 상품"),
                 gacha(CollectionSource.BANDAI, "new", "신규 상품"),
                 gacha(CollectionSource.BANDAI, "new", "중복 신규 상품")
@@ -54,10 +54,10 @@ class GachaCollectionServiceTest {
                 ImageType.GACHA.buildPath("root")
         )).willReturn("https://bucket.s3.amazonaws.com/root/gacha/new.jpg");
 
-        final int insertedCount = service.saveNewGachas(CollectionSource.BANDAI, collectedGachas);
+        int insertedCount = service.saveNewGachas(CollectionSource.BANDAI, collectedGachas);
 
         assertThat(insertedCount).isEqualTo(1);
-        final ArgumentCaptor<List<Gacha>> captor = ArgumentCaptor.forClass(List.class);
+        ArgumentCaptor<List<Gacha>> captor = ArgumentCaptor.forClass(List.class);
         verify(gachaRepository).saveAll(captor.capture());
         assertThat(captor.getValue())
                 .singleElement()
@@ -81,8 +81,8 @@ class GachaCollectionServiceTest {
 
     @Test
     void 수집_출처가_요청_출처와_다르면_저장하지_않는다() {
-        final GachaCollectionService service = service();
-        final List<CollectedGacha> collectedGachas = List.of(
+        GachaCollectionService service = service();
+        List<CollectedGacha> collectedGachas = List.of(
                 gacha(CollectionSource.IP4, "414", "IP4 상품")
         );
 
@@ -93,14 +93,14 @@ class GachaCollectionServiceTest {
 
     @Test
     void 모든_상품이_중복이면_S3에_업로드하지_않는다() {
-        final GachaCollectionService service = service();
-        final List<CollectedGacha> collectedGachas = List.of(
+        GachaCollectionService service = service();
+        List<CollectedGacha> collectedGachas = List.of(
                 gacha(CollectionSource.IP4, "414", "기존 IP4 상품")
         );
         given(gachaRepository.findExistingProductCodes(CollectionSource.IP4, Set.of("414")))
                 .willReturn(Set.of("414"));
 
-        final int insertedCount = service.saveNewGachas(CollectionSource.IP4, collectedGachas);
+        int insertedCount = service.saveNewGachas(CollectionSource.IP4, collectedGachas);
 
         assertThat(insertedCount).isZero();
         verify(imageUploader, never()).uploadFromUrl(

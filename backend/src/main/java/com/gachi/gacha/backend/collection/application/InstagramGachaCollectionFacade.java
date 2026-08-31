@@ -46,12 +46,12 @@ public class InstagramGachaCollectionFacade {
     }
 
     private int processStore(final StoreDetail storeDetail) {
-        final Store store = storeDetail.getStore();
+        Store store = storeDetail.getStore();
         try {
-            final List<Gacha> collectedGachas = collectionService.collectPostsForShop(storeDetail.getInstagramId());
+            List<Gacha> collectedGachas = collectionService.collectPostsForShop(storeDetail.getInstagramId());
             addStoreGachas(collectedGachas, store);
             return collectedGachas.size();
-        } catch (final RuntimeException exception) {
+        } catch (RuntimeException exception) {
             log.error("Instagram 상점 처리 실패. storeId={}, instagramId={}",
                     store.getId(), storeDetail.getInstagramId(), exception);
             return 0;
@@ -59,8 +59,8 @@ public class InstagramGachaCollectionFacade {
     }
 
     private void addStoreGachas(final List<Gacha> collectedGachas, final Store store) {
-        for (final Gacha gacha : collectedGachas) {
-            final StoreGachaCreatCommand command = StoreGachaCreatCommand.builder()
+        for (Gacha gacha : collectedGachas) {
+            StoreGachaCreatCommand command = StoreGachaCreatCommand.builder()
                     .store(store)
                     .gacha(gacha)
                     .build();

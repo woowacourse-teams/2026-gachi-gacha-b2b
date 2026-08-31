@@ -48,22 +48,22 @@ class InstagramGachaCollectionServiceTest {
 
     @Test
     void 인스타그램_신규_게시물은_S3_이미지_URL과_수집_식별자를_저장한다() {
-        final PlatformPostDto post = new PlatformPostDto(
+        PlatformPostDto post = new PlatformPostDto(
                 "media-1",
                 "신상 입고",
                 "https://instagram.example/image.jpg",
                 PlatformType.INSTAGRAM
         );
-        final InstagramGachaCollectionService service = service(new StubPlatformClient(post));
+        InstagramGachaCollectionService service = service(new StubPlatformClient(post));
         given(gachaRepository.findInstagramMediaIdByInstagramMediaIdIn(anyList())).willReturn(List.of());
         given(imageUploader.uploadFromUrl(post.imageUrl(), "root/gacha"))
                 .willReturn("https://bucket.s3.amazonaws.com/root/gacha/image.jpg");
         given(gachaRepository.save(any(Gacha.class))).willAnswer(invocation -> invocation.getArgument(0));
 
-        final List<Gacha> result = service.collectPostsForShop("shop");
+        List<Gacha> result = service.collectPostsForShop("shop");
 
         assertThat(result).hasSize(1);
-        final ArgumentCaptor<Gacha> captor = ArgumentCaptor.forClass(Gacha.class);
+        ArgumentCaptor<Gacha> captor = ArgumentCaptor.forClass(Gacha.class);
         verify(gachaRepository).save(captor.capture());
         assertThat(captor.getValue()).satisfies(gacha -> {
             assertThat(gacha.getSource()).isEqualTo(CollectionSource.INSTAGRAM);

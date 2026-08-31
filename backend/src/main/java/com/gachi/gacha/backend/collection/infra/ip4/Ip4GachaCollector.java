@@ -67,11 +67,11 @@ public class Ip4GachaCollector implements GachaCollector {
 
     @Override
     public List<CollectedGacha> collect() {
-        final Map<String, CollectedGacha> collected = new LinkedHashMap<>();
-        final YearMonth currentMonth = YearMonth.now(clock);
+        Map<String, CollectedGacha> collected = new LinkedHashMap<>();
+        YearMonth currentMonth = YearMonth.now(clock);
 
         for (int monthOffset = 0; monthOffset < collectionMonths; monthOffset++) {
-            final YearMonth targetMonth = currentMonth.minusMonths(startMonthOffset + monthOffset);
+            YearMonth targetMonth = currentMonth.minusMonths(startMonthOffset + monthOffset);
             collectMonth(targetMonth, collected);
         }
 
@@ -82,25 +82,25 @@ public class Ip4GachaCollector implements GachaCollector {
             final YearMonth targetMonth,
             final Map<String, CollectedGacha> collected
     ) {
-        final Set<String> visitedUrls = new HashSet<>();
+        Set<String> visitedUrls = new HashSet<>();
         String currentUrl = listUrl(targetMonth);
 
         for (int page = 1; page <= maxPages && visitedUrls.add(currentUrl); page++) {
-            final Document listDocument = Jsoup.parse(htmlFetcher.fetch(currentUrl), currentUrl);
-            final List<Element> items = listDocument.select("#cupsuletoy > ul > li");
+            Document listDocument = Jsoup.parse(htmlFetcher.fetch(currentUrl), currentUrl);
+            List<Element> items = listDocument.select("#cupsuletoy > ul > li");
             if (items.isEmpty()) {
                 break;
             }
 
-            for (final Element item : items) {
+            for (Element item : items) {
                 try {
                     toCollectedGacha(item).ifPresent(gacha -> collected.putIfAbsent(gacha.productCode(), gacha));
-                } catch (final RuntimeException exception) {
+                } catch (RuntimeException exception) {
                     log.warn("IP4 상품 수집을 건너뜁니다. detailUrl={}", detailUrl(item), exception);
                 }
             }
 
-            final String nextUrl = nextPageUrl(listDocument);
+            String nextUrl = nextPageUrl(listDocument);
             if (nextUrl == null) {
                 break;
             }
@@ -113,19 +113,19 @@ public class Ip4GachaCollector implements GachaCollector {
     }
 
     private Optional<CollectedGacha> toCollectedGacha(final Element item) {
-        final Element linkElement = item.selectFirst(".image a[href*='/cupsuletoy/']");
-        final Element imageElement = item.selectFirst(".image img");
-        final Element detailElement = item.selectFirst("dl dd");
+        Element linkElement = item.selectFirst(".image a[href*='/cupsuletoy/']");
+        Element imageElement = item.selectFirst(".image img");
+        Element detailElement = item.selectFirst("dl dd");
         if (linkElement == null || imageElement == null || detailElement == null) {
             return Optional.empty();
         }
 
-        final String detailUrl = linkElement.absUrl("href");
-        final String productCode = extractProductCode(detailUrl);
-        final String name = extractName(detailElement);
-        final String imageUrl = imageElement.absUrl("src");
-        final Element categoryElement = detailElement.selectFirst(".brand");
-        final String category = categoryElement == null ? null : categoryElement.text();
+        String detailUrl = linkElement.absUrl("href");
+        String productCode = extractProductCode(detailUrl);
+        String name = extractName(detailElement);
+        String imageUrl = imageElement.absUrl("src");
+        Element categoryElement = detailElement.selectFirst(".brand");
+        String category = categoryElement == null ? null : categoryElement.text();
         if (name.isBlank() || imageUrl.isBlank()) {
             return Optional.empty();
         }
@@ -140,13 +140,13 @@ public class Ip4GachaCollector implements GachaCollector {
     }
 
     private String extractProductCode(final String detailUrl) {
-        final Document detailDocument = Jsoup.parse(htmlFetcher.fetch(detailUrl), detailUrl);
-        final Element shortLink = detailDocument.selectFirst("link[rel=shortlink]");
+        Document detailDocument = Jsoup.parse(htmlFetcher.fetch(detailUrl), detailUrl);
+        Element shortLink = detailDocument.selectFirst("link[rel=shortlink]");
         if (shortLink == null) {
             throw new IllegalStateException("IP4 shortlink를 찾을 수 없습니다. url=" + detailUrl);
         }
 
-        final Matcher matcher = POST_ID_PATTERN.matcher(shortLink.attr("href"));
+        Matcher matcher = POST_ID_PATTERN.matcher(shortLink.attr("href"));
         if (!matcher.find()) {
             throw new IllegalStateException("IP4 게시물 ID를 찾을 수 없습니다. url=" + detailUrl);
         }
@@ -154,13 +154,13 @@ public class Ip4GachaCollector implements GachaCollector {
     }
 
     private String extractName(final Element detailElement) {
-        final Element copied = detailElement.clone();
+        Element copied = detailElement.clone();
         copied.select(".brand, .copy").remove();
         return copied.text();
     }
 
     private String detailUrl(final Element item) {
-        final Element linkElement = item.selectFirst(".image a[href]");
+        Element linkElement = item.selectFirst(".image a[href]");
         if (linkElement == null) {
             return "unknown";
         }
@@ -168,7 +168,7 @@ public class Ip4GachaCollector implements GachaCollector {
     }
 
     private String nextPageUrl(final Document document) {
-        final Element nextLink = document.selectFirst("a.next.page-numbers[href], a[rel=next][href]");
+        Element nextLink = document.selectFirst("a.next.page-numbers[href], a[rel=next][href]");
         if (nextLink == null || nextLink.absUrl("href").isBlank()) {
             return null;
         }

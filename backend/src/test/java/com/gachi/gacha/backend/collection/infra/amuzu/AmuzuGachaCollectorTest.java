@@ -14,7 +14,7 @@ class AmuzuGachaCollectorTest {
 
     @Test
     void 상품코드와_상품정보를_수집한다() {
-        final HtmlFetcher htmlFetcher = url -> """
+        HtmlFetcher htmlFetcher = url -> """
                 <div class="p-list-item">
                   <div class="p-list-item__image">
                     <a class="p-list-item__image-link" href="/category/CAPSULE_TOY_006/C69710.html">
@@ -29,14 +29,14 @@ class AmuzuGachaCollectorTest {
                   <p>商品コード：C69710</p>
                 </div>
                 """;
-        final AmuzuGachaCollector collector = new AmuzuGachaCollector(
+        AmuzuGachaCollector collector = new AmuzuGachaCollector(
                 htmlFetcher,
                 LIST_URL,
                 "CAPSULE_TOY_006",
                 10
         );
 
-        final List<CollectedGacha> result = collector.collect();
+        List<CollectedGacha> result = collector.collect();
 
         assertThat(result).singleElement().satisfies(gacha -> {
             assertThat(gacha.source()).isEqualTo(CollectionSource.A_MUZU);

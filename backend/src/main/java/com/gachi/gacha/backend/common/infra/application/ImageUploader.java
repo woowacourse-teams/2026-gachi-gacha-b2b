@@ -151,9 +151,9 @@ public class ImageUploader {
      */
     private ResponseEntity<byte[]> downloadImage(final String sourceUrl) {
         try {
-            final HttpHeaders headers = new HttpHeaders();
+            HttpHeaders headers = new HttpHeaders();
             headers.set(HttpHeaders.USER_AGENT, externalImageUserAgent);
-            final ResponseEntity<byte[]> response = restTemplate.exchange(
+            ResponseEntity<byte[]> response = restTemplate.exchange(
                     sourceUrl,
                     HttpMethod.GET,
                     new HttpEntity<>(headers),

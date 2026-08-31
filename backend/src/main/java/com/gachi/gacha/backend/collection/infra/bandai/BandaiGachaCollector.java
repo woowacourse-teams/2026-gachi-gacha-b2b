@@ -51,20 +51,20 @@ public class BandaiGachaCollector implements GachaCollector {
 
     @Override
     public List<CollectedGacha> collect() {
-        final Map<String, CollectedGacha> collected = new LinkedHashMap<>();
+        Map<String, CollectedGacha> collected = new LinkedHashMap<>();
 
         for (int pageOffset = 0; pageOffset < maxPages; pageOffset++) {
-            final int page = startPage + pageOffset;
-            final String pageUrl = pageUrl(page);
-            final Document document = Jsoup.parse(htmlFetcher.fetch(pageUrl), pageUrl);
-            final List<Element> productLinks = document.select(
+            int page = startPage + pageOffset;
+            String pageUrl = pageUrl(page);
+            Document document = Jsoup.parse(htmlFetcher.fetch(pageUrl), pageUrl);
+            List<Element> productLinks = document.select(
                     ".wm-column-item a[href*='item_details.html'][href*='product_code=']"
             );
             if (productLinks.isEmpty()) {
                 break;
             }
 
-            for (final Element productLink : productLinks) {
+            for (Element productLink : productLinks) {
                 toCollectedGacha(productLink).ifPresent(gacha -> collected.putIfAbsent(gacha.productCode(), gacha));
             }
 
@@ -77,16 +77,16 @@ public class BandaiGachaCollector implements GachaCollector {
     }
 
     private java.util.Optional<CollectedGacha> toCollectedGacha(final Element productLink) {
-        final String href = productLink.absUrl("href");
-        final Matcher matcher = PRODUCT_CODE_PATTERN.matcher(href);
-        final Element nameElement = productLink.selectFirst("p:not(.itemList_price)");
-        final Element imageElement = productLink.selectFirst("img");
+        String href = productLink.absUrl("href");
+        Matcher matcher = PRODUCT_CODE_PATTERN.matcher(href);
+        Element nameElement = productLink.selectFirst("p:not(.itemList_price)");
+        Element imageElement = productLink.selectFirst("img");
         if (!matcher.find() || nameElement == null || imageElement == null) {
             return java.util.Optional.empty();
         }
 
-        final String productCode = URLDecoder.decode(matcher.group(1), StandardCharsets.UTF_8);
-        final String imageUrl = imageElement.absUrl("src");
+        String productCode = URLDecoder.decode(matcher.group(1), StandardCharsets.UTF_8);
+        String imageUrl = imageElement.absUrl("src");
         if (imageUrl.isBlank()) {
             return java.util.Optional.empty();
         }
@@ -106,11 +106,11 @@ public class BandaiGachaCollector implements GachaCollector {
     }
 
     private String pageUrl(final int page) {
-        final Matcher matcher = PAGE_NUMBER_PATTERN.matcher(listUrl);
+        Matcher matcher = PAGE_NUMBER_PATTERN.matcher(listUrl);
         if (matcher.find()) {
             return matcher.replaceFirst(Matcher.quoteReplacement(matcher.group(1) + page));
         }
-        final String separator = listUrl.contains("?") ? "&" : "?";
+        String separator = listUrl.contains("?") ? "&" : "?";
         return listUrl + separator + "pageNo=" + page;
     }
 }

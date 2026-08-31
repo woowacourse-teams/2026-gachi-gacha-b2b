@@ -42,25 +42,25 @@ public class GachaCollectionService {
             final CollectionSource source,
             final Collection<CollectedGacha> collectedGachas
     ) {
-        final Map<String, CollectedGacha> uniqueGachas = deduplicate(source, collectedGachas);
+        Map<String, CollectedGacha> uniqueGachas = deduplicate(source, collectedGachas);
         if (uniqueGachas.isEmpty()) {
             return 0;
         }
 
-        final Set<String> existingProductCodes = gachaRepository.findExistingProductCodes(
+        Set<String> existingProductCodes = gachaRepository.findExistingProductCodes(
                 source,
                 uniqueGachas.keySet()
         );
-        final List<CollectedGacha> newCollectedGachas = uniqueGachas.values().stream()
+        List<CollectedGacha> newCollectedGachas = uniqueGachas.values().stream()
                 .filter(gacha -> !existingProductCodes.contains(gacha.productCode()))
                 .toList();
         if (newCollectedGachas.isEmpty()) {
             return 0;
         }
 
-        final List<String> uploadedImageUrls = new ArrayList<>();
+        List<String> uploadedImageUrls = new ArrayList<>();
         s3TransactionManager.deleteImagesOnRollback(ImageType.GACHA, null, uploadedImageUrls);
-        final List<Gacha> newGachas = newCollectedGachas.stream()
+        List<Gacha> newGachas = newCollectedGachas.stream()
                 .map(gacha -> uploadImageAndConvert(gacha, uploadedImageUrls))
                 .toList();
 
@@ -72,8 +72,8 @@ public class GachaCollectionService {
             final CollectionSource source,
             final Collection<CollectedGacha> collectedGachas
     ) {
-        final Map<String, CollectedGacha> uniqueGachas = new LinkedHashMap<>();
-        for (final CollectedGacha collectedGacha : collectedGachas) {
+        Map<String, CollectedGacha> uniqueGachas = new LinkedHashMap<>();
+        for (CollectedGacha collectedGacha : collectedGachas) {
             if (collectedGacha.source() != source) {
                 throw new IllegalArgumentException("수집 출처가 일치하지 않습니다.");
             }
@@ -86,7 +86,7 @@ public class GachaCollectionService {
             final CollectedGacha collectedGacha,
             final List<String> uploadedImageUrls
     ) {
-        final String s3ImageUrl = imageUploader.uploadFromUrl(
+        String s3ImageUrl = imageUploader.uploadFromUrl(
                 collectedGacha.imageUrl(),
                 ImageType.GACHA.buildPath(s3RootFolder)
         );

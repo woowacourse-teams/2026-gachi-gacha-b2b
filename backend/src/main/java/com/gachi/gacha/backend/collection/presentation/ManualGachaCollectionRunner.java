@@ -36,7 +36,7 @@ public class ManualGachaCollectionRunner implements ApplicationRunner {
 
     @Override
     public void run(final ApplicationArguments args) {
-        final List<CollectionResult> results = collect();
+        List<CollectionResult> results = collect();
         results.forEach(this::logResult);
 
         if (results.stream().anyMatch(result -> !result.succeeded())) {
@@ -49,7 +49,7 @@ public class ManualGachaCollectionRunner implements ApplicationRunner {
             return collectionFacade.collectAll();
         }
 
-        final CollectionSource source = parseSource(sourceName);
+        CollectionSource source = parseSource(sourceName);
         if (!source.isCollectable()) {
             throw new IllegalArgumentException("수동 수집을 지원하지 않는 출처입니다. source=" + sourceName);
         }
@@ -61,7 +61,7 @@ public class ManualGachaCollectionRunner implements ApplicationRunner {
             return CollectionSource.valueOf(
                     value.trim().toUpperCase(Locale.ROOT).replace('-', '_')
             );
-        } catch (final IllegalArgumentException exception) {
+        } catch (IllegalArgumentException exception) {
             throw new IllegalArgumentException(
                     "지원하는 수동 수집 출처는 BANDAI, IP4, A_MUZU, ALL입니다. source=" + value,
                     exception

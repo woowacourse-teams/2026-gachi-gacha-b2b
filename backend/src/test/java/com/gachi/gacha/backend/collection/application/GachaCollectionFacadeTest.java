@@ -15,12 +15,12 @@ class GachaCollectionFacadeTest {
 
     @Test
     void 한_수집기가_실패해도_나머지_수집기를_계속_실행한다() {
-        final GachaCollector bandaiCollector = collector(CollectionSource.BANDAI);
-        final GachaCollector ip4Collector = collector(CollectionSource.IP4);
-        final GachaCollector amuzuCollector = collector(CollectionSource.A_MUZU);
-        final GachaCollectionService service = mock(GachaCollectionService.class);
-        final CollectedGacha ip4Gacha = gacha(CollectionSource.IP4, "414");
-        final CollectedGacha amuzuGacha = gacha(CollectionSource.A_MUZU, "C69710");
+        GachaCollector bandaiCollector = collector(CollectionSource.BANDAI);
+        GachaCollector ip4Collector = collector(CollectionSource.IP4);
+        GachaCollector amuzuCollector = collector(CollectionSource.A_MUZU);
+        GachaCollectionService service = mock(GachaCollectionService.class);
+        CollectedGacha ip4Gacha = gacha(CollectionSource.IP4, "414");
+        CollectedGacha amuzuGacha = gacha(CollectionSource.A_MUZU, "C69710");
 
         given(bandaiCollector.collect()).willThrow(new IllegalStateException("수집 실패"));
         given(ip4Collector.collect()).willReturn(List.of(ip4Gacha));
@@ -28,11 +28,11 @@ class GachaCollectionFacadeTest {
         given(service.saveNewGachas(CollectionSource.IP4, List.of(ip4Gacha))).willReturn(1);
         given(service.saveNewGachas(CollectionSource.A_MUZU, List.of(amuzuGacha))).willReturn(0);
 
-        final GachaCollectionFacade facade = new GachaCollectionFacade(
+        GachaCollectionFacade facade = new GachaCollectionFacade(
                 List.of(bandaiCollector, ip4Collector, amuzuCollector),
                 service
         );
-        final List<CollectionResult> results = facade.collectAll();
+        List<CollectionResult> results = facade.collectAll();
 
         assertThat(results).extracting(CollectionResult::source)
                 .containsExactly(CollectionSource.BANDAI, CollectionSource.IP4, CollectionSource.A_MUZU);
@@ -44,7 +44,7 @@ class GachaCollectionFacadeTest {
     }
 
     private GachaCollector collector(final CollectionSource source) {
-        final GachaCollector collector = mock(GachaCollector.class);
+        GachaCollector collector = mock(GachaCollector.class);
         given(collector.source()).willReturn(source);
         return collector;
     }

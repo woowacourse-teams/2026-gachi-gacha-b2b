@@ -53,8 +53,8 @@ public class InstagramGachaCollectionService {
     }
 
     public List<Gacha> collectPostsForShop(final String shopInstagramId) {
-        final List<Gacha> savedGachas = new ArrayList<>();
-        for (final PlatformClient platformClient : platformClients) {
+        List<Gacha> savedGachas = new ArrayList<>();
+        for (PlatformClient platformClient : platformClients) {
             savedGachas.addAll(collectFromPlatform(platformClient, shopInstagramId));
         }
         return savedGachas;
@@ -65,29 +65,29 @@ public class InstagramGachaCollectionService {
             final String shopInstagramId
     ) {
         try {
-            final List<PlatformPostDto> posts = platformClient.fetchRecentPosts(
+            List<PlatformPostDto> posts = platformClient.fetchRecentPosts(
                     shopInstagramId,
                     this::hasAlreadyCollectedPost
             );
             return uploadAndSaveInParallel(filterPostsToUpload(posts));
-        } catch (final RuntimeException exception) {
+        } catch (RuntimeException exception) {
             log.error("{} 계정 수집 실패", shopInstagramId, exception);
             return List.of();
         }
     }
 
     private boolean hasAlreadyCollectedPost(final List<PlatformPostDto> posts) {
-        final List<String> mediaIds = posts.stream()
+        List<String> mediaIds = posts.stream()
                 .map(PlatformPostDto::originalId)
                 .toList();
         return !gachaRepository.findInstagramMediaIdByInstagramMediaIdIn(mediaIds).isEmpty();
     }
 
     private List<PlatformPostDto> filterPostsToUpload(final List<PlatformPostDto> posts) {
-        final List<String> mediaIds = posts.stream()
+        List<String> mediaIds = posts.stream()
                 .map(PlatformPostDto::originalId)
                 .toList();
-        final Set<String> existingMediaIds = new HashSet<>(
+        Set<String> existingMediaIds = new HashSet<>(
                 gachaRepository.findInstagramMediaIdByInstagramMediaIdIn(mediaIds)
         );
 
@@ -98,7 +98,7 @@ public class InstagramGachaCollectionService {
     }
 
     private List<Gacha> uploadAndSaveInParallel(final List<PlatformPostDto> postsToUpload) {
-        final List<CompletableFuture<Optional<Gacha>>> futures = postsToUpload.stream()
+        List<CompletableFuture<Optional<Gacha>>> futures = postsToUpload.stream()
                 .map(post -> CompletableFuture.supplyAsync(() -> uploadAndSave(post), imageUploadExecutor))
                 .toList();
 
@@ -113,7 +113,7 @@ public class InstagramGachaCollectionService {
             if (attempt > 1) {
                 sleepBeforeRetry();
             }
-            final AttemptResult result = attemptUploadAndSave(post, attempt);
+            AttemptResult result = attemptUploadAndSave(post, attempt);
             if (!result.retryable()) {
                 return result.gacha();
             }
@@ -130,21 +130,21 @@ public class InstagramGachaCollectionService {
                     ImageType.GACHA.buildPath(s3RootFolder)
             );
             return new AttemptResult(Optional.of(saveGacha(post, uploadedImageUrl)), false);
-        } catch (final ImageInvalidValueException exception) {
+        } catch (ImageInvalidValueException exception) {
             deleteUploadedImage(uploadedImageUrl);
             log.error("가챠 이미지 형식 오류. mediaId={}", post.originalId(), exception);
             return new AttemptResult(Optional.empty(), false);
-        } catch (final S3Exception exception) {
+        } catch (S3Exception exception) {
             deleteUploadedImage(uploadedImageUrl);
             log.warn("가챠 이미지 업로드 재시도. mediaId={}, attempt={}/{}",
                     post.originalId(), attempt, MAX_UPLOAD_ATTEMPTS, exception);
             return new AttemptResult(Optional.empty(), true);
-        } catch (final DataAccessException exception) {
+        } catch (DataAccessException exception) {
             deleteUploadedImage(uploadedImageUrl);
             log.warn("가챠 저장 재시도. mediaId={}, attempt={}/{}",
                     post.originalId(), attempt, MAX_UPLOAD_ATTEMPTS, exception);
             return new AttemptResult(Optional.empty(), true);
-        } catch (final RuntimeException exception) {
+        } catch (RuntimeException exception) {
             deleteUploadedImage(uploadedImageUrl);
             log.error("가챠 이미지 업로드/저장 실패. mediaId={}", post.originalId(), exception);
             return new AttemptResult(Optional.empty(), false);
@@ -152,7 +152,7 @@ public class InstagramGachaCollectionService {
     }
 
     private Gacha saveGacha(final PlatformPostDto post, final String s3ImageUrl) {
-        final Gacha newGacha = Gacha.builder()
+        Gacha newGacha = Gacha.builder()
                 .caption(post.content())
                 .thumbnailUrl(s3ImageUrl)
                 .instagramMediaId(post.originalId())
@@ -168,7 +168,7 @@ public class InstagramGachaCollectionService {
         }
         try {
             imageUploader.delete(imageUrl);
-        } catch (final RuntimeException exception) {
+        } catch (RuntimeException exception) {
             log.error("Instagram 수집 실패 이미지 정리에 실패했습니다. imageUrl={}", imageUrl, exception);
         }
     }
@@ -176,7 +176,7 @@ public class InstagramGachaCollectionService {
     private void sleepBeforeRetry() {
         try {
             Thread.sleep(UPLOAD_RETRY_DELAY_MS);
-        } catch (final InterruptedException exception) {
+        } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
         }
     }

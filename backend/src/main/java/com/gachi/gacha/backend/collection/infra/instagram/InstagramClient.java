@@ -47,11 +47,11 @@ public class InstagramClient implements PlatformClient {
             final String targetUsername,
             final Predicate<List<PlatformPostDto>> shouldStopAfterPage
     ) {
-        final List<PlatformPostDto> allPosts = new ArrayList<>();
+        List<PlatformPostDto> allPosts = new ArrayList<>();
         String cursor = null;
 
         for (int page = 1; page <= MAX_PAGES_PER_ACCOUNT; page++) {
-            final PlatformPostPage postPage = fetchPage(targetUsername, cursor);
+            PlatformPostPage postPage = fetchPage(targetUsername, cursor);
             allPosts.addAll(postPage.posts());
 
             if (shouldStopAfterPage.test(postPage.posts()) || !postPage.hasNext()) {
@@ -68,28 +68,28 @@ public class InstagramClient implements PlatformClient {
     }
 
     private PlatformPostPage fetchPage(final String targetUsername, @Nullable final String cursor) {
-        final String mediaField = cursor == null ? "media.limit(10)" : "media.limit(10).after(" + cursor + ")";
-        final String fields = String.format(
+        String mediaField = cursor == null ? "media.limit(10)" : "media.limit(10).after(" + cursor + ")";
+        String fields = String.format(
                 "business_discovery.username(%s){%s{id,caption,media_type,media_url,thumbnail_url,"
                         + "children{id,media_type,media_url,thumbnail_url}}}",
                 targetUsername,
                 mediaField
         );
 
-        final URI requestUri = UriComponentsBuilder.fromUriString(uri + "/" + userId)
+        URI requestUri = UriComponentsBuilder.fromUriString(uri + "/" + userId)
                 .queryParam("fields", fields)
                 .queryParam("access_token", accessToken)
                 .build()
                 .encode()
                 .toUri();
-        final InstagramResponse response = restTemplate.getForObject(requestUri, InstagramResponse.class);
+        InstagramResponse response = restTemplate.getForObject(requestUri, InstagramResponse.class);
 
         if (response == null || response.businessDiscovery() == null || response.businessDiscovery().media() == null) {
             return new PlatformPostPage(List.of(), null);
         }
 
-        final InstagramResponse.Media media = response.businessDiscovery().media();
-        final List<PlatformPostDto> posts = media.data().stream()
+        InstagramResponse.Media media = response.businessDiscovery().media();
+        List<PlatformPostDto> posts = media.data().stream()
                 .flatMap(data -> toPlatformPosts(data).stream())
                 .toList();
         return new PlatformPostPage(posts, media.nextCursor());

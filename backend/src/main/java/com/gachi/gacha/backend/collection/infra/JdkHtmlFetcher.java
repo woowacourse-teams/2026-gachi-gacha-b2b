@@ -36,7 +36,7 @@ public class JdkHtmlFetcher implements HtmlFetcher {
     public synchronized String fetch(final String url) {
         waitForRequestInterval();
 
-        final HttpRequest request = HttpRequest.newBuilder(URI.create(url))
+        HttpRequest request = HttpRequest.newBuilder(URI.create(url))
                 .timeout(readTimeout)
                 .header("User-Agent", userAgent)
                 .header("Accept", "text/html,application/xhtml+xml")
@@ -45,7 +45,7 @@ public class JdkHtmlFetcher implements HtmlFetcher {
 
         try {
             lastRequestNanos = System.nanoTime();
-            final HttpResponse<String> response = httpClient.send(
+            HttpResponse<String> response = httpClient.send(
                     request,
                     HttpResponse.BodyHandlers.ofString()
             );
@@ -55,10 +55,10 @@ public class JdkHtmlFetcher implements HtmlFetcher {
                 );
             }
             return response.body();
-        } catch (final InterruptedException exception) {
+        } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
             throw new GachaCollectionException("HTML 요청 중 인터럽트가 발생했습니다. url=" + url, exception);
-        } catch (final IOException exception) {
+        } catch (IOException exception) {
             throw new GachaCollectionException("HTML 요청에 실패했습니다. url=" + url, exception);
         }
     }
@@ -68,17 +68,17 @@ public class JdkHtmlFetcher implements HtmlFetcher {
             return;
         }
 
-        final long elapsedNanos = System.nanoTime() - lastRequestNanos;
-        final long remainingNanos = requestDelay.toNanos() - elapsedNanos;
+        long elapsedNanos = System.nanoTime() - lastRequestNanos;
+        long remainingNanos = requestDelay.toNanos() - elapsedNanos;
         if (remainingNanos <= 0L) {
             return;
         }
 
         try {
-            final long millis = remainingNanos / 1_000_000L;
-            final int nanos = (int) (remainingNanos % 1_000_000L);
+            long millis = remainingNanos / 1_000_000L;
+            int nanos = (int) (remainingNanos % 1_000_000L);
             Thread.sleep(millis, nanos);
-        } catch (final InterruptedException exception) {
+        } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
             throw new GachaCollectionException("요청 대기 중 인터럽트가 발생했습니다.", exception);
         }

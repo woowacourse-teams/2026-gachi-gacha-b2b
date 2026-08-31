@@ -38,7 +38,7 @@ public class GachaCollectionScheduler {
         }
 
         try {
-            final List<CollectionResult> results = collectionFacade.collectAll();
+            List<CollectionResult> results = collectionFacade.collectAll();
             results.forEach(this::logResult);
         } finally {
             running.set(false);

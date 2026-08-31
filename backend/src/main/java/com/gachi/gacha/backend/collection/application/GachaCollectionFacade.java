@@ -39,20 +39,20 @@ public class GachaCollectionFacade {
     }
 
     public CollectionResult collect(final CollectionSource source) {
-        final Instant startedAt = Instant.now();
+        Instant startedAt = Instant.now();
         try {
-            final GachaCollector collector = findCollector(source);
-            final List<CollectedGacha> collectedGachas = collector.collect();
-            final int insertedCount = collectionService.saveNewGachas(source, collectedGachas);
+            GachaCollector collector = findCollector(source);
+            List<CollectedGacha> collectedGachas = collector.collect();
+            int insertedCount = collectionService.saveNewGachas(source, collectedGachas);
             return CollectionResult.success(source, collectedGachas.size(), insertedCount, startedAt);
-        } catch (final RuntimeException exception) {
+        } catch (RuntimeException exception) {
             log.error("가챠 수집에 실패했습니다. source={}", source, exception);
             return CollectionResult.failure(source, startedAt);
         }
     }
 
     private GachaCollector findCollector(final CollectionSource source) {
-        final GachaCollector collector = collectors.get(source);
+        GachaCollector collector = collectors.get(source);
         if (collector == null) {
             throw new IllegalArgumentException("지원하지 않는 수집 출처입니다. source=" + source);
         }
@@ -60,9 +60,9 @@ public class GachaCollectionFacade {
     }
 
     private Map<CollectionSource, GachaCollector> indexCollectors(final List<GachaCollector> collectorList) {
-        final Map<CollectionSource, GachaCollector> indexed = new EnumMap<>(CollectionSource.class);
-        for (final GachaCollector collector : collectorList) {
-            final GachaCollector previous = indexed.put(collector.source(), collector);
+        Map<CollectionSource, GachaCollector> indexed = new EnumMap<>(CollectionSource.class);
+        for (GachaCollector collector : collectorList) {
+            GachaCollector previous = indexed.put(collector.source(), collector);
             if (previous != null) {
                 throw new IllegalStateException("수집기가 중복 등록되었습니다. source=" + collector.source());
             }
