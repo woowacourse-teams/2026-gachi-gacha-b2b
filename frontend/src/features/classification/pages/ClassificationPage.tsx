@@ -5,10 +5,7 @@ import { getErrorMessage } from '@/utils/getErrorMessage';
 import {
   ActionButton,
   Actions,
-  AddCategoryButton,
   BackButton,
-  CategoryButton,
-  CategoryGrid,
   FieldHeader,
   FormBody,
   FormError,
@@ -23,7 +20,6 @@ import {
   NameInputWrap,
   Page,
   PanelHeader,
-  Shortcut,
   StatePanel,
   Workspace,
   ZoomControls,
@@ -38,6 +34,7 @@ import {
   skipGacha,
 } from '../api/classificationApi';
 import CategoryDialog from '../components/CategoryDialog';
+import CategorySelector from '../components/CategorySelector';
 import SkipDialog from '../components/SkipDialog';
 import { toggleCategory } from '../model/category';
 import type {
@@ -419,42 +416,18 @@ export default function ClassificationPage({
               )}
             </NameInputWrap>
 
-            <FieldHeader>
-              <strong>카테고리 선택 · 여러 개 선택 가능</strong>
-              <AddCategoryButton
-                type="button"
-                onClick={() => setIsCategoryDialogOpen(true)}
-              >
-                + 카테고리 관리
-              </AddCategoryButton>
-            </FieldHeader>
-            <CategoryGrid>
-              {categories.map((category, index) => {
-                const selected = draft.categoryIds.includes(category.id);
-
-                return (
-                  <CategoryButton
-                    key={category.id}
-                    aria-pressed={selected}
-                    selected={selected}
-                    type="button"
-                    onClick={() => {
-                      setDraft({
-                        ...draft,
-                        categoryIds: toggleCategory(
-                          draft.categoryIds,
-                          category.id,
-                        ),
-                      });
-                      setError('');
-                    }}
-                  >
-                    {category.name}
-                    {index < 9 && <Shortcut aria-hidden>{index + 1}</Shortcut>}
-                  </CategoryButton>
-                );
-              })}
-            </CategoryGrid>
+            <CategorySelector
+              categories={categories}
+              selectedCategoryIds={draft.categoryIds}
+              onManage={() => setIsCategoryDialogOpen(true)}
+              onToggle={(categoryId) => {
+                setDraft({
+                  ...draft,
+                  categoryIds: toggleCategory(draft.categoryIds, categoryId),
+                });
+                setError('');
+              }}
+            />
 
             {error && <FormError role="alert">{error}</FormError>}
           </FormBody>
