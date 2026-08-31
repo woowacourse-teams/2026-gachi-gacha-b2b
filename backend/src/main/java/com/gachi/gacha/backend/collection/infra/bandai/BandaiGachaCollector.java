@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.jsoup.Jsoup;
@@ -97,7 +98,7 @@ public class BandaiGachaCollector implements GachaCollector {
             return java.util.Optional.empty();
         }
 
-        return java.util.Optional.of(new CollectedGacha(
+        return Optional.of(new CollectedGacha(
                 source(),
                 productCode,
                 nameElement.text(),
