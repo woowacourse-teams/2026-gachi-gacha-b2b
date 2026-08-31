@@ -61,6 +61,18 @@ public class GachaController {
         return BaseResponse.updated(GachaUpdateResponse.from(result));
     }
 
+    @PostMapping("/{gachaId}/categories/{categoryId}")
+    public ResponseEntity<BaseResponse<GachaResponse>> addCategory(
+            @PathVariable final Long gachaId,
+            @PathVariable final Long categoryId
+    ) {
+        GachaResponse response = GachaResponse.from(gachaService.addCategory(gachaId, categoryId));
+        URI location = ServletUriComponentsBuilder.fromCurrentRequest()
+                .build()
+                .toUri();
+        return BaseResponse.created(location, response);
+    }
+
     @PutMapping(path = "/{gachaId}/thumbnail", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public BaseResponse<GachaResponse> updateThumbnail(
             @PathVariable final Long gachaId,

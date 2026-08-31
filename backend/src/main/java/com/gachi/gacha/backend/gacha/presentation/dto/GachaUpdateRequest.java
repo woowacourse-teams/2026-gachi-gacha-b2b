@@ -1,9 +1,10 @@
 package com.gachi.gacha.backend.gacha.presentation.dto;
 
 import com.gachi.gacha.backend.gacha.application.dto.GachaUpdateCommand;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
-import jakarta.validation.constraints.NotBlank;
 import java.util.List;
 
 public record GachaUpdateRequest(
@@ -12,8 +13,8 @@ public record GachaUpdateRequest(
         String caption,
         @Size(max = 1000, message = "썸네일 URL은 1000자를 초과할 수 없습니다.")
         String thumbnailUrl,
-        List<@NotBlank(message = "카테고리는 빈 값일 수 없습니다.")
-                @Size(max = 100, message = "카테고리는 100자를 초과할 수 없습니다.") String> categories
+        List<@NotNull(message = "카테고리 ID는 필수입니다.")
+                @Positive(message = "카테고리 ID는 양수여야 합니다.") Long> categories
 ) {
     public GachaUpdateCommand toCommand() {
         return GachaUpdateCommand.builder()

@@ -109,6 +109,18 @@ public class Gacha extends BaseTimeEntity {
         this.thumbnailUrl = null;
     }
 
+    public void addCategory(final Category category) {
+        if (gachaCategories == null) {
+            gachaCategories = new ArrayList<>();
+        }
+        boolean alreadyAdded = gachaCategories.stream()
+                .map(GachaCategory::getCategory)
+                .anyMatch(existingCategory -> existingCategory.getName().equals(category.getName()));
+        if (!alreadyAdded) {
+            gachaCategories.add(new GachaCategory(this, category));
+        }
+    }
+
     private void replaceCategories(final List<Category> categories) {
         if (gachaCategories == null) {
             gachaCategories = new ArrayList<>();

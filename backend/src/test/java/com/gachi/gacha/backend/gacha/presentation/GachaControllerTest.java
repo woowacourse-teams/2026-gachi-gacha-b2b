@@ -192,11 +192,12 @@ class GachaControllerTest {
         void updateGacha_success() {
             // given
             Long gachaId = createTargetGacha();
+            Long categoryId = createCategory("수정 API 카테고리");
             Map<String, Object> updateRequest = Map.of(
                     "name", "수정된 가챠 이름",
                     "caption", "수정된 설명",
                     "thumbnailUrl", "https://example.com/updated.png",
-                    "categories", List.of("키링")
+                    "categories", List.of(categoryId)
             );
 
             // when
@@ -219,7 +220,7 @@ class GachaControllerTest {
                     .then()
                     .extract();
             assertThat(detailResponse.jsonPath().getList("data.categories", String.class))
-                    .containsExactly("키링");
+                    .containsExactly("수정 API 카테고리");
             assertThat(detailResponse.jsonPath().getString("data.thumbnailUrl"))
                     .isEqualTo("https://example.com/updated.png");
             assertThat(detailResponse.jsonPath().getString("data.source")).isEqualTo("MANUAL");
@@ -233,7 +234,7 @@ class GachaControllerTest {
             Map<String, Object> updateRequest = Map.of(
                     "name", "수정된 가챠 이름",
                     "caption", "수정된 설명",
-                    "categories", List.of("키링")
+                    "categories", List.of(1L)
             );
 
             // when
@@ -247,6 +248,86 @@ class GachaControllerTest {
 
             // then
             assertThat(response.statusCode()).isEqualTo(HttpStatus.NOT_FOUND.value());
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 카테고리 ID로 수정 시 404 Not Found를 반환한다.")
+        void updateGacha_categoryNotFound() {
+            Long gachaId = createTargetGacha("카테고리 수정 실패 검증 가챠");
+            Map<String, Object> updateRequest = Map.of(
+                    "categories", List.of(999_999L)
+            );
+
+            ExtractableResponse<Response> response = RestAssured.given()
+                    .contentType(ContentType.JSON)
+                    .body(updateRequest)
+                    .when()
+                    .patch("/api/v1/gachas/{gachaId}", gachaId)
+                    .then()
+                    .extract();
+
+            assertThat(response.statusCode()).isEqualTo(HttpStatus.NOT_FOUND.value());
+            assertThat(response.jsonPath().getString("code")).isEqualTo("CAE01");
+        }
+    }
+
+    @Nested
+    @DisplayName("POST /gachas/{gachaId}/categories/{categoryId} - 가챠 카테고리 추가 API")
+    class AddGachaCategory {
+
+        @Test
+        @DisplayName("기존 가챠에 카테고리를 추가한다.")
+        void addCategory_success() {
+            Long gachaId = createTargetGacha("카테고리 추가 검증 가챠");
+            Long categoryId = createCategory("추가 API 카테고리");
+
+            ExtractableResponse<Response> response = RestAssured.given()
+                    .when()
+                    .post(
+                            "/api/v1/gachas/{gachaId}/categories/{categoryId}",
+                            gachaId,
+                            categoryId
+                    )
+                    .then()
+                    .extract();
+
+            assertThat(response.statusCode()).isEqualTo(HttpStatus.CREATED.value());
+            assertThat(response.jsonPath().getString("code")).isEqualTo("C001");
+            assertThat(response.jsonPath().getList("data.categories", String.class))
+                    .contains("피규어", "추가 API 카테고리");
+        }
+
+        @Test
+        @DisplayName("이미 연결된 카테고리를 다시 추가해도 중복 연결하지 않는다.")
+        void addCategory_isIdempotentForDuplicateCategory() {
+            Long gachaId = createTargetGacha("카테고리 중복 추가 검증 가챠");
+            Long categoryId = createCategory("중복 추가 API 카테고리");
+
+            RestAssured.given()
+                    .post("/api/v1/gachas/{gachaId}/categories/{categoryId}", gachaId, categoryId);
+            ExtractableResponse<Response> response = RestAssured.given()
+                    .post("/api/v1/gachas/{gachaId}/categories/{categoryId}", gachaId, categoryId)
+                    .then()
+                    .extract();
+
+            assertThat(response.statusCode()).isEqualTo(HttpStatus.CREATED.value());
+            assertThat(response.jsonPath().getList("data.categories", String.class))
+                    .containsOnlyOnce("중복 추가 API 카테고리");
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 카테고리를 추가하면 404 Not Found를 반환한다.")
+        void addCategory_categoryNotFound() {
+            Long gachaId = createTargetGacha("카테고리 추가 실패 검증 가챠");
+
+            ExtractableResponse<Response> response = RestAssured.given()
+                    .when()
+                    .post("/api/v1/gachas/{gachaId}/categories/{categoryId}", gachaId, 999_999L)
+                    .then()
+                    .extract();
+
+            assertThat(response.statusCode()).isEqualTo(HttpStatus.NOT_FOUND.value());
+            assertThat(response.jsonPath().getString("code")).isEqualTo("CAE01");
         }
     }
 
@@ -421,5 +502,15 @@ class GachaControllerTest {
                 .post("/api/v1/gachas")
                 .jsonPath()
                 .getLong("data.gachaId");
+    }
+
+    private Long createCategory(final String name) {
+        return RestAssured.given()
+                .contentType(ContentType.JSON)
+                .body(Map.of("name", name))
+                .when()
+                .post("/api/v1/categories")
+                .jsonPath()
+                .getLong("data.categoryId");
     }
 }

@@ -49,6 +49,22 @@ public class CategoryService {
         return CategoryInfo.from(getById(categoryId));
     }
 
+    public List<Category> resolveByIds(final List<Long> categoryIds) {
+        if (categoryIds == null || categoryIds.isEmpty()) {
+            return List.of();
+        }
+
+        List<Long> normalizedIds = new ArrayList<>(new LinkedHashSet<>(categoryIds));
+        Map<Long, Category> categoriesById = categoryRepository.findAllById(normalizedIds).stream()
+                .collect(Collectors.toMap(Category::getId, Function.identity()));
+        if (categoriesById.size() != normalizedIds.size()) {
+            throw new CategoryNotFoundException();
+        }
+        return normalizedIds.stream()
+                .map(categoriesById::get)
+                .toList();
+    }
+
     @Transactional
     public CategoryInfo modify(final Long categoryId, final String name) {
         Category category = getById(categoryId);

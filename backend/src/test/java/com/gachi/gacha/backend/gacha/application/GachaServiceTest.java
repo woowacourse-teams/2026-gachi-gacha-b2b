@@ -54,11 +54,11 @@ class GachaServiceTest {
                 .source(CollectionSource.BANDAI)
                 .productCode("BANDAI-001")
                 .build();
-        gacha.patch(null, null, null, List.of(new Category("키링")));
+        gacha.patch(null, null, null, List.of(new Category(1L, "키링")));
         when(gachaRepository.getById(1L)).thenReturn(gacha);
         when(gachaRepository.save(gacha)).thenReturn(gacha);
-        when(categoryService.resolve(List.of("피규어")))
-                .thenReturn(List.of(new Category("피규어")));
+        when(categoryService.resolveByIds(List.of(2L)))
+                .thenReturn(List.of(new Category(2L, "피규어")));
 
         // when
         service().modify(
@@ -67,7 +67,7 @@ class GachaServiceTest {
                         "정식 상품명",
                         "새 설명",
                         "https://example.com/new.jpg",
-                        List.of("피규어")
+                        List.of(2L)
                 )
         );
 
@@ -93,14 +93,14 @@ class GachaServiceTest {
                 .caption("기존 설명")
                 .thumbnailUrl("https://example.com/thumb.jpg")
                 .build();
-        gacha.patch(null, null, null, List.of(new Category("기존 카테고리")));
+        gacha.patch(null, null, null, List.of(new Category(1L, "기존 카테고리")));
         when(gachaRepository.getById(1L)).thenReturn(gacha);
         when(gachaRepository.save(gacha)).thenReturn(gacha);
-        when(categoryService.resolve(List.of("새 카테고리")))
-                .thenReturn(List.of(new Category("새 카테고리")));
+        when(categoryService.resolveByIds(List.of(2L)))
+                .thenReturn(List.of(new Category(2L, "새 카테고리")));
 
         // when
-        service().modify(1L, new GachaUpdateCommand(null, null, null, List.of("새 카테고리")));
+        service().modify(1L, new GachaUpdateCommand(null, null, null, List.of(2L)));
 
         // then
         assertThat(gacha.getName()).isEqualTo("기존 이름");
@@ -109,6 +109,27 @@ class GachaServiceTest {
         assertThat(gacha.getGachaCategories())
                 .extracting(gachaCategory -> gachaCategory.getCategory().getName())
                 .containsExactly("새 카테고리");
+        verify(gachaRepository).save(gacha);
+    }
+
+    @Test
+    @DisplayName("가챠에 카테고리를 추가하면 기존 카테고리를 유지하면서 연결한다.")
+    void addCategory_addsCategoryWithoutReplacingExistingCategories() {
+        Gacha gacha = Gacha.builder()
+                .id(1L)
+                .name("가챠")
+                .build();
+        gacha.addCategory(new Category(1L, "기존 카테고리"));
+        Category category = new Category(2L, "추가 카테고리");
+        when(gachaRepository.getById(1L)).thenReturn(gacha);
+        when(categoryService.resolveByIds(List.of(2L))).thenReturn(List.of(category));
+        when(gachaRepository.save(gacha)).thenReturn(gacha);
+
+        service().addCategory(1L, 2L);
+
+        assertThat(gacha.getGachaCategories())
+                .extracting(gachaCategory -> gachaCategory.getCategory().getName())
+                .containsExactly("기존 카테고리", "추가 카테고리");
         verify(gachaRepository).save(gacha);
     }
 

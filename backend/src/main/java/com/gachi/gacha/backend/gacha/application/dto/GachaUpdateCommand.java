@@ -8,6 +8,6 @@ public record GachaUpdateCommand(
         String name,
         String caption,
         String thumbnailUrl,
-        List<String> categories
+        List<Long> categories
 ) {
 }

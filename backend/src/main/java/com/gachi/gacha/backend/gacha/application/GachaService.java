@@ -61,10 +61,18 @@ public class GachaService {
         Gacha gacha = gachaRepository.getById(gachaId);
         List<Category> categories = command.categories() == null
                 ? null
-                : categoryService.resolve(command.categories());
+                : categoryService.resolveByIds(command.categories());
         gacha.patch(command.name(), command.caption(), command.thumbnailUrl(), categories);
         Gacha saved = gachaRepository.save(gacha);
         return GachaResult.from(saved);
+    }
+
+    @Transactional
+    public GachaInfo addCategory(final Long gachaId, final Long categoryId) {
+        Gacha gacha = gachaRepository.getById(gachaId);
+        Category category = categoryService.resolveByIds(List.of(categoryId)).getFirst();
+        gacha.addCategory(category);
+        return GachaInfo.from(gachaRepository.save(gacha));
     }
 
     @Transactional
