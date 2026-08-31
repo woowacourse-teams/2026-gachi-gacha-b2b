@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { getErrorMessage } from '@/utils/getErrorMessage';
 
@@ -9,11 +9,16 @@ import {
   CardButton,
   CardGrid,
   CardTitle,
+  CategoryFilterButton,
+  CategoryFilterList,
+  CategoryFilterPanel,
   CategoryTag,
   CategoryTags,
+  ClearFilterButton,
   Description,
   ErrorMessage,
   Header,
+  HeaderActions,
   Heading,
   IdBadge,
   IdInput,
@@ -29,12 +34,14 @@ import {
   Stats,
   StatusBadge,
   Toolbar,
+  FilterLabel,
 } from './QueuePage.styles';
 import {
   getCategories,
   getClassificationQueue,
   restoreGacha,
 } from '../api/classificationApi';
+import { toggleCategory } from '../model/category';
 import type {
   Category,
   ClassificationIdRange,
@@ -64,11 +71,15 @@ export default function QueuePage({
   );
   const [queue, setQueue] = useState<ClassificationQueue | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<number[]>([]);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [restoringId, setRestoringId] = useState<number | null>(null);
+  const latestRequestIdRef = useRef(0);
 
   const loadQueue = useCallback(async () => {
+    const requestId = latestRequestIdRef.current + 1;
+    latestRequestIdRef.current = requestId;
     setIsLoading(true);
     setError('');
 
@@ -78,20 +89,26 @@ export default function QueuePage({
         query,
         ...(initialMinId === undefined ? {} : { minId: initialMinId }),
         ...(initialMaxId === undefined ? {} : { maxId: initialMaxId }),
+        ...(status === 'CLASSIFIED' && selectedCategoryIds.length > 0
+          ? { categoryIds: selectedCategoryIds }
+          : {}),
       };
       const [loadedQueue, loadedCategories] = await Promise.all([
         getClassificationQueue(queueQuery),
         getCategories(),
       ]);
 
+      if (requestId !== latestRequestIdRef.current) return;
+
       setQueue(loadedQueue);
       setCategories(loadedCategories);
     } catch (cause) {
+      if (requestId !== latestRequestIdRef.current) return;
       setError(getErrorMessage(cause));
     } finally {
-      setIsLoading(false);
+      if (requestId === latestRequestIdRef.current) setIsLoading(false);
     }
-  }, [initialMaxId, initialMinId, query, status]);
+  }, [initialMaxId, initialMinId, query, selectedCategoryIds, status]);
 
   useEffect(() => {
     void loadQueue();
@@ -207,16 +224,21 @@ export default function QueuePage({
           <Heading>{title}</Heading>
           <Description>{description}</Description>
         </div>
-        <Stats aria-label="분류 현황">
-          <Stat>
-            <strong>{queue?.totalCount ?? '-'}</strong>
-            <span>분류 대기</span>
-          </Stat>
-          <Stat>
-            <strong>{queue?.skippedCount ?? '-'}</strong>
-            <span>건너뜀</span>
-          </Stat>
-        </Stats>
+        <HeaderActions>
+          <PrimaryButton type="button" onClick={() => onNavigate('/register')}>
+            + 사진 추가
+          </PrimaryButton>
+          <Stats aria-label="분류 현황">
+            <Stat>
+              <strong>{queue?.totalCount ?? '-'}</strong>
+              <span>분류 대기</span>
+            </Stat>
+            <Stat>
+              <strong>{queue?.skippedCount ?? '-'}</strong>
+              <span>건너뜀</span>
+            </Stat>
+          </Stats>
+        </HeaderActions>
       </Header>
 
       <Toolbar>
@@ -224,7 +246,11 @@ export default function QueuePage({
           <span aria-hidden>⌕&nbsp;</span>
           <input
             aria-label="가챠 데이터 검색"
-            placeholder="이름, 설명, 출처, 지역으로 검색"
+            placeholder={
+              isClassifiedView
+                ? '등록된 가챠 이름으로 검색'
+                : '이름, 설명, 출처, 지역으로 검색'
+            }
             type="search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
@@ -276,6 +302,41 @@ export default function QueuePage({
           </PrimaryButton>
         )}
       </Toolbar>
+
+      {isClassifiedView && (
+        <CategoryFilterPanel aria-label="카테고리 다중 필터">
+          <FilterLabel>카테고리</FilterLabel>
+          <CategoryFilterList>
+            {categories.map((category) => {
+              const selected = selectedCategoryIds.includes(category.id);
+
+              return (
+                <CategoryFilterButton
+                  key={category.id}
+                  aria-pressed={selected}
+                  selected={selected}
+                  type="button"
+                  onClick={() =>
+                    setSelectedCategoryIds((current) =>
+                      toggleCategory(current, category.id),
+                    )
+                  }
+                >
+                  {category.name}
+                </CategoryFilterButton>
+              );
+            })}
+          </CategoryFilterList>
+          {selectedCategoryIds.length > 0 && (
+            <ClearFilterButton
+              type="button"
+              onClick={() => setSelectedCategoryIds([])}
+            >
+              선택 초기화
+            </ClearFilterButton>
+          )}
+        </CategoryFilterPanel>
+      )}
 
       {error && <ErrorMessage role="alert">{error}</ErrorMessage>}
 

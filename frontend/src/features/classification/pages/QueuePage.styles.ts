@@ -36,6 +36,17 @@ export const Stats = styled.div`
   gap: 12px;
 `;
 
+export const HeaderActions = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 14px;
+
+  @media (max-width: 720px) {
+    align-items: flex-start;
+    flex-direction: column-reverse;
+  }
+`;
+
 export const Stat = styled.div`
   min-width: 126px;
   padding: 16px 20px;
@@ -153,6 +164,61 @@ export const PrimaryButton = styled.button`
     cursor: not-allowed;
     opacity: 0.5;
   }
+`;
+
+export const CategoryFilterPanel = styled.section`
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin: -4px 0 24px;
+  padding: 16px;
+  border: 1px solid ${colors.border};
+  border-radius: ${radii.medium};
+  background: ${colors.surface};
+
+  @media (max-width: 720px) {
+    flex-direction: column;
+  }
+`;
+
+export const FilterLabel = styled.strong`
+  flex: 0 0 auto;
+  padding-top: 7px;
+  font-size: 13px;
+`;
+
+export const CategoryFilterList = styled.div`
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  gap: 8px;
+`;
+
+export const CategoryFilterButton = styled.button<{ selected: boolean }>`
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid
+    ${({ selected }) => (selected ? colors.brand : colors.border)};
+  border-radius: ${radii.round};
+  color: ${({ selected }) => (selected ? colors.brand : colors.textMuted)};
+  background: ${({ selected }) => (selected ? colors.brandSoft : colors.surface)};
+  font-size: 12px;
+  font-weight: 800;
+
+  &:hover {
+    border-color: ${colors.brand};
+  }
+`;
+
+export const ClearFilterButton = styled.button`
+  min-height: 34px;
+  flex: 0 0 auto;
+  padding: 0 10px;
+  border: 0;
+  color: ${colors.textMuted};
+  background: transparent;
+  font-size: 12px;
+  text-decoration: underline;
 `;
 
 export const CardGrid = styled.ul`

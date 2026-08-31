@@ -2,6 +2,7 @@ import type {
   CategoryDto,
   ClassificationItemDto,
 } from '@/features/classification/api/classification.dto';
+import type { CreateUploadUrlRequestDto } from '@/features/registration/api/registration.dto';
 
 const initialCategories: CategoryDto[] = [
   { categoryId: 1, categoryName: '제일복권' },
@@ -74,8 +75,8 @@ const initialClassificationItems: ClassificationItemDto[] = [
     source: 'INSTAGRAM',
     location: '홍대',
     caption: '산리오 캐릭터 미니 피규어',
-    categoryIds: [],
-    status: 'UNCLASSIFIED',
+    categoryIds: [2, 3, 5],
+    status: 'CLASSIFIED',
     version: 1,
     createdAt: '2026-08-29T10:35:00+09:00',
   },
@@ -94,6 +95,34 @@ const initialClassificationItems: ClassificationItemDto[] = [
   },
 ];
 
+export interface MockFieldUpload extends CreateUploadUrlRequestDto {
+  uploadId: string;
+  objectKey: string;
+  content: ArrayBuffer | null;
+  registeredGachaId: number | null;
+}
+
+let nextUploadSequence = 1;
+
+export const fieldUploads = new Map<string, MockFieldUpload>();
+
+export const createMockFieldUpload = (
+  request: CreateUploadUrlRequestDto,
+): MockFieldUpload => {
+  const uploadId = `field-upload-${nextUploadSequence}`;
+  nextUploadSequence += 1;
+  const upload: MockFieldUpload = {
+    ...request,
+    uploadId,
+    objectKey: `field/${uploadId}/${encodeURIComponent(request.originalFileName)}`,
+    content: null,
+    registeredGachaId: null,
+  };
+
+  fieldUploads.set(uploadId, upload);
+  return upload;
+};
+
 const cloneCategories = () =>
   initialCategories.map((category) => ({ ...category }));
 const cloneItems = () =>
@@ -108,4 +137,6 @@ export const classificationItems = cloneItems();
 export const resetMockData = () => {
   categories.splice(0, categories.length, ...cloneCategories());
   classificationItems.splice(0, classificationItems.length, ...cloneItems());
+  fieldUploads.clear();
+  nextUploadSequence = 1;
 };

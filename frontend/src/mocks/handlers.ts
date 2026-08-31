@@ -2,8 +2,17 @@ import { delay, http, HttpResponse } from 'msw';
 
 import { normalizeCategoryName } from '@/features/classification/model/category';
 import type { ClassificationStatus } from '@/features/classification/model/classification';
+import {
+  MAX_FIELD_IMAGE_SIZE,
+  SUPPORTED_FIELD_IMAGE_TYPES,
+} from '@/features/registration/model/registration';
 
-import { categories, classificationItems } from './data';
+import {
+  categories,
+  classificationItems,
+  createMockFieldUpload,
+  fieldUploads,
+} from './data';
 import type {
   CategoryDto,
   ClassifyGachaRequestDto,
@@ -11,8 +20,15 @@ import type {
   RestoreGachaRequestDto,
   SkipGachaRequestDto,
 } from '../features/classification/api/classification.dto';
+import type {
+  CreateFieldGachaRequestDto,
+  CreateUploadUrlRequestDto,
+} from '../features/registration/api/registration.dto';
 
 const apiPath = (path: string) => `${__API_BASE_URL__}${path}`;
+
+const toAbsoluteApiUrl = (requestUrl: string, path: string) =>
+  new URL(apiPath(path), requestUrl).toString();
 
 const isStatus = (value: string | null): value is ClassificationStatus =>
   value === 'UNCLASSIFIED' || value === 'CLASSIFIED' || value === 'SKIPPED';
@@ -31,6 +47,20 @@ const getIdRange = (url: URL) => ({
   minId: toOptionalId(url.searchParams.get('minId')),
   maxId: toOptionalId(url.searchParams.get('maxId')),
 });
+
+const getCategoryIds = (url: URL) => {
+  const values = url.searchParams
+    .getAll('categoryIds')
+    .flatMap((value) => value.split(','));
+
+  return [
+    ...new Set(
+      values
+        .map(Number)
+        .filter((value) => Number.isSafeInteger(value) && value > 0),
+    ),
+  ];
+};
 
 const isInIdRange = (
   itemId: number,
@@ -75,10 +105,16 @@ export const handlers = [
       ?.trim()
       .toLocaleLowerCase('ko-KR');
     const { minId, maxId } = getIdRange(url);
+    const categoryIds = getCategoryIds(url);
     const statusItems = classificationItems
       .filter(
         (item) =>
-          item.status === status && isInIdRange(item.gachaId, minId, maxId),
+          item.status === status &&
+          isInIdRange(item.gachaId, minId, maxId) &&
+          (categoryIds.length === 0 ||
+            categoryIds.some((categoryId) =>
+              item.categoryIds.includes(categoryId),
+            )),
       )
       .sort((left, right) => left.gachaId - right.gachaId);
     const items = query
@@ -226,6 +262,151 @@ export const handlers = [
       return HttpResponse.json(item);
     },
   ),
+
+  http.post(apiPath('/gachas/upload-url'), async ({ request }) => {
+    await delay(180);
+
+    const body = (await request.json()) as CreateUploadUrlRequestDto;
+    const isSupportedType = SUPPORTED_FIELD_IMAGE_TYPES.some(
+      (contentType) => contentType === body.contentType,
+    );
+
+    if (!body.originalFileName.trim() || !isSupportedType) {
+      return HttpResponse.json(
+        { message: '지원하지 않는 이미지 파일입니다.' },
+        { status: 400 },
+      );
+    }
+
+    if (body.contentLength <= 0 || body.contentLength > MAX_FIELD_IMAGE_SIZE) {
+      return HttpResponse.json(
+        { message: '이미지는 10MB 이하로 등록해 주세요.' },
+        { status: 400 },
+      );
+    }
+
+    const upload = createMockFieldUpload(body);
+
+    return HttpResponse.json({
+      uploadUrl: toAbsoluteApiUrl(request.url, `/uploads/${upload.uploadId}`),
+      objectKey: upload.objectKey,
+      headers: { 'Content-Type': upload.contentType },
+      expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+    });
+  }),
+
+  http.put(apiPath('/uploads/:uploadId'), async ({ params, request }) => {
+    await delay(300);
+
+    const upload = fieldUploads.get(String(params.uploadId));
+
+    if (!upload) {
+      return HttpResponse.json(
+        { message: '만료되었거나 존재하지 않는 업로드 요청입니다.' },
+        { status: 404 },
+      );
+    }
+
+    if (request.headers.get('Content-Type') !== upload.contentType) {
+      return HttpResponse.json(
+        { message: '서명에 포함된 이미지 형식과 요청이 다릅니다.' },
+        { status: 400 },
+      );
+    }
+
+    const content = await request.arrayBuffer();
+
+    if (content.byteLength !== upload.contentLength) {
+      return HttpResponse.json(
+        { message: '업로드한 파일 크기가 요청 정보와 다릅니다.' },
+        { status: 400 },
+      );
+    }
+
+    upload.content = content;
+    return new HttpResponse(null, { status: 200 });
+  }),
+
+  http.get(apiPath('/uploads/:uploadId/content'), ({ params }) => {
+    const upload = fieldUploads.get(String(params.uploadId));
+
+    if (!upload?.content) {
+      return new HttpResponse(null, { status: 404 });
+    }
+
+    return new HttpResponse(upload.content, {
+      headers: {
+        'Content-Type': upload.contentType,
+        'Cache-Control': 'private, max-age=300',
+      },
+    });
+  }),
+
+  http.post(apiPath('/gachas'), async ({ request }) => {
+    await delay(260);
+
+    const body = (await request.json()) as CreateFieldGachaRequestDto;
+    const upload = [...fieldUploads.values()].find(
+      ({ objectKey }) => objectKey === body.objectKey,
+    );
+
+    if (!upload?.content) {
+      return HttpResponse.json(
+        { message: '이미지 업로드를 먼저 완료해 주세요.' },
+        { status: 400 },
+      );
+    }
+
+    if (!body.name.trim() || body.categoryIds.length === 0) {
+      return HttpResponse.json(
+        { message: '이름과 카테고리를 모두 입력해 주세요.' },
+        { status: 400 },
+      );
+    }
+
+    const hasUnknownCategory = body.categoryIds.some(
+      (categoryId) =>
+        !categories.some((category) => category.categoryId === categoryId),
+    );
+
+    if (hasUnknownCategory) {
+      return HttpResponse.json(
+        { message: '존재하지 않는 카테고리가 포함되어 있습니다.' },
+        { status: 400 },
+      );
+    }
+
+    if (upload.registeredGachaId !== null) {
+      const registeredItem = findItem(upload.registeredGachaId);
+      return registeredItem
+        ? HttpResponse.json({ item: registeredItem })
+        : new HttpResponse(null, { status: 409 });
+    }
+
+    const gachaId =
+      Math.max(...classificationItems.map((item) => item.gachaId), 0) + 1;
+    const item = {
+      gachaId,
+      thumbnailUrl: toAbsoluteApiUrl(
+        request.url,
+        `/uploads/${upload.uploadId}/content`,
+      ),
+      displayName: body.name.trim(),
+      originalFileName: body.originalFileName,
+      source: body.source,
+      location: '현장 등록',
+      caption: null,
+      categoryIds: [...new Set(body.categoryIds)],
+      status: 'CLASSIFIED' as const,
+      version: 1,
+      createdAt: new Date().toISOString(),
+    };
+
+    classificationItems.push(item);
+    upload.registeredGachaId = gachaId;
+
+    return HttpResponse.json({ item }, { status: 201 });
+  }),
 
   http.get(apiPath('/categories'), async () => {
     await delay(120);

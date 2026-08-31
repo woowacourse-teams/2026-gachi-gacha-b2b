@@ -30,6 +30,7 @@ export interface QueueQuery {
   query: string;
   minId?: number;
   maxId?: number;
+  categoryIds?: number[];
 }
 
 const appendIdRange = (
@@ -46,6 +47,7 @@ export const getClassificationQueue = async ({
   query,
   minId,
   maxId,
+  categoryIds = [],
 }: QueueQuery) => {
   const searchParams = new URLSearchParams({ status });
 
@@ -54,6 +56,10 @@ export const getClassificationQueue = async ({
   }
 
   appendIdRange(searchParams, minId, maxId);
+
+  if (categoryIds.length > 0) {
+    searchParams.set('categoryIds', categoryIds.join(','));
+  }
 
   const dto = await request<ClassificationQueueDto>(
     `/classifications?${searchParams.toString()}`,

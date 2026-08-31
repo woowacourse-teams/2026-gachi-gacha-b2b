@@ -78,4 +78,22 @@ describe('classification API', () => {
 
     expect(result.nextItemId).toBeNull();
   });
+
+  it('분류 완료 데이터를 이름과 여러 카테고리의 OR 조건으로 조회한다', async () => {
+    const item = await getClassificationItem(101);
+    await classifyGacha(item, { name: '로봇 캡슐', categoryIds: [4] });
+
+    const searchedQueue = await getClassificationQueue({
+      status: 'CLASSIFIED',
+      query: '산리오',
+    });
+    const filteredQueue = await getClassificationQueue({
+      status: 'CLASSIFIED',
+      query: '',
+      categoryIds: [2, 4],
+    });
+
+    expect(searchedQueue.items.map(({ id }) => id)).toEqual([105]);
+    expect(filteredQueue.items.map(({ id }) => id)).toEqual([101, 105]);
+  });
 });
