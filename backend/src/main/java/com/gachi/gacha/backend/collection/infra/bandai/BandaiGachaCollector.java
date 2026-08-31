@@ -7,6 +7,7 @@ import com.gachi.gacha.backend.collection.domain.CollectionSource;
 import com.gachi.gacha.backend.collection.domain.GachaCollector;
 import com.gachi.gacha.backend.collection.domain.GachaCollectionException;
 import com.gachi.gacha.backend.collection.infra.HtmlFetcher;
+import jakarta.annotation.PostConstruct;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -16,6 +17,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import lombok.RequiredArgsConstructor;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -23,32 +25,28 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 @Component
+@RequiredArgsConstructor
 public class BandaiGachaCollector implements GachaCollector {
 
     private static final Pattern PRODUCT_CODE_PATTERN = Pattern.compile("[?&]product_code=([^&#]+)");
     private static final Pattern PAGE_NUMBER_PATTERN = Pattern.compile("([?&]pageNo=)\\d+");
 
     private final HtmlFetcher htmlFetcher;
+    @Value("${collection.sources.bandai.list-url}")
     private final String listUrl;
+    @Value("${collection.sources.bandai.start-page:1}")
     private final int startPage;
+    @Value("${collection.sources.bandai.max-pages:100}")
     private final int maxPages;
 
-    public BandaiGachaCollector(
-            final HtmlFetcher htmlFetcher,
-            @Value("${collection.sources.bandai.list-url}") final String listUrl,
-            @Value("${collection.sources.bandai.start-page:1}") final int startPage,
-            @Value("${collection.sources.bandai.max-pages:100}") final int maxPages
-    ) {
+    @PostConstruct
+    private void validateConfiguration() {
         if (startPage < 1 || maxPages < 1) {
             throw new GachaCollectionException(
                     INVALID_COLLECTION_CONFIGURATION,
                     "Bandai 시작 페이지와 최대 페이지 수는 1 이상이어야 합니다."
             );
         }
-        this.htmlFetcher = htmlFetcher;
-        this.listUrl = listUrl;
-        this.startPage = startPage;
-        this.maxPages = maxPages;
     }
 
     @Override

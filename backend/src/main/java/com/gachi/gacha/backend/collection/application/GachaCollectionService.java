@@ -1,6 +1,7 @@
 package com.gachi.gacha.backend.collection.application;
 
 import static com.gachi.gacha.backend.common.exception.ErrorCode.COLLECTION_SOURCE_MISMATCH;
+import static java.util.stream.Collectors.toMap;
 
 import com.gachi.gacha.backend.collection.domain.CollectedGacha;
 import com.gachi.gacha.backend.collection.domain.CollectionSource;
@@ -13,77 +14,79 @@ import com.gachi.gacha.backend.gacha.domain.Category;
 import com.gachi.gacha.backend.gacha.domain.Gacha;
 import com.gachi.gacha.backend.gacha.domain.GachaJpaRepository;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@RequiredArgsConstructor
 public class GachaCollectionService {
 
     private final GachaJpaRepository gachaRepository;
     private final ImageUploader imageUploader;
     private final S3TransactionManager s3TransactionManager;
     private final CategoryService categoryService;
+    @Value("${cloud.aws.s3.folder}")
     private final String s3RootFolder;
-
-    public GachaCollectionService(
-            final GachaJpaRepository gachaRepository,
-            final ImageUploader imageUploader,
-            final S3TransactionManager s3TransactionManager,
-            final CategoryService categoryService,
-            @Value("${cloud.aws.s3.folder}") final String s3RootFolder
-    ) {
-        this.gachaRepository = gachaRepository;
-        this.imageUploader = imageUploader;
-        this.s3TransactionManager = s3TransactionManager;
-        this.categoryService = categoryService;
-        this.s3RootFolder = s3RootFolder;
-    }
 
     @Transactional
     public int saveNewGachas(
             final CollectionSource source,
-            final Collection<CollectedGacha> collectedGachas
+            final List<CollectedGacha> collectedGachas
+    ) {
+        List<CollectedGacha> newCollectedGachas = findNewGachas(source, collectedGachas);
+        if (newCollectedGachas.isEmpty()) {
+            return 0;
+        }
+
+        List<Gacha> newGachas = createGachas(newCollectedGachas);
+        gachaRepository.saveAll(newGachas);
+        return newGachas.size();
+    }
+
+    private List<CollectedGacha> findNewGachas(
+            final CollectionSource source,
+            final List<CollectedGacha> collectedGachas
     ) {
         Map<String, CollectedGacha> uniqueGachas = deduplicate(source, collectedGachas);
         if (uniqueGachas.isEmpty()) {
-            return 0;
+            return List.of();
         }
 
         Set<String> existingProductCodes = gachaRepository.findExistingProductCodes(
                 source,
                 uniqueGachas.keySet()
         );
-        List<CollectedGacha> newCollectedGachas = uniqueGachas.values().stream()
+        return uniqueGachas.values().stream()
                 .filter(gacha -> !existingProductCodes.contains(gacha.productCode()))
                 .toList();
-        if (newCollectedGachas.isEmpty()) {
-            return 0;
-        }
+    }
 
+    private List<Gacha> createGachas(final List<CollectedGacha> collectedGachas) {
         List<String> uploadedImageUrls = new ArrayList<>();
         s3TransactionManager.deleteImagesOnRollback(ImageType.GACHA, null, uploadedImageUrls);
-        Map<String, Category> categoriesByName = categoryService.resolve(newCollectedGachas.stream()
-                .map(CollectedGacha::category)
-                        .toList())
-                .stream()
-                .collect(java.util.stream.Collectors.toMap(Category::getName, category -> category));
-        List<Gacha> newGachas = newCollectedGachas.stream()
+        Map<String, Category> categoriesByName = resolveCategories(collectedGachas);
+        return collectedGachas.stream()
                 .map(gacha -> uploadImageAndConvert(gacha, uploadedImageUrls, categoriesByName))
                 .toList();
+    }
 
-        gachaRepository.saveAll(newGachas);
-        return newGachas.size();
+    private Map<String, Category> resolveCategories(final List<CollectedGacha> collectedGachas) {
+        return categoryService.resolve(collectedGachas.stream()
+                        .map(CollectedGacha::category)
+                        .toList())
+                .stream()
+                .collect(toMap(Category::getName, category -> category));
     }
 
     private Map<String, CollectedGacha> deduplicate(
             final CollectionSource source,
-            final Collection<CollectedGacha> collectedGachas
+            final List<CollectedGacha> collectedGachas
     ) {
         Map<String, CollectedGacha> uniqueGachas = new LinkedHashMap<>();
         for (CollectedGacha collectedGacha : collectedGachas) {

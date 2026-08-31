@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
@@ -26,27 +27,15 @@ import org.springframework.web.multipart.MultipartFile;
 
 @Service
 @Transactional(readOnly = true)
+@RequiredArgsConstructor
 public class GachaService {
 
     private final GachaJpaRepository gachaRepository;
     private final S3TransactionManager s3TransactionManager;
     private final ImageUploader imageUploader;
     private final CategoryService categoryService;
+    @Value("${cloud.aws.s3.folder}")
     private final String s3RootFolder;
-
-    public GachaService(
-            final GachaJpaRepository gachaRepository,
-            final S3TransactionManager s3TransactionManager,
-            final ImageUploader imageUploader,
-            final CategoryService categoryService,
-            @Value("${cloud.aws.s3.folder}") final String s3RootFolder
-    ) {
-        this.gachaRepository = gachaRepository;
-        this.s3TransactionManager = s3TransactionManager;
-        this.imageUploader = imageUploader;
-        this.categoryService = categoryService;
-        this.s3RootFolder = s3RootFolder;
-    }
 
     @Transactional
     public GachaInfo addGacha(final GachaCreateCommand command) {

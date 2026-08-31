@@ -13,6 +13,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import lombok.RequiredArgsConstructor;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -20,27 +21,19 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 @Component
+@RequiredArgsConstructor
 public class AmuzuGachaCollector implements GachaCollector {
 
     private static final Pattern PRODUCT_CODE_TEXT_PATTERN = Pattern.compile("商品コード[：:]\\s*([A-Za-z0-9_-]+)");
     private static final Pattern PRODUCT_CODE_URL_PATTERN = Pattern.compile("/([A-Za-z][A-Za-z0-9_-]*)\\.html(?:[?#]|$)");
 
     private final HtmlFetcher htmlFetcher;
+    @Value("${collection.sources.amuzu.list-url}")
     private final String listUrl;
+    @Value("${collection.sources.amuzu.category:CAPSULE_TOY_006}")
     private final String category;
+    @Value("${collection.sources.amuzu.max-pages:100}")
     private final int maxPages;
-
-    public AmuzuGachaCollector(
-            final HtmlFetcher htmlFetcher,
-            @Value("${collection.sources.amuzu.list-url}") final String listUrl,
-            @Value("${collection.sources.amuzu.category:CAPSULE_TOY_006}") final String category,
-            @Value("${collection.sources.amuzu.max-pages:100}") final int maxPages
-    ) {
-        this.htmlFetcher = htmlFetcher;
-        this.listUrl = listUrl;
-        this.category = category;
-        this.maxPages = maxPages;
-    }
 
     @Override
     public CollectionSource source() {
@@ -55,13 +48,8 @@ public class AmuzuGachaCollector implements GachaCollector {
 
         for (int page = 1; page <= maxPages && visitedUrls.add(currentUrl); page++) {
             Document document = Jsoup.parse(htmlFetcher.fetch(currentUrl), currentUrl);
-            List<Element> titleLinks = document.select(".p-list-item__title-link[href]");
-            if (titleLinks.isEmpty()) {
+            if (!collectPage(document, collected)) {
                 break;
-            }
-
-            for (Element titleLink : titleLinks) {
-                toCollectedGacha(titleLink).ifPresent(gacha -> collected.putIfAbsent(gacha.productCode(), gacha));
             }
 
             String nextUrl = nextPageUrl(document, page + 1);
@@ -72,6 +60,18 @@ public class AmuzuGachaCollector implements GachaCollector {
         }
 
         return new ArrayList<>(collected.values());
+    }
+
+    private boolean collectPage(
+            final Document document,
+            final Map<String, CollectedGacha> collected
+    ) {
+        List<Element> titleLinks = document.select(".p-list-item__title-link[href]");
+        titleLinks.stream()
+                .map(this::toCollectedGacha)
+                .flatMap(Optional::stream)
+                .forEach(gacha -> collected.putIfAbsent(gacha.productCode(), gacha));
+        return !titleLinks.isEmpty();
     }
 
     private Optional<CollectedGacha> toCollectedGacha(final Element titleLink) {

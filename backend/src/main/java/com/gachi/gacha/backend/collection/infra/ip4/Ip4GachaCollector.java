@@ -8,6 +8,7 @@ import com.gachi.gacha.backend.collection.domain.CollectionSource;
 import com.gachi.gacha.backend.collection.domain.GachaCollector;
 import com.gachi.gacha.backend.collection.domain.GachaCollectionException;
 import com.gachi.gacha.backend.collection.infra.HtmlFetcher;
+import jakarta.annotation.PostConstruct;
 import java.time.Clock;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
@@ -20,6 +21,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import lombok.RequiredArgsConstructor;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -29,6 +31,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 @Component
+@RequiredArgsConstructor
 public class Ip4GachaCollector implements GachaCollector {
 
     private static final Logger log = LoggerFactory.getLogger(Ip4GachaCollector.class);
@@ -36,20 +39,18 @@ public class Ip4GachaCollector implements GachaCollector {
     private static final DateTimeFormatter SEARCH_DATE_FORMATTER = DateTimeFormatter.ofPattern("uuuuMM");
 
     private final HtmlFetcher htmlFetcher;
+    @Value("${collection.sources.ip4.list-url-template}")
     private final String listUrlTemplate;
+    @Value("${collection.sources.ip4.max-pages:100}")
     private final int maxPages;
+    @Value("${collection.sources.ip4.start-month-offset:0}")
     private final int startMonthOffset;
+    @Value("${collection.sources.ip4.collection-months:12}")
     private final int collectionMonths;
     private final Clock clock;
 
-    public Ip4GachaCollector(
-            final HtmlFetcher htmlFetcher,
-            @Value("${collection.sources.ip4.list-url-template}") final String listUrlTemplate,
-            @Value("${collection.sources.ip4.max-pages:100}") final int maxPages,
-            @Value("${collection.sources.ip4.start-month-offset:0}") final int startMonthOffset,
-            @Value("${collection.sources.ip4.collection-months:12}") final int collectionMonths,
-            final Clock clock
-    ) {
+    @PostConstruct
+    private void validateConfiguration() {
         if (!listUrlTemplate.contains("%s")) {
             throw new GachaCollectionException(
                     INVALID_COLLECTION_CONFIGURATION,
@@ -62,12 +63,6 @@ public class Ip4GachaCollector implements GachaCollector {
                     "IP4 최대 페이지 수와 수집 개월 수는 1 이상이고 시작 월 간격은 0 이상이어야 합니다."
             );
         }
-        this.htmlFetcher = htmlFetcher;
-        this.listUrlTemplate = listUrlTemplate;
-        this.maxPages = maxPages;
-        this.startMonthOffset = startMonthOffset;
-        this.collectionMonths = collectionMonths;
-        this.clock = clock;
     }
 
     @Override
@@ -102,19 +97,31 @@ public class Ip4GachaCollector implements GachaCollector {
                 break;
             }
 
-            for (Element item : items) {
-                try {
-                    toCollectedGacha(item).ifPresent(gacha -> collected.putIfAbsent(gacha.productCode(), gacha));
-                } catch (RuntimeException exception) {
-                    log.warn("IP4 상품 수집을 건너뜁니다. detailUrl={}", detailUrl(item), exception);
-                }
-            }
+            collectItems(items, collected);
 
             String nextUrl = nextPageUrl(listDocument);
             if (nextUrl == null) {
                 break;
             }
             currentUrl = nextUrl;
+        }
+    }
+
+    private void collectItems(
+            final List<Element> items,
+            final Map<String, CollectedGacha> collected
+    ) {
+        for (Element item : items) {
+            collectItem(item).ifPresent(gacha -> collected.putIfAbsent(gacha.productCode(), gacha));
+        }
+    }
+
+    private Optional<CollectedGacha> collectItem(final Element item) {
+        try {
+            return toCollectedGacha(item);
+        } catch (RuntimeException exception) {
+            log.warn("IP4 상품 수집을 건너뜁니다. detailUrl={}", detailUrl(item), exception);
+            return Optional.empty();
         }
     }
 

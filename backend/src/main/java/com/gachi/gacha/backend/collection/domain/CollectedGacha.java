@@ -11,6 +11,20 @@ public record CollectedGacha(
 ) {
 
     public CollectedGacha {
+        validate(source, productCode, name, imageUrl);
+
+        productCode = productCode.trim();
+        name = name.trim();
+        imageUrl = imageUrl.trim();
+        category = normalizeNullable(category);
+    }
+
+    private static void validate(
+            final CollectionSource source,
+            final String productCode,
+            final String name,
+            final String imageUrl
+    ) {
         if (source == null || !source.isCollectable()) {
             throw new GachaCollectionException(INVALID_COLLECTED_GACHA, "수집 가능한 출처가 필요합니다.");
         }
@@ -23,11 +37,6 @@ public record CollectedGacha(
         if (imageUrl == null || imageUrl.isBlank()) {
             throw new GachaCollectionException(INVALID_COLLECTED_GACHA, "이미지 URL이 필요합니다.");
         }
-
-        productCode = productCode.trim();
-        name = name.trim();
-        imageUrl = imageUrl.trim();
-        category = normalizeNullable(category);
     }
 
     private static String normalizeNullable(final String value) {
