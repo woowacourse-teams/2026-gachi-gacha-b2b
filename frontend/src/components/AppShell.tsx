@@ -1,9 +1,13 @@
 import type { ReactNode } from 'react';
 
+import logoSymbol from '@/assets/gachi-gacha-logo-symbol.svg';
+
 import {
   Brand,
   BrandCaption,
+  BrandKoreanName,
   BrandName,
+  BrandRole,
   Layout,
   Logo,
   Main,
@@ -27,10 +31,13 @@ export default function AppShell({
     <Layout>
       <Sidebar>
         <Brand type="button" onClick={() => onNavigate('/')}>
-          <Logo aria-hidden>G</Logo>
+          <Logo aria-hidden src={logoSymbol} />
           <span>
-            <BrandName>Gachi Gacha</BrandName>
-            <BrandCaption>데이터 분류 관리자</BrandCaption>
+            <BrandName>GACHIGACHA</BrandName>
+            <BrandCaption>
+              <BrandKoreanName>가치 가챠</BrandKoreanName>
+              <BrandRole>데이터 분류 관리자</BrandRole>
+            </BrandCaption>
           </span>
         </Brand>
 

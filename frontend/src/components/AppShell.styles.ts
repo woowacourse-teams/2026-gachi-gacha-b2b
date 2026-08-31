@@ -37,42 +37,56 @@ export const Sidebar = styled.aside`
 export const Brand = styled.button`
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 0 12px;
+  gap: 10px;
+  padding: 0 6px;
   border: 0;
   color: ${colors.brand};
   background: transparent;
   text-align: left;
 `;
 
-export const Logo = styled.span`
-  display: grid;
-  width: 42px;
-  height: 42px;
-  place-items: center;
-  border-radius: 14px;
-  color: white;
-  background: ${colors.brand};
-  font-size: 22px;
-  font-weight: 800;
+export const Logo = styled.img`
+  display: block;
+  width: 48px;
+  height: 52px;
+  flex: 0 0 auto;
+  object-fit: contain;
 `;
 
 export const BrandName = styled.strong`
   display: block;
-  font-size: 22px;
-  line-height: 1.05;
+  color: #ea321f;
+  font-size: 18px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -0.055em;
 `;
 
 export const BrandCaption = styled.span`
   display: block;
-  margin-top: 5px;
-  color: ${colors.textMuted};
-  font-size: 12px;
-  font-weight: 500;
+  margin-top: 6px;
 
   @media (max-width: 480px) {
     display: none;
   }
+`;
+
+export const BrandKoreanName = styled.strong`
+  display: block;
+  color: #ea321f;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -0.04em;
+`;
+
+export const BrandRole = styled.span`
+  display: block;
+  margin-top: 4px;
+  color: ${colors.textMuted};
+  font-size: 10px;
+  font-weight: 600;
+  white-space: nowrap;
 `;
 
 export const Navigation = styled.nav`
