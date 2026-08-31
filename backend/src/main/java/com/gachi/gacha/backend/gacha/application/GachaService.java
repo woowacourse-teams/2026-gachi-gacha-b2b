@@ -38,7 +38,7 @@ public class GachaService {
     @Transactional
     public GachaResult modify(final Long gachaId, final GachaUpdateCommand command) {
         Gacha gacha = gachaRepository.getById(gachaId);
-        gacha.update(command.name(), command.caption(), command.thumbnailUrl());
+        gacha.update(command.name(), command.caption(), command.thumbnailUrl(), command.category());
         Gacha saved = gachaRepository.save(gacha);
         return GachaResult.from(saved);
     }

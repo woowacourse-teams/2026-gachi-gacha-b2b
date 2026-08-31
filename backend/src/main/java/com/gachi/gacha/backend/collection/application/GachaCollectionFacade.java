@@ -1,68 +1,72 @@
 package com.gachi.gacha.backend.collection.application;
 
-import com.gachi.gacha.backend.gacha.domain.Gacha;
-import com.gachi.gacha.backend.store.application.StoreService;
-import com.gachi.gacha.backend.store.domain.Store;
-import com.gachi.gacha.backend.store.domain.StoreDetail;
-import com.gachi.gacha.backend.usecase.application.StoreGachaService;
-import com.gachi.gacha.backend.usecase.application.dto.StoreGachaCreatCommand;
+import com.gachi.gacha.backend.collection.domain.CollectedGacha;
+import com.gachi.gacha.backend.collection.domain.CollectionSource;
+import com.gachi.gacha.backend.collection.domain.GachaCollector;
+import java.time.Instant;
+import java.util.EnumMap;
 import java.util.List;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Slice;
-import org.springframework.data.domain.Sort;
-import org.springframework.stereotype.Service;
+import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
 
-@Slf4j
-@Service
-@RequiredArgsConstructor
+@Component
 public class GachaCollectionFacade {
-    private static final int PAGE_SIZE = 50;
 
-    private final StoreService storeService;
-    private final GachaCollectionService gachaCollectionService;
-    private final StoreGachaService storeGachaService;
+    private static final Logger log = LoggerFactory.getLogger(GachaCollectionFacade.class);
+    private static final List<CollectionSource> COLLECTION_ORDER = List.of(
+            CollectionSource.BANDAI,
+            CollectionSource.IP4,
+            CollectionSource.A_MUZU
+    );
 
-    public int collectAllGachas() {
-        int collectedCount = 0;
-        Pageable pageable = PageRequest.of(0, PAGE_SIZE, Sort.by("id"));
-        Slice<StoreDetail> page;
+    private final Map<CollectionSource, GachaCollector> collectors;
+    private final GachaCollectionService collectionService;
 
-        do {
-            page = storeService.findStoresWithInstagram(pageable);
-            collectedCount += page.getContent().stream()
-                    .mapToInt(this::processStore)
-                    .sum();
-            pageable = pageable.next();
-        } while (page.hasNext());
-
-        log.info("인스타그램 가챠 데이터 수집 완료 (신규 수집: {}건)", collectedCount);
-        return collectedCount;
+    public GachaCollectionFacade(
+            final List<GachaCollector> collectors,
+            final GachaCollectionService collectionService
+    ) {
+        this.collectors = indexCollectors(collectors);
+        this.collectionService = collectionService;
     }
 
-    private int processStore(final StoreDetail storeDetail) {
-        Store store = storeDetail.getStore();
-        log.info("상점 크롤링 실행: {} ({})", store.getName(), storeDetail.getInstagramId());
+    public List<CollectionResult> collectAll() {
+        return COLLECTION_ORDER.stream()
+                .map(this::collect)
+                .toList();
+    }
 
+    public CollectionResult collect(final CollectionSource source) {
+        final Instant startedAt = Instant.now();
         try {
-            List<Gacha> collectedGachas = gachaCollectionService.collectPostsForShop(storeDetail.getInstagramId());
-            addStoreGachas(collectedGachas, store);
-            return collectedGachas.size();
-        } catch (Exception e) {
-            log.error("상점 처리 실패: {} ({}) - {}", store.getName(), storeDetail.getInstagramId(), e.getMessage());
-            return 0;
+            final GachaCollector collector = findCollector(source);
+            final List<CollectedGacha> collectedGachas = collector.collect();
+            final int insertedCount = collectionService.saveNewGachas(source, collectedGachas);
+            return CollectionResult.success(source, collectedGachas.size(), insertedCount, startedAt);
+        } catch (final RuntimeException exception) {
+            log.error("가챠 수집에 실패했습니다. source={}", source, exception);
+            return CollectionResult.failure(source, startedAt);
         }
     }
 
-    private void addStoreGachas(List<Gacha> collectedGachas, Store store) {
-        for (Gacha gacha : collectedGachas) {
-            StoreGachaCreatCommand command = StoreGachaCreatCommand.builder()
-                    .store(store)
-                    .gacha(gacha)
-                    .build();
-            storeGachaService.addStoreGacha(command);
+    private GachaCollector findCollector(final CollectionSource source) {
+        final GachaCollector collector = collectors.get(source);
+        if (collector == null) {
+            throw new IllegalArgumentException("지원하지 않는 수집 출처입니다. source=" + source);
         }
+        return collector;
+    }
+
+    private Map<CollectionSource, GachaCollector> indexCollectors(final List<GachaCollector> collectorList) {
+        final Map<CollectionSource, GachaCollector> indexed = new EnumMap<>(CollectionSource.class);
+        for (final GachaCollector collector : collectorList) {
+            final GachaCollector previous = indexed.put(collector.source(), collector);
+            if (previous != null) {
+                throw new IllegalStateException("수집기가 중복 등록되었습니다. source=" + collector.source());
+            }
+        }
+        return Map.copyOf(indexed);
     }
 }

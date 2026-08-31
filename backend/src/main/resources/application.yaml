@@ -1,4 +1,5 @@
 server:
+  port: 8081
   servlet:
     context-path: /api/v1
 
@@ -19,11 +20,13 @@ spring:
     locations: classpath:db/migration
   jpa:
     hibernate:
-      ddl-auto: ${JPA_DDL_AUTO}
+      ddl-auto: ${JPA_DDL_AUTO:validate}
+    open-in-view: false
     show-sql: true
     properties:
       hibernate:
         format_sql: true
+
 cloud:
   aws:
     region: ${AWS_REGION}
@@ -31,8 +34,30 @@ cloud:
       bucket: ${AWS_S3_BUCKET}
       folder: ${AWS_S3_FOLDER}
 
-instagram:
-  api:
-    uri: "https://graph.facebook.com/v26.0"
-    user-id: ${META_IG_USER_ID}
-    access-token: ${META_ACCESS_TOKEN}
+collection:
+  manual:
+    enabled: ${COLLECTION_MANUAL_ENABLED:false}
+    source: ${COLLECTION_MANUAL_SOURCE:BANDAI}
+  scheduling:
+    enabled: ${COLLECTION_SCHEDULING_ENABLED:false}
+    cron: ${COLLECTION_SCHEDULING_CRON:0 0 4 * * *}
+    zone: ${COLLECTION_SCHEDULING_ZONE:Asia/Seoul}
+  http:
+    connect-timeout: ${COLLECTION_CONNECT_TIMEOUT:5s}
+    read-timeout: ${COLLECTION_READ_TIMEOUT:15s}
+    request-delay: ${COLLECTION_REQUEST_DELAY:1s}
+    user-agent: ${COLLECTION_USER_AGENT:Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36}
+  sources:
+    bandai:
+      list-url: "${BANDAI_COLLECTION_LIST_URL:https://bandainamco-am.co.jp/ko/others/gashapon-bandai-officialshop/item/?q=&domain=bandai_gasha_item&pageNo=1}"
+      start-page: ${BANDAI_COLLECTION_START_PAGE:1}
+      max-pages: ${BANDAI_COLLECTION_MAX_PAGES:100}
+    ip4:
+      list-url-template: "${IP4_COLLECTION_LIST_URL_TEMPLATE:https://www.ip4.co.jp/cupsuletoy_top/?search_date=%s}"
+      max-pages: ${IP4_COLLECTION_MAX_PAGES:100}
+      start-month-offset: ${IP4_COLLECTION_START_MONTH_OFFSET:0}
+      collection-months: ${IP4_COLLECTION_MONTHS:12}
+    amuzu:
+      list-url: "${AMUZU_COLLECTION_LIST_URL:https://www.a-muzu.com/category/CAPSULE_TOY_006/}"
+      category: CAPSULE_TOY_006
+      max-pages: ${AMUZU_COLLECTION_MAX_PAGES:100}

@@ -1,0 +1,177 @@
+package com.gachi.gacha.backend.collection.infra.ip4;
+
+import com.gachi.gacha.backend.collection.domain.CollectedGacha;
+import com.gachi.gacha.backend.collection.domain.CollectionSource;
+import com.gachi.gacha.backend.collection.domain.GachaCollector;
+import com.gachi.gacha.backend.collection.infra.HtmlFetcher;
+import java.time.Clock;
+import java.time.YearMonth;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+
+@Component
+public class Ip4GachaCollector implements GachaCollector {
+
+    private static final Logger log = LoggerFactory.getLogger(Ip4GachaCollector.class);
+    private static final Pattern POST_ID_PATTERN = Pattern.compile("[?&]p=(\\d+)");
+    private static final DateTimeFormatter SEARCH_DATE_FORMATTER = DateTimeFormatter.ofPattern("uuuuMM");
+
+    private final HtmlFetcher htmlFetcher;
+    private final String listUrlTemplate;
+    private final int maxPages;
+    private final int startMonthOffset;
+    private final int collectionMonths;
+    private final Clock clock;
+
+    public Ip4GachaCollector(
+            final HtmlFetcher htmlFetcher,
+            @Value("${collection.sources.ip4.list-url-template}") final String listUrlTemplate,
+            @Value("${collection.sources.ip4.max-pages:100}") final int maxPages,
+            @Value("${collection.sources.ip4.start-month-offset:0}") final int startMonthOffset,
+            @Value("${collection.sources.ip4.collection-months:12}") final int collectionMonths,
+            final Clock clock
+    ) {
+        if (!listUrlTemplate.contains("%s")) {
+            throw new IllegalArgumentException("IP4 목록 URL 템플릿에 %s가 필요합니다.");
+        }
+        if (maxPages < 1 || startMonthOffset < 0 || collectionMonths < 1) {
+            throw new IllegalArgumentException("IP4 최대 페이지 수와 수집 개월 수는 1 이상이고 시작 월 간격은 0 이상이어야 합니다.");
+        }
+        this.htmlFetcher = htmlFetcher;
+        this.listUrlTemplate = listUrlTemplate;
+        this.maxPages = maxPages;
+        this.startMonthOffset = startMonthOffset;
+        this.collectionMonths = collectionMonths;
+        this.clock = clock;
+    }
+
+    @Override
+    public CollectionSource source() {
+        return CollectionSource.IP4;
+    }
+
+    @Override
+    public List<CollectedGacha> collect() {
+        final Map<String, CollectedGacha> collected = new LinkedHashMap<>();
+        final YearMonth currentMonth = YearMonth.now(clock);
+
+        for (int monthOffset = 0; monthOffset < collectionMonths; monthOffset++) {
+            final YearMonth targetMonth = currentMonth.minusMonths(startMonthOffset + monthOffset);
+            collectMonth(targetMonth, collected);
+        }
+
+        return new ArrayList<>(collected.values());
+    }
+
+    private void collectMonth(
+            final YearMonth targetMonth,
+            final Map<String, CollectedGacha> collected
+    ) {
+        final Set<String> visitedUrls = new HashSet<>();
+        String currentUrl = listUrl(targetMonth);
+
+        for (int page = 1; page <= maxPages && visitedUrls.add(currentUrl); page++) {
+            final Document listDocument = Jsoup.parse(htmlFetcher.fetch(currentUrl), currentUrl);
+            final List<Element> items = listDocument.select("#cupsuletoy > ul > li");
+            if (items.isEmpty()) {
+                break;
+            }
+
+            for (final Element item : items) {
+                try {
+                    toCollectedGacha(item).ifPresent(gacha -> collected.putIfAbsent(gacha.productCode(), gacha));
+                } catch (final RuntimeException exception) {
+                    log.warn("IP4 상품 수집을 건너뜁니다. detailUrl={}", detailUrl(item), exception);
+                }
+            }
+
+            final String nextUrl = nextPageUrl(listDocument);
+            if (nextUrl == null) {
+                break;
+            }
+            currentUrl = nextUrl;
+        }
+    }
+
+    private String listUrl(final YearMonth targetMonth) {
+        return listUrlTemplate.formatted(targetMonth.format(SEARCH_DATE_FORMATTER));
+    }
+
+    private Optional<CollectedGacha> toCollectedGacha(final Element item) {
+        final Element linkElement = item.selectFirst(".image a[href*='/cupsuletoy/']");
+        final Element imageElement = item.selectFirst(".image img");
+        final Element detailElement = item.selectFirst("dl dd");
+        if (linkElement == null || imageElement == null || detailElement == null) {
+            return Optional.empty();
+        }
+
+        final String detailUrl = linkElement.absUrl("href");
+        final String productCode = extractProductCode(detailUrl);
+        final String name = extractName(detailElement);
+        final String imageUrl = imageElement.absUrl("src");
+        final Element categoryElement = detailElement.selectFirst(".brand");
+        final String category = categoryElement == null ? null : categoryElement.text();
+        if (name.isBlank() || imageUrl.isBlank()) {
+            return Optional.empty();
+        }
+
+        return Optional.of(new CollectedGacha(
+                source(),
+                productCode,
+                name,
+                imageUrl,
+                category
+        ));
+    }
+
+    private String extractProductCode(final String detailUrl) {
+        final Document detailDocument = Jsoup.parse(htmlFetcher.fetch(detailUrl), detailUrl);
+        final Element shortLink = detailDocument.selectFirst("link[rel=shortlink]");
+        if (shortLink == null) {
+            throw new IllegalStateException("IP4 shortlink를 찾을 수 없습니다. url=" + detailUrl);
+        }
+
+        final Matcher matcher = POST_ID_PATTERN.matcher(shortLink.attr("href"));
+        if (!matcher.find()) {
+            throw new IllegalStateException("IP4 게시물 ID를 찾을 수 없습니다. url=" + detailUrl);
+        }
+        return matcher.group(1);
+    }
+
+    private String extractName(final Element detailElement) {
+        final Element copied = detailElement.clone();
+        copied.select(".brand, .copy").remove();
+        return copied.text();
+    }
+
+    private String detailUrl(final Element item) {
+        final Element linkElement = item.selectFirst(".image a[href]");
+        if (linkElement == null) {
+            return "unknown";
+        }
+        return linkElement.absUrl("href");
+    }
+
+    private String nextPageUrl(final Document document) {
+        final Element nextLink = document.selectFirst("a.next.page-numbers[href], a[rel=next][href]");
+        if (nextLink == null || nextLink.absUrl("href").isBlank()) {
+            return null;
+        }
+        return nextLink.absUrl("href");
+    }
+}

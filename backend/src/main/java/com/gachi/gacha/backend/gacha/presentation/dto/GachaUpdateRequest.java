@@ -7,13 +7,15 @@ public record GachaUpdateRequest(
         @NotBlank(message = "가챠 이름은 필수입니다.")
         String name,
         String caption,
-        String thumbnailUrl
+        String thumbnailUrl,
+        String category
 ) {
     public GachaUpdateCommand toCommand() {
         return GachaUpdateCommand.builder()
                 .name(name)
                 .caption(caption)
                 .thumbnailUrl(thumbnailUrl)
+                .category(category)
                 .build();
     }
 }
