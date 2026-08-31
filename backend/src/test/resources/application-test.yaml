@@ -1,0 +1,17 @@
+spring:
+  application:
+    name: gachi-gacha-b2b-backend-test
+
+  datasource:
+    driver-class-name: org.h2.Driver
+    url: jdbc:h2:mem:gachi_gacha_b2b;MODE=PostgreSQL;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+
+  flyway:
+    enabled: false
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    open-in-view: false
