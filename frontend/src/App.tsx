@@ -1,6 +1,7 @@
 import AppShell from '@/components/AppShell';
 import ClassificationPage from '@/features/classification/pages/ClassificationPage';
 import QueuePage from '@/features/classification/pages/QueuePage';
+import RegistrationPage from '@/features/registration/pages/RegistrationPage';
 import { useAppRoute } from '@/routing/useAppRoute';
 import GlobalStyles from '@/styles/GlobalStyles';
 
@@ -12,7 +13,9 @@ export default function App() {
     <>
       <GlobalStyles />
       <AppShell currentSection={currentSection} onNavigate={navigate}>
-        {route.page === 'classify' ? (
+        {route.page === 'register' ? (
+          <RegistrationPage onNavigate={navigate} />
+        ) : route.page === 'classify' ? (
           <ClassificationPage
             itemId={route.itemId}
             maxId={route.maxId}

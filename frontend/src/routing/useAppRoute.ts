@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 export type AppRoute =
+  | { page: 'register' }
   | {
       page: 'queue';
       status: 'UNCLASSIFIED' | 'CLASSIFIED' | 'SKIPPED';
@@ -30,6 +31,10 @@ const getIdRangeFromUrl = () => {
 };
 
 const parseRoute = (): AppRoute => {
+  if (window.location.pathname === '/register') {
+    return { page: 'register' };
+  }
+
   const classifyMatch = window.location.pathname.match(/^\/classify\/(\d+)$/);
 
   if (classifyMatch) {
