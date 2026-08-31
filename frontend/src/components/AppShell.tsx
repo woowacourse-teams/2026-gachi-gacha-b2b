@@ -1,0 +1,74 @@
+import type { ReactNode } from 'react';
+
+import logoSymbol from '@/assets/gachi-gacha-logo-symbol.svg';
+
+import {
+  Brand,
+  BrandCaption,
+  BrandKoreanName,
+  BrandName,
+  BrandRole,
+  Layout,
+  Logo,
+  Main,
+  Navigation,
+  NavigationButton,
+  Sidebar,
+} from './AppShell.styles';
+
+interface AppShellProps {
+  children: ReactNode;
+  currentSection: 'UNCLASSIFIED' | 'CLASSIFIED' | 'SKIPPED';
+  onNavigate: (path: string) => void;
+}
+
+export default function AppShell({
+  children,
+  currentSection,
+  onNavigate,
+}: AppShellProps) {
+  return (
+    <Layout>
+      <Sidebar>
+        <Brand type="button" onClick={() => onNavigate('/')}>
+          <Logo aria-hidden src={logoSymbol} />
+          <span>
+            <BrandName>GACHIGACHA</BrandName>
+            <BrandCaption>
+              <BrandKoreanName>가치 가챠</BrandKoreanName>
+              <BrandRole>데이터 분류 관리자</BrandRole>
+            </BrandCaption>
+          </span>
+        </Brand>
+
+        <Navigation aria-label="데이터 분류 메뉴">
+          <NavigationButton
+            active={currentSection === 'UNCLASSIFIED'}
+            type="button"
+            onClick={() => onNavigate('/')}
+          >
+            <span aria-hidden>▣</span>
+            <span>미분류 데이터</span>
+          </NavigationButton>
+          <NavigationButton
+            active={currentSection === 'CLASSIFIED'}
+            type="button"
+            onClick={() => onNavigate('/classified')}
+          >
+            <span aria-hidden>✓</span>
+            <span>분류 완료</span>
+          </NavigationButton>
+          <NavigationButton
+            active={currentSection === 'SKIPPED'}
+            type="button"
+            onClick={() => onNavigate('/skipped')}
+          >
+            <span aria-hidden>↶</span>
+            <span>건너뛴 데이터</span>
+          </NavigationButton>
+        </Navigation>
+      </Sidebar>
+      <Main>{children}</Main>
+    </Layout>
+  );
+}
