@@ -124,6 +124,10 @@ export const Card = styled.li`
   border-radius: ${radii.large};
   background: ${colors.surface};
   box-shadow: 0 12px 28px ${colors.shadow};
+
+  &:hover img {
+    transform: scale(1.025);
+  }
 `;
 
 export const ImageWrap = styled.div`
@@ -137,10 +141,6 @@ export const ImageWrap = styled.div`
     height: 100%;
     object-fit: cover;
     transition: transform 180ms ease;
-  }
-
-  ${Card}:hover & img {
-    transform: scale(1.025);
   }
 `;
 
