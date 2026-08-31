@@ -12,9 +12,13 @@ import com.gachi.gacha.backend.gacha.domain.Category;
 import com.gachi.gacha.backend.gacha.domain.Gacha;
 import com.gachi.gacha.backend.gacha.domain.GachaJpaRepository;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -114,11 +118,11 @@ public class GachaService {
     }
 
     public Page<GachaInfo> findAllGacha(@Nullable final String keyword, final Pageable pageable) {
-        if (keyword == null) {
-            return gachaRepository.findAllWithCategories(pageable)
+        if (keyword == null || keyword.isBlank()) {
+            return toOrderedPage(gachaRepository.findGachaIds(pageable))
                     .map(GachaInfo::from);
         }
-        return gachaRepository.findByNameContainingWithCategories(keyword, pageable)
+        return toOrderedPage(gachaRepository.findGachaIdsByNameContaining(keyword, pageable))
                 .map(GachaInfo::from);
     }
 
@@ -128,5 +132,18 @@ public class GachaService {
 
     public Gacha findByGachaId(final Long gachaId) {
         return gachaRepository.getById(gachaId);
+    }
+
+    private Page<Gacha> toOrderedPage(final Page<Long> idPage) {
+        List<Gacha> gachas = gachaRepository.findByIdsWithCategories(idPage.getContent());
+
+        Map<Long, Gacha> gachaById = gachas.stream()
+                .collect(Collectors.toMap(Gacha::getId, Function.identity()));
+
+        List<Gacha> ordered = idPage.getContent().stream()
+                .map(gachaById::get)
+                .toList();
+
+        return new PageImpl<>(ordered, idPage.getPageable(), idPage.getTotalElements());
     }
 }
