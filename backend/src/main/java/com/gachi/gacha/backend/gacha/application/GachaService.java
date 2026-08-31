@@ -1,5 +1,6 @@
 package com.gachi.gacha.backend.gacha.application;
 
+import com.gachi.gacha.backend.common.infra.application.ImageUploader;
 import com.gachi.gacha.backend.common.infra.domain.ImageType;
 import com.gachi.gacha.backend.common.util.S3TransactionManager;
 import com.gachi.gacha.backend.gacha.application.dto.GachaCreateCommand;
@@ -8,25 +9,36 @@ import com.gachi.gacha.backend.gacha.application.dto.GachaInfo;
 import com.gachi.gacha.backend.gacha.application.dto.GachaResult;
 import com.gachi.gacha.backend.gacha.application.dto.GachaUpdateCommand;
 import com.gachi.gacha.backend.gacha.domain.Gacha;
-import com.gachi.gacha.backend.gacha.domain.GachaImage;
-import com.gachi.gacha.backend.gacha.domain.GachaImageJpaRepository;
 import com.gachi.gacha.backend.gacha.domain.GachaJpaRepository;
 import java.util.List;
-import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.Nullable;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 @Service
 @Transactional(readOnly = true)
-@RequiredArgsConstructor
 public class GachaService {
 
     private final GachaJpaRepository gachaRepository;
-    private final GachaImageJpaRepository gachaImageRepository;
     private final S3TransactionManager s3TransactionManager;
+    private final ImageUploader imageUploader;
+    private final String s3RootFolder;
+
+    public GachaService(
+            final GachaJpaRepository gachaRepository,
+            final S3TransactionManager s3TransactionManager,
+            final ImageUploader imageUploader,
+            @Value("${cloud.aws.s3.folder}") final String s3RootFolder
+    ) {
+        this.gachaRepository = gachaRepository;
+        this.s3TransactionManager = s3TransactionManager;
+        this.imageUploader = imageUploader;
+        this.s3RootFolder = s3RootFolder;
+    }
 
     @Transactional
     public GachaInfo addGacha(final GachaCreateCommand command) {
@@ -38,20 +50,56 @@ public class GachaService {
     @Transactional
     public GachaResult modify(final Long gachaId, final GachaUpdateCommand command) {
         Gacha gacha = gachaRepository.getById(gachaId);
-        gacha.update(command.name(), command.caption(), command.thumbnailUrl(), command.category());
+        gacha.patch(command.name(), command.caption(), command.thumbnailUrl(), command.category());
         Gacha saved = gachaRepository.save(gacha);
         return GachaResult.from(saved);
     }
 
     @Transactional
+    public GachaInfo updateThumbnail(final Long gachaId, final MultipartFile image) {
+        Gacha gacha = gachaRepository.getById(gachaId);
+        String oldImageUrl = gacha.getThumbnailUrl();
+        String newImageUrl = imageUploader.upload(image, ImageType.GACHA.buildPath(s3RootFolder));
+
+        gacha.updateThumbnailUrl(newImageUrl);
+        Gacha savedGacha = gachaRepository.save(gacha);
+
+        if (oldImageUrl == null || oldImageUrl.isBlank()) {
+            s3TransactionManager.deleteImagesOnRollback(ImageType.GACHA, gachaId, List.of(newImageUrl));
+        } else {
+            s3TransactionManager.cleanupAfterImageReplaced(
+                    ImageType.GACHA,
+                    gachaId,
+                    oldImageUrl,
+                    newImageUrl
+            );
+        }
+        return GachaInfo.from(savedGacha);
+    }
+
+    @Transactional
+    public GachaInfo removeThumbnail(final Long gachaId) {
+        Gacha gacha = gachaRepository.getById(gachaId);
+        String oldImageUrl = gacha.getThumbnailUrl();
+
+        gacha.removeThumbnailUrl();
+        Gacha savedGacha = gachaRepository.save(gacha);
+
+        if (oldImageUrl != null && !oldImageUrl.isBlank()) {
+            s3TransactionManager.trashImagesAfterRemoved(ImageType.GACHA, gachaId, List.of(oldImageUrl));
+        }
+        return GachaInfo.from(savedGacha);
+    }
+
+    @Transactional
     public GachaDeleteResult remove(final Long gachaId) {
         Gacha gacha = gachaRepository.getById(gachaId);
-        List<GachaImage> gachaImages = gachaImageRepository.findAllByGachaId(gachaId);
 
-        gachaImageRepository.deleteAllByGachaId(gachaId);
         gachaRepository.deleteById(gachaId);
 
-        List<String> imageUrls = gachaImages.stream().map(GachaImage::getImageUrl).toList();
+        List<String> imageUrls = gacha.getThumbnailUrl() == null || gacha.getThumbnailUrl().isBlank()
+                ? List.of()
+                : List.of(gacha.getThumbnailUrl());
         s3TransactionManager.trashImagesAfterRemoved(ImageType.GACHA, gachaId, imageUrls);
 
         return GachaDeleteResult.from(gacha);

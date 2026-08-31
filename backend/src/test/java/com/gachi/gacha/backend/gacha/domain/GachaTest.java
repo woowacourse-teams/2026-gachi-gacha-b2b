@@ -18,7 +18,7 @@ class GachaTest {
                 "수집 카테고리"
         );
 
-        gacha.update(
+        gacha.patch(
                 "정제 이름",
                 "정제 설명",
                 "https://example.com/cleaned.jpg",

@@ -73,21 +73,33 @@ public class Gacha extends BaseTimeEntity {
         this.category = category;
     }
 
-    public void update(final String name, final String caption, final String thumbnailUrl) {
-        update(name, caption, thumbnailUrl, category);
-    }
-
-    public void update(
+    public void patch(
             final String name,
             final String caption,
             final String thumbnailUrl,
             final String category
     ) {
-        validateName(name);
-        this.name = name;
-        this.caption = caption;
+        if (name != null) {
+            validateName(name);
+            this.name = name;
+        }
+        if (caption != null) {
+            this.caption = caption;
+        }
+        if (thumbnailUrl != null) {
+            this.thumbnailUrl = thumbnailUrl;
+        }
+        if (category != null) {
+            this.category = category;
+        }
+    }
+
+    public void updateThumbnailUrl(final String thumbnailUrl) {
         this.thumbnailUrl = thumbnailUrl;
-        this.category = category;
+    }
+
+    public void removeThumbnailUrl() {
+        this.thumbnailUrl = null;
     }
 
     private void validateName(final String name) {

@@ -1,7 +1,11 @@
 package com.gachi.gacha.backend.gacha.presentation;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.when;
 
+import com.gachi.gacha.backend.common.infra.application.ImageUploader;
 import com.gachi.gacha.backend.gacha.domain.Gacha;
 import com.gachi.gacha.backend.gacha.domain.GachaJpaRepository;
 import com.gachi.gacha.backend.store.domain.Store;
@@ -35,6 +39,9 @@ class GachaControllerTest {
     @MockitoBean
     private RestTemplate restTemplate;
 
+    @MockitoBean
+    private ImageUploader imageUploader;
+
     @Autowired
     private GachaJpaRepository gachaRepository;
 
@@ -47,6 +54,74 @@ class GachaControllerTest {
     @BeforeEach
     void setUp() {
         RestAssured.port = port;
+        when(imageUploader.upload(any(), anyString()))
+                .thenReturn("https://test-bucket.s3.amazonaws.com/test/gacha/uploaded.png");
+    }
+
+    @Nested
+    @DisplayName("PUT /gachas/{gachaId}/thumbnail - 가챠 썸네일 저장 API")
+    class UpdateThumbnail {
+
+        @Test
+        @DisplayName("이미지를 업로드하면 S3 URL을 Gacha의 thumbnailUrl에 저장한다.")
+        void updateThumbnail_success() {
+            // given
+            Long gachaId = createTargetGacha();
+
+            // when
+            ExtractableResponse<Response> response = RestAssured.given().log().all()
+                    .multiPart("image", "thumbnail.png", "image-content".getBytes(), "image/png")
+                    .when()
+                    .put("/api/v1/gachas/{gachaId}/thumbnail", gachaId)
+                    .then().log().all()
+                    .extract();
+
+            // then
+            assertThat(response.statusCode()).isEqualTo(HttpStatus.OK.value());
+            assertThat(response.jsonPath().getString("data.thumbnailUrl"))
+                    .isEqualTo("https://test-bucket.s3.amazonaws.com/test/gacha/uploaded.png");
+            assertThat(gachaRepository.getById(gachaId).getThumbnailUrl())
+                    .isEqualTo("https://test-bucket.s3.amazonaws.com/test/gacha/uploaded.png");
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 가챠에 이미지를 업로드하면 404 Not Found를 반환한다.")
+        void updateThumbnail_gachaNotFound() {
+            // when
+            ExtractableResponse<Response> response = RestAssured.given().log().all()
+                    .multiPart("image", "thumbnail.png", "image-content".getBytes(), "image/png")
+                    .when()
+                    .put("/api/v1/gachas/{gachaId}/thumbnail", 999_999L)
+                    .then().log().all()
+                    .extract();
+
+            // then
+            assertThat(response.statusCode()).isEqualTo(HttpStatus.NOT_FOUND.value());
+        }
+    }
+
+    @Nested
+    @DisplayName("DELETE /gachas/{gachaId}/thumbnail - 가챠 썸네일 삭제 API")
+    class DeleteThumbnail {
+
+        @Test
+        @DisplayName("썸네일을 삭제하면 Gacha의 thumbnailUrl을 비운다.")
+        void deleteThumbnail_success() {
+            // given
+            Long gachaId = createTargetGacha();
+
+            // when
+            ExtractableResponse<Response> response = RestAssured.given().log().all()
+                    .when()
+                    .delete("/api/v1/gachas/{gachaId}/thumbnail", gachaId)
+                    .then().log().all()
+                    .extract();
+
+            // then
+            assertThat(response.statusCode()).isEqualTo(HttpStatus.OK.value());
+            assertThat(response.jsonPath().getString("data.thumbnailUrl")).isNull();
+            assertThat(gachaRepository.getById(gachaId).getThumbnailUrl()).isNull();
+        }
     }
 
     @Nested
@@ -127,7 +202,7 @@ class GachaControllerTest {
                     .contentType(ContentType.JSON)
                     .body(updateRequest)
                     .when()
-                    .put("/api/v1/gachas/{gachaId}", gachaId)
+                    .patch("/api/v1/gachas/{gachaId}", gachaId)
                     .then().log().all()
                     .extract();
 
@@ -142,6 +217,8 @@ class GachaControllerTest {
                     .then()
                     .extract();
             assertThat(detailResponse.jsonPath().getString("data.category")).isEqualTo("키링");
+            assertThat(detailResponse.jsonPath().getString("data.thumbnailUrl"))
+                    .isEqualTo("https://example.com/updated.png");
             assertThat(detailResponse.jsonPath().getString("data.source")).isEqualTo("MANUAL");
         }
 
@@ -153,7 +230,6 @@ class GachaControllerTest {
             Map<String, Object> updateRequest = Map.of(
                     "name", "수정된 가챠 이름",
                     "caption", "수정된 설명",
-                    "thumbnailUrl", "https://example.com/updated.png",
                     "category", "키링"
             );
 
@@ -162,7 +238,7 @@ class GachaControllerTest {
                     .contentType(ContentType.JSON)
                     .body(updateRequest)
                     .when()
-                    .put("/api/v1/gachas/{gachaId}", nonExistentGachaId)
+                    .patch("/api/v1/gachas/{gachaId}", nonExistentGachaId)
                     .then().log().all()
                     .extract();
 
