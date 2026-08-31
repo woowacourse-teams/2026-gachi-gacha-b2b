@@ -1,5 +1,8 @@
 package com.gachi.gacha.backend.collection.presentation;
 
+import static com.gachi.gacha.backend.common.exception.ErrorCode.GACHA_COLLECTION_FAILED;
+import static com.gachi.gacha.backend.common.exception.ErrorCode.INVALID_COLLECTION_SOURCE;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
@@ -8,6 +11,7 @@ import static org.mockito.Mockito.verify;
 import com.gachi.gacha.backend.collection.application.CollectionResult;
 import com.gachi.gacha.backend.collection.application.GachaCollectionFacade;
 import com.gachi.gacha.backend.collection.domain.CollectionSource;
+import com.gachi.gacha.backend.collection.domain.GachaCollectionException;
 import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -49,7 +53,10 @@ class ManualGachaCollectionRunnerTest {
         ManualGachaCollectionRunner runner = new ManualGachaCollectionRunner(facade, "UNKNOWN");
 
         assertThatThrownBy(() -> runner.run(mock(ApplicationArguments.class)))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOfSatisfying(
+                        GachaCollectionException.class,
+                        exception -> assertThat(exception.getErrorCode()).isEqualTo(INVALID_COLLECTION_SOURCE)
+                )
                 .hasMessageContaining("BANDAI, IP4, A_MUZU, ALL");
     }
 
@@ -62,7 +69,10 @@ class ManualGachaCollectionRunnerTest {
         ManualGachaCollectionRunner runner = new ManualGachaCollectionRunner(facade, "IP4");
 
         assertThatThrownBy(() -> runner.run(mock(ApplicationArguments.class)))
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOfSatisfying(
+                        GachaCollectionException.class,
+                        exception -> assertThat(exception.getErrorCode()).isEqualTo(GACHA_COLLECTION_FAILED)
+                )
                 .hasMessageContaining("일부 가챠 수집에 실패");
     }
 }

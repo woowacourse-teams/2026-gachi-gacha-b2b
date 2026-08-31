@@ -1,8 +1,12 @@
 package com.gachi.gacha.backend.collection.infra.ip4;
 
+import static com.gachi.gacha.backend.common.exception.ErrorCode.COLLECTION_ITEM_PARSE_ERROR;
+import static com.gachi.gacha.backend.common.exception.ErrorCode.INVALID_COLLECTION_CONFIGURATION;
+
 import com.gachi.gacha.backend.collection.domain.CollectedGacha;
 import com.gachi.gacha.backend.collection.domain.CollectionSource;
 import com.gachi.gacha.backend.collection.domain.GachaCollector;
+import com.gachi.gacha.backend.collection.domain.GachaCollectionException;
 import com.gachi.gacha.backend.collection.infra.HtmlFetcher;
 import java.time.Clock;
 import java.time.YearMonth;
@@ -47,10 +51,16 @@ public class Ip4GachaCollector implements GachaCollector {
             final Clock clock
     ) {
         if (!listUrlTemplate.contains("%s")) {
-            throw new IllegalArgumentException("IP4 목록 URL 템플릿에 %s가 필요합니다.");
+            throw new GachaCollectionException(
+                    INVALID_COLLECTION_CONFIGURATION,
+                    "IP4 목록 URL 템플릿에 %s가 필요합니다."
+            );
         }
         if (maxPages < 1 || startMonthOffset < 0 || collectionMonths < 1) {
-            throw new IllegalArgumentException("IP4 최대 페이지 수와 수집 개월 수는 1 이상이고 시작 월 간격은 0 이상이어야 합니다.");
+            throw new GachaCollectionException(
+                    INVALID_COLLECTION_CONFIGURATION,
+                    "IP4 최대 페이지 수와 수집 개월 수는 1 이상이고 시작 월 간격은 0 이상이어야 합니다."
+            );
         }
         this.htmlFetcher = htmlFetcher;
         this.listUrlTemplate = listUrlTemplate;
@@ -143,12 +153,18 @@ public class Ip4GachaCollector implements GachaCollector {
         Document detailDocument = Jsoup.parse(htmlFetcher.fetch(detailUrl), detailUrl);
         Element shortLink = detailDocument.selectFirst("link[rel=shortlink]");
         if (shortLink == null) {
-            throw new IllegalStateException("IP4 shortlink를 찾을 수 없습니다. url=" + detailUrl);
+            throw new GachaCollectionException(
+                    COLLECTION_ITEM_PARSE_ERROR,
+                    "IP4 shortlink를 찾을 수 없습니다. url=" + detailUrl
+            );
         }
 
         Matcher matcher = POST_ID_PATTERN.matcher(shortLink.attr("href"));
         if (!matcher.find()) {
-            throw new IllegalStateException("IP4 게시물 ID를 찾을 수 없습니다. url=" + detailUrl);
+            throw new GachaCollectionException(
+                    COLLECTION_ITEM_PARSE_ERROR,
+                    "IP4 게시물 ID를 찾을 수 없습니다. url=" + detailUrl
+            );
         }
         return matcher.group(1);
     }

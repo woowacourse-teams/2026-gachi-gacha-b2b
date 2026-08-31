@@ -1,8 +1,12 @@
 package com.gachi.gacha.backend.collection.presentation;
 
+import static com.gachi.gacha.backend.common.exception.ErrorCode.GACHA_COLLECTION_FAILED;
+import static com.gachi.gacha.backend.common.exception.ErrorCode.INVALID_COLLECTION_SOURCE;
+
 import com.gachi.gacha.backend.collection.application.CollectionResult;
 import com.gachi.gacha.backend.collection.application.GachaCollectionFacade;
 import com.gachi.gacha.backend.collection.domain.CollectionSource;
+import com.gachi.gacha.backend.collection.domain.GachaCollectionException;
 import java.util.List;
 import java.util.Locale;
 import org.slf4j.Logger;
@@ -40,7 +44,10 @@ public class ManualGachaCollectionRunner implements ApplicationRunner {
         results.forEach(this::logResult);
 
         if (results.stream().anyMatch(result -> !result.succeeded())) {
-            throw new IllegalStateException("일부 가챠 수집에 실패했습니다. 로그를 확인해 주세요.");
+            throw new GachaCollectionException(
+                    GACHA_COLLECTION_FAILED,
+                    "일부 가챠 수집에 실패했습니다. 로그를 확인해 주세요."
+            );
         }
     }
 
@@ -51,7 +58,10 @@ public class ManualGachaCollectionRunner implements ApplicationRunner {
 
         CollectionSource source = parseSource(sourceName);
         if (!source.isCollectable()) {
-            throw new IllegalArgumentException("수동 수집을 지원하지 않는 출처입니다. source=" + sourceName);
+            throw new GachaCollectionException(
+                    INVALID_COLLECTION_SOURCE,
+                    "수동 수집을 지원하지 않는 출처입니다. source=" + sourceName
+            );
         }
         return List.of(collectionFacade.collect(source));
     }
@@ -62,7 +72,8 @@ public class ManualGachaCollectionRunner implements ApplicationRunner {
                     value.trim().toUpperCase(Locale.ROOT).replace('-', '_')
             );
         } catch (IllegalArgumentException exception) {
-            throw new IllegalArgumentException(
+            throw new GachaCollectionException(
+                    INVALID_COLLECTION_SOURCE,
                     "지원하는 수동 수집 출처는 BANDAI, IP4, A_MUZU, ALL입니다. source=" + value,
                     exception
             );

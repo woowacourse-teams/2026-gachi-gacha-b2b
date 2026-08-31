@@ -1,5 +1,6 @@
 package com.gachi.gacha.backend.collection.application;
 
+import static com.gachi.gacha.backend.common.exception.ErrorCode.COLLECTION_SOURCE_MISMATCH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyCollection;
@@ -13,6 +14,7 @@ import static org.mockito.Mockito.verify;
 
 import com.gachi.gacha.backend.collection.domain.CollectedGacha;
 import com.gachi.gacha.backend.collection.domain.CollectionSource;
+import com.gachi.gacha.backend.collection.domain.GachaCollectionException;
 import com.gachi.gacha.backend.common.infra.application.ImageUploader;
 import com.gachi.gacha.backend.common.infra.domain.ImageType;
 import com.gachi.gacha.backend.common.util.S3TransactionManager;
@@ -97,7 +99,10 @@ class GachaCollectionServiceTest {
         );
 
         assertThatThrownBy(() -> service.saveNewGachas(CollectionSource.BANDAI, collectedGachas))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOfSatisfying(
+                        GachaCollectionException.class,
+                        exception -> assertThat(exception.getErrorCode()).isEqualTo(COLLECTION_SOURCE_MISMATCH)
+                );
         verify(gachaRepository, never()).saveAll(org.mockito.ArgumentMatchers.<Gacha>anyList());
     }
 

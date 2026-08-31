@@ -1,5 +1,7 @@
 package com.gachi.gacha.backend.collection.domain;
 
+import static com.gachi.gacha.backend.common.exception.ErrorCode.INVALID_COLLECTED_GACHA;
+
 public record CollectedGacha(
         CollectionSource source,
         String productCode,
@@ -10,16 +12,16 @@ public record CollectedGacha(
 
     public CollectedGacha {
         if (source == null || !source.isCollectable()) {
-            throw new IllegalArgumentException("수집 가능한 출처가 필요합니다.");
+            throw new GachaCollectionException(INVALID_COLLECTED_GACHA, "수집 가능한 출처가 필요합니다.");
         }
         if (productCode == null || productCode.isBlank()) {
-            throw new IllegalArgumentException("상품 코드가 필요합니다.");
+            throw new GachaCollectionException(INVALID_COLLECTED_GACHA, "상품 코드가 필요합니다.");
         }
         if (name == null || name.isBlank()) {
-            throw new IllegalArgumentException("상품명이 필요합니다.");
+            throw new GachaCollectionException(INVALID_COLLECTED_GACHA, "상품명이 필요합니다.");
         }
         if (imageUrl == null || imageUrl.isBlank()) {
-            throw new IllegalArgumentException("이미지 URL이 필요합니다.");
+            throw new GachaCollectionException(INVALID_COLLECTED_GACHA, "이미지 URL이 필요합니다.");
         }
 
         productCode = productCode.trim();

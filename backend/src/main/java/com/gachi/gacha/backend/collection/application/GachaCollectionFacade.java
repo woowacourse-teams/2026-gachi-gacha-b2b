@@ -1,8 +1,12 @@
 package com.gachi.gacha.backend.collection.application;
 
+import static com.gachi.gacha.backend.common.exception.ErrorCode.INVALID_COLLECTION_CONFIGURATION;
+import static com.gachi.gacha.backend.common.exception.ErrorCode.INVALID_COLLECTION_SOURCE;
+
 import com.gachi.gacha.backend.collection.domain.CollectedGacha;
 import com.gachi.gacha.backend.collection.domain.CollectionSource;
 import com.gachi.gacha.backend.collection.domain.GachaCollector;
+import com.gachi.gacha.backend.collection.domain.GachaCollectionException;
 import java.time.Instant;
 import java.util.EnumMap;
 import java.util.List;
@@ -54,7 +58,10 @@ public class GachaCollectionFacade {
     private GachaCollector findCollector(final CollectionSource source) {
         GachaCollector collector = collectors.get(source);
         if (collector == null) {
-            throw new IllegalArgumentException("지원하지 않는 수집 출처입니다. source=" + source);
+            throw new GachaCollectionException(
+                    INVALID_COLLECTION_SOURCE,
+                    "지원하지 않는 수집 출처입니다. source=" + source
+            );
         }
         return collector;
     }
@@ -64,7 +71,10 @@ public class GachaCollectionFacade {
         for (GachaCollector collector : collectorList) {
             GachaCollector previous = indexed.put(collector.source(), collector);
             if (previous != null) {
-                throw new IllegalStateException("수집기가 중복 등록되었습니다. source=" + collector.source());
+                throw new GachaCollectionException(
+                        INVALID_COLLECTION_CONFIGURATION,
+                        "수집기가 중복 등록되었습니다. source=" + collector.source()
+                );
             }
         }
         return Map.copyOf(indexed);

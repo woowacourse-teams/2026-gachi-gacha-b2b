@@ -1,9 +1,11 @@
 package com.gachi.gacha.backend.collection.infra.ip4;
 
+import static com.gachi.gacha.backend.common.exception.ErrorCode.GACHA_COLLECTION_FAILED;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.gachi.gacha.backend.collection.domain.CollectedGacha;
 import com.gachi.gacha.backend.collection.domain.CollectionSource;
+import com.gachi.gacha.backend.collection.domain.GachaCollectionException;
 import com.gachi.gacha.backend.collection.infra.HtmlFetcher;
 import java.time.Clock;
 import java.time.Instant;
@@ -56,7 +58,7 @@ class Ip4GachaCollectorTest {
                         </html>
                         """;
             }
-            throw new IllegalArgumentException("예상하지 못한 URL: " + url);
+            throw new GachaCollectionException(GACHA_COLLECTION_FAILED, "예상하지 못한 URL: " + url);
         };
         Ip4GachaCollector collector = new Ip4GachaCollector(
                 htmlFetcher,
@@ -93,7 +95,7 @@ class Ip4GachaCollectorTest {
             if (url.equals(secondPageUrl)) {
                 return "<div id=\"cupsuletoy\"><ul></ul></div>";
             }
-            throw new IllegalArgumentException("예상하지 못한 URL: " + url);
+            throw new GachaCollectionException(GACHA_COLLECTION_FAILED, "예상하지 못한 URL: " + url);
         };
         Ip4GachaCollector collector = new Ip4GachaCollector(
                 htmlFetcher,

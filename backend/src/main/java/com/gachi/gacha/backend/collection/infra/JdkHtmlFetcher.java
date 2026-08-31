@@ -1,5 +1,8 @@
 package com.gachi.gacha.backend.collection.infra;
 
+import static com.gachi.gacha.backend.common.exception.ErrorCode.COLLECTION_HTTP_REQUEST_FAILED;
+import static com.gachi.gacha.backend.common.exception.ErrorCode.COLLECTION_INTERRUPTED;
+
 import com.gachi.gacha.backend.collection.domain.GachaCollectionException;
 import java.io.IOException;
 import java.net.URI;
@@ -51,15 +54,24 @@ public class JdkHtmlFetcher implements HtmlFetcher {
             );
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
                 throw new GachaCollectionException(
+                        COLLECTION_HTTP_REQUEST_FAILED,
                         "HTML 요청에 실패했습니다. status=" + response.statusCode() + ", url=" + url
                 );
             }
             return response.body();
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
-            throw new GachaCollectionException("HTML 요청 중 인터럽트가 발생했습니다. url=" + url, exception);
+            throw new GachaCollectionException(
+                    COLLECTION_INTERRUPTED,
+                    "HTML 요청 중 인터럽트가 발생했습니다. url=" + url,
+                    exception
+            );
         } catch (IOException exception) {
-            throw new GachaCollectionException("HTML 요청에 실패했습니다. url=" + url, exception);
+            throw new GachaCollectionException(
+                    COLLECTION_HTTP_REQUEST_FAILED,
+                    "HTML 요청에 실패했습니다. url=" + url,
+                    exception
+            );
         }
     }
 
@@ -80,7 +92,11 @@ public class JdkHtmlFetcher implements HtmlFetcher {
             Thread.sleep(millis, nanos);
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
-            throw new GachaCollectionException("요청 대기 중 인터럽트가 발생했습니다.", exception);
+            throw new GachaCollectionException(
+                    COLLECTION_INTERRUPTED,
+                    "요청 대기 중 인터럽트가 발생했습니다.",
+                    exception
+            );
         }
     }
 }

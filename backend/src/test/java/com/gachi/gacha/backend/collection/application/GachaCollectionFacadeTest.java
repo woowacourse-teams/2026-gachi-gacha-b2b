@@ -1,5 +1,6 @@
 package com.gachi.gacha.backend.collection.application;
 
+import static com.gachi.gacha.backend.common.exception.ErrorCode.GACHA_COLLECTION_FAILED;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
@@ -8,6 +9,7 @@ import static org.mockito.Mockito.verify;
 import com.gachi.gacha.backend.collection.domain.CollectedGacha;
 import com.gachi.gacha.backend.collection.domain.CollectionSource;
 import com.gachi.gacha.backend.collection.domain.GachaCollector;
+import com.gachi.gacha.backend.collection.domain.GachaCollectionException;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -22,7 +24,9 @@ class GachaCollectionFacadeTest {
         CollectedGacha ip4Gacha = gacha(CollectionSource.IP4, "414");
         CollectedGacha amuzuGacha = gacha(CollectionSource.A_MUZU, "C69710");
 
-        given(bandaiCollector.collect()).willThrow(new IllegalStateException("수집 실패"));
+        given(bandaiCollector.collect()).willThrow(
+                new GachaCollectionException(GACHA_COLLECTION_FAILED, "수집 실패")
+        );
         given(ip4Collector.collect()).willReturn(List.of(ip4Gacha));
         given(amuzuCollector.collect()).willReturn(List.of(amuzuGacha));
         given(service.saveNewGachas(CollectionSource.IP4, List.of(ip4Gacha))).willReturn(1);

@@ -1,8 +1,11 @@
 package com.gachi.gacha.backend.collection.infra.bandai;
 
+import static com.gachi.gacha.backend.common.exception.ErrorCode.INVALID_COLLECTION_CONFIGURATION;
+
 import com.gachi.gacha.backend.collection.domain.CollectedGacha;
 import com.gachi.gacha.backend.collection.domain.CollectionSource;
 import com.gachi.gacha.backend.collection.domain.GachaCollector;
+import com.gachi.gacha.backend.collection.domain.GachaCollectionException;
 import com.gachi.gacha.backend.collection.infra.HtmlFetcher;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
@@ -36,7 +39,10 @@ public class BandaiGachaCollector implements GachaCollector {
             @Value("${collection.sources.bandai.max-pages:100}") final int maxPages
     ) {
         if (startPage < 1 || maxPages < 1) {
-            throw new IllegalArgumentException("Bandai 시작 페이지와 최대 페이지 수는 1 이상이어야 합니다.");
+            throw new GachaCollectionException(
+                    INVALID_COLLECTION_CONFIGURATION,
+                    "Bandai 시작 페이지와 최대 페이지 수는 1 이상이어야 합니다."
+            );
         }
         this.htmlFetcher = htmlFetcher;
         this.listUrl = listUrl;

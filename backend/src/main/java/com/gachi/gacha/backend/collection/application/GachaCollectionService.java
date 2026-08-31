@@ -1,7 +1,10 @@
 package com.gachi.gacha.backend.collection.application;
 
+import static com.gachi.gacha.backend.common.exception.ErrorCode.COLLECTION_SOURCE_MISMATCH;
+
 import com.gachi.gacha.backend.collection.domain.CollectedGacha;
 import com.gachi.gacha.backend.collection.domain.CollectionSource;
+import com.gachi.gacha.backend.collection.domain.GachaCollectionException;
 import com.gachi.gacha.backend.common.infra.application.ImageUploader;
 import com.gachi.gacha.backend.common.infra.domain.ImageType;
 import com.gachi.gacha.backend.common.util.S3TransactionManager;
@@ -66,7 +69,7 @@ public class GachaCollectionService {
         List<String> uploadedImageUrls = new ArrayList<>();
         s3TransactionManager.deleteImagesOnRollback(ImageType.GACHA, null, uploadedImageUrls);
         Map<String, Category> categoriesByName = categoryService.resolve(newCollectedGachas.stream()
-                        .map(CollectedGacha::category)
+                .map(CollectedGacha::category)
                         .toList())
                 .stream()
                 .collect(java.util.stream.Collectors.toMap(Category::getName, category -> category));
@@ -85,7 +88,7 @@ public class GachaCollectionService {
         Map<String, CollectedGacha> uniqueGachas = new LinkedHashMap<>();
         for (CollectedGacha collectedGacha : collectedGachas) {
             if (collectedGacha.source() != source) {
-                throw new IllegalArgumentException("수집 출처가 일치하지 않습니다.");
+                throw new GachaCollectionException(COLLECTION_SOURCE_MISMATCH);
             }
             uniqueGachas.putIfAbsent(collectedGacha.productCode(), collectedGacha);
         }
