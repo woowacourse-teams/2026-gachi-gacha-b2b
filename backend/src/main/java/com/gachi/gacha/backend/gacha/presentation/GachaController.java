@@ -10,6 +10,7 @@ import com.gachi.gacha.backend.gacha.presentation.dto.GachaDeleteResponse;
 import com.gachi.gacha.backend.gacha.presentation.dto.GachaResponse;
 import com.gachi.gacha.backend.gacha.presentation.dto.GachaUpdateRequest;
 import com.gachi.gacha.backend.gacha.presentation.dto.GachaUpdateResponse;
+import com.gachi.gacha.backend.usecase.application.StoreGachaFacade;
 import jakarta.validation.Valid;
 import java.net.URI;
 import lombok.RequiredArgsConstructor;
@@ -35,6 +36,7 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 public class GachaController {
 
     private final GachaService gachaService;
+    private final StoreGachaFacade storeGachaFacade;
 
     @PostMapping
     public ResponseEntity<BaseResponse<GachaResponse>> createGacha(@Valid @RequestBody final GachaCreateRequest request) {
@@ -57,7 +59,7 @@ public class GachaController {
 
     @DeleteMapping("/{gachaId}")
     public BaseResponse<GachaDeleteResponse> deleteGacha(@PathVariable final Long gachaId) {
-        GachaDeleteResult result = gachaService.remove(gachaId);
+        GachaDeleteResult result = storeGachaFacade.removeGacha(gachaId);
         return BaseResponse.deleted(GachaDeleteResponse.from(result));
     }
 

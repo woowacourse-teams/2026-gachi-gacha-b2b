@@ -11,6 +11,7 @@ import com.gachi.gacha.backend.store.application.dto.StoreDeleteResult;
 import com.gachi.gacha.backend.store.application.dto.StoreDetailResult;
 import com.gachi.gacha.backend.store.application.dto.StoreDetailUpdate;
 import com.gachi.gacha.backend.store.application.dto.StoreListResult;
+import com.gachi.gacha.backend.store.application.dto.StoreNearbyResult;
 import com.gachi.gacha.backend.store.application.dto.StoreUpdateCommand;
 import com.gachi.gacha.backend.store.application.dto.StoreUpdateResult;
 import com.gachi.gacha.backend.store.domain.Store;
@@ -19,6 +20,7 @@ import com.gachi.gacha.backend.store.domain.StoreDetailJpaRepository;
 import com.gachi.gacha.backend.store.domain.StoreImage;
 import com.gachi.gacha.backend.store.domain.StoreImageJpaRepository;
 import com.gachi.gacha.backend.store.domain.StoreJpaRepository;
+import com.gachi.gacha.backend.store.domain.exception.InvalidNearbyRequestException;
 import com.gachi.gacha.backend.store.domain.exception.StoreNotFoundException;
 import java.util.ArrayList;
 import java.util.List;
@@ -37,6 +39,8 @@ import org.springframework.web.multipart.MultipartFile;
 @Transactional(readOnly = true)
 @RequiredArgsConstructor
 public class StoreService {
+    private static final int MIN_SEARCH_RADIUS = 100;
+    private static final int MAX_SEARCH_RADIUS = 20_000;
 
     private final StoreJpaRepository storeJpaRepository;
     private final StoreDetailJpaRepository storeDetailJpaRepository;
@@ -46,6 +50,34 @@ public class StoreService {
 
     @Value("${cloud.aws.s3.folder}")
     private String s3RootFolder;
+
+    public StoreNearbyResult findNearbyStores(
+            final Double latitude,
+            final Double longitude,
+            final Integer radius,
+            final Integer floor
+    ) {
+        validateNearbyRequest(latitude, longitude, radius, floor);
+
+        List<StoreJpaRepository.StoreWithDistance> nearbyStores = storeJpaRepository.findNearbyStores(latitude,
+                longitude, radius, floor);
+
+        List<StoreNearbyResult.StoreInfo> storeInfos = nearbyStores.stream()
+                .map(result -> StoreNearbyResult.StoreInfo.builder()
+                        .name(result.getName())
+                        .storeId(result.getStoreId())
+                        .thumbnailUrl(result.getThumbnailUrl())
+                        .address(result.getAddress())
+                        .floor(result.getFloor())
+                        .unit(result.getUnit())
+                        .latitude(result.getLatitude())
+                        .longitude(result.getLongitude())
+                        .distance(result.getDistance())
+                        .build())
+                .toList();
+
+        return StoreNearbyResult.of(latitude, longitude, radius, storeInfos);
+    }
 
     public Page<StoreListResult> findStores(final Pageable pageable) {
         validatePageRequest(pageable);
@@ -181,5 +213,25 @@ public class StoreService {
                 command.hasRandomBox(),
                 command.hasSelectGacha()
         );
+    }
+
+    private void validateNearbyRequest(
+            final Double latitude,
+            final Double longitude,
+            final Integer radius,
+            final Integer floor
+    ) {
+        if (latitude == null || !Double.isFinite(latitude) || latitude < -90 || latitude > 90) {
+            throw new InvalidNearbyRequestException(ErrorCode.INVALID_NEARBY_REQUEST);
+        }
+        if (longitude == null || !Double.isFinite(longitude) || longitude < -180 || longitude > 180) {
+            throw new InvalidNearbyRequestException(ErrorCode.INVALID_NEARBY_REQUEST);
+        }
+        if (radius == null || radius < MIN_SEARCH_RADIUS || radius > MAX_SEARCH_RADIUS) {
+            throw new InvalidNearbyRequestException(ErrorCode.INVALID_NEARBY_REQUEST);
+        }
+        if (floor != null && floor == 0) {
+            throw new InvalidNearbyRequestException(ErrorCode.INVALID_NEARBY_REQUEST);
+        }
     }
 }
