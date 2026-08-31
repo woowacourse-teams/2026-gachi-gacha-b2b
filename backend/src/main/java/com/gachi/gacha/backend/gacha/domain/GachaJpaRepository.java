@@ -4,6 +4,7 @@ import com.gachi.gacha.backend.collection.domain.CollectionSource;
 import com.gachi.gacha.backend.common.exception.ErrorCode;
 import com.gachi.gacha.backend.gacha.domain.exception.GachaNotFoundException;
 import java.util.Collection;
+import java.util.List;
 import java.util.Set;
 import org.jspecify.annotations.NonNull;
 import org.springframework.data.domain.Page;
@@ -21,6 +22,8 @@ public interface GachaJpaRepository extends JpaRepository<Gacha, Long> {
     }
 
     Page<Gacha> findByNameContaining(final String keyword, final Pageable pageable);
+
+    List<String> findInstagramMediaIdByInstagramMediaIdIn(final List<String> instagramMediaIds);
 
     @Query("""
             select g.productCode

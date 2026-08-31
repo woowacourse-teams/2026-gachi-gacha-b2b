@@ -35,6 +35,12 @@ cloud:
       folder: ${AWS_S3_FOLDER}
 
 collection:
+  instagram:
+    enabled: ${COLLECTION_INSTAGRAM_ENABLED:false}
+    api:
+      uri: "${META_API_URI:https://graph.facebook.com/v26.0}"
+      user-id: ${META_IG_USER_ID:}
+      access-token: ${META_ACCESS_TOKEN:}
   manual:
     enabled: ${COLLECTION_MANUAL_ENABLED:false}
     source: ${COLLECTION_MANUAL_SOURCE:BANDAI}

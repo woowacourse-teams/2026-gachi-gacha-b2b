@@ -9,6 +9,9 @@ import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
@@ -33,6 +36,9 @@ public class ImageUploader {
 
     @Value("${cloud.aws.s3.bucket}")
     private String bucket;
+
+    @Value("${collection.http.user-agent:Mozilla/5.0}")
+    private String externalImageUserAgent;
 
     public String upload(final MultipartFile file, final String path) {
         String contentType = validateContentType(file.getContentType());
@@ -145,7 +151,14 @@ public class ImageUploader {
      */
     private ResponseEntity<byte[]> downloadImage(final String sourceUrl) {
         try {
-            ResponseEntity<byte[]> response = restTemplate.getForEntity(sourceUrl, byte[].class);
+            final HttpHeaders headers = new HttpHeaders();
+            headers.set(HttpHeaders.USER_AGENT, externalImageUserAgent);
+            final ResponseEntity<byte[]> response = restTemplate.exchange(
+                    sourceUrl,
+                    HttpMethod.GET,
+                    new HttpEntity<>(headers),
+                    byte[].class
+            );
             if (response.getBody() == null || response.getBody().length == 0) {
                 throw new S3Exception(ErrorCode.S3_IMAGE_DOWNLOAD_ERROR);
             }
