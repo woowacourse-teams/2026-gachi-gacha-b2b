@@ -55,8 +55,7 @@ HTTP API 또는 MSW
 이 계약은 프론트엔드 개발을 위한 초안이며 백엔드 계약으로 확정된 것이 아닙니다.
 
 ```text
-GET  /api/b2b/sources
-GET  /api/b2b/classifications?status=UNCLASSIFIED&source=BANDAI&query=
+GET  /api/b2b/classifications?status=UNCLASSIFIED&minId=100&maxId=200&query=
 GET  /api/b2b/classifications/:gachaId
 PUT  /api/b2b/classifications/:gachaId/classify
 POST /api/b2b/classifications/:gachaId/skip
@@ -78,7 +77,7 @@ DELETE /api/b2b/categories/:categoryId
 
 건너뛰기는 삭제가 아니라 `SKIPPED` 상태 전환으로 모델링했습니다. 실제 백엔드도 작업자·시각·사유를 기록하고 복구 API를 제공해야 합니다.
 
-`source`는 `BANDAI`, `AMUSE`, `INSTAGRAM`처럼 데이터를 수집한 채널을 의미합니다. 홍대, 국제전자센터 같은 지역 정보는 `location`으로 분리합니다. 첫 화면은 source별 폴더와 분류 대기 개수를 보여주며, 저장 후 다음 항목도 같은 source 안에서 선택합니다.
+첫 화면은 미분류 데이터를 `gachaId` 오름차순으로 보여줍니다. 작업자는 시작 ID와 종료 ID를 입력해 담당 범위만 조회할 수 있고, 저장하거나 건너뛴 뒤에도 같은 범위 안의 다음 ID로 이동합니다. `source`와 `location`은 수집 경로를 추적하기 위한 카드 메타데이터로만 사용합니다.
 
 카테고리 삭제는 분류 데이터에서 사용되지 않은 경우에만 허용합니다. 이미 사용 중인 카테고리는 `409 Conflict`를 반환하며, 실제 백엔드에서는 물리 삭제보다 비활성화 정책을 우선 검토해야 합니다.
 
@@ -87,11 +86,12 @@ DELETE /api/b2b/categories/:categoryId
 - 관리자 인증 및 `credentials: include` 쿠키 정책 확정
 - CSRF 정책 확정
 - S3가 비공개라면 조회용 Presigned URL 응답 적용
-- 목록 페이지네이션 또는 커서 규약 반영
+- `gachaId` 오름차순 정렬과 `minId`·`maxId` 포함 범위 조회 규약 확정
+- ID 범위를 유지하는 목록 페이지네이션 또는 커서 규약 반영
 - `version`을 이용한 낙관적 잠금과 `409 Conflict` 처리 연결
 - 다중 작업자 claim/lease 정책 반영
 - 카테고리 중복 판정 및 비활성화 정책 반영
-- source 종류와 location 필드의 실제 DB 규약 반영
+- source 종류와 location 필드의 실제 DB 규약 반영(조회 그룹 기준으로 사용하지 않음)
 - 분류 저장 후 DB 재조회 통합 테스트 추가
 - 건너뛰기 사유와 감사 로그 저장 확인
 - MSW 계약 테스트를 실제 API 계약 테스트로 갱신
