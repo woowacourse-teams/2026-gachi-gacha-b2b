@@ -16,12 +16,18 @@ export interface ClassificationItem {
   imageUrl: string;
   name: string;
   originalFileName: string;
-  sourceLabel: string;
+  source: string;
+  locationLabel: string;
   description: string;
   categoryIds: number[];
   status: ClassificationStatus;
   version: number;
   createdAt: string;
+}
+
+export interface SourceFolder {
+  name: string;
+  pendingCount: number;
 }
 
 export interface ClassificationQueue {

@@ -25,6 +25,16 @@ export const Heading = styled.h1`
   letter-spacing: -0.04em;
 `;
 
+export const FolderBackButton = styled.button`
+  margin-bottom: 12px;
+  padding: 5px 0;
+  border: 0;
+  color: ${colors.brand};
+  background: transparent;
+  font-size: 14px;
+  font-weight: 800;
+`;
+
 export const Description = styled.p`
   margin: 10px 0 0;
   color: ${colors.textMuted};
@@ -144,16 +154,24 @@ export const ImageWrap = styled.div`
   }
 `;
 
-export const StatusBadge = styled.span<{ status: 'UNCLASSIFIED' | 'SKIPPED' }>`
+export const StatusBadge = styled.span<{
+  status: 'UNCLASSIFIED' | 'CLASSIFIED' | 'SKIPPED';
+}>`
   position: absolute;
   top: 12px;
   right: 12px;
   padding: 6px 10px;
   border-radius: ${radii.round};
-  color: ${({ status }) =>
-    status === 'UNCLASSIFIED' ? colors.brand : colors.warning};
-  background: ${({ status }) =>
-    status === 'UNCLASSIFIED' ? colors.brandSoft : '#fff3df'};
+  color: ${({ status }) => {
+    if (status === 'UNCLASSIFIED') return colors.brand;
+    if (status === 'CLASSIFIED') return colors.success;
+    return colors.warning;
+  }};
+  background: ${({ status }) => {
+    if (status === 'UNCLASSIFIED') return colors.brandSoft;
+    if (status === 'CLASSIFIED') return '#eaf7ef';
+    return '#fff3df';
+  }};
   font-size: 12px;
   font-weight: 800;
 `;
@@ -191,6 +209,23 @@ export const Caption = styled.p`
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
+`;
+
+export const CategoryTags = styled.div`
+  display: flex;
+  min-height: 30px;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 14px;
+`;
+
+export const CategoryTag = styled.span`
+  padding: 5px 9px;
+  border-radius: ${radii.round};
+  color: ${colors.brand};
+  background: ${colors.brandSoft};
+  font-size: 12px;
+  font-weight: 800;
 `;
 
 export const CardButton = styled.button<{ secondary?: boolean }>`

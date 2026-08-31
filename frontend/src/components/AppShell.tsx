@@ -14,7 +14,7 @@ import {
 
 interface AppShellProps {
   children: ReactNode;
-  currentSection: 'UNCLASSIFIED' | 'SKIPPED';
+  currentSection: 'UNCLASSIFIED' | 'CLASSIFIED' | 'SKIPPED';
   onNavigate: (path: string) => void;
 }
 
@@ -42,6 +42,14 @@ export default function AppShell({
           >
             <span aria-hidden>▣</span>
             <span>미분류 데이터</span>
+          </NavigationButton>
+          <NavigationButton
+            active={currentSection === 'CLASSIFIED'}
+            type="button"
+            onClick={() => onNavigate('/classified')}
+          >
+            <span aria-hidden>✓</span>
+            <span>분류 완료</span>
           </NavigationButton>
           <NavigationButton
             active={currentSection === 'SKIPPED'}

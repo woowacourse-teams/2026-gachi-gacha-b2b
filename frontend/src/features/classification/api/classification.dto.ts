@@ -11,11 +11,17 @@ export interface ClassificationItemDto {
   displayName: string | null;
   originalFileName: string;
   source: string;
+  location: string;
   caption: string | null;
   categoryIds: number[];
   status: ClassificationStatus;
   version: number;
   createdAt: string;
+}
+
+export interface SourceFolderDto {
+  source: string;
+  pendingCount: number;
 }
 
 export interface ClassificationQueueDto {

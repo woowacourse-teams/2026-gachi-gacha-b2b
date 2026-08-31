@@ -9,12 +9,14 @@ import type {
   CreateCategoryRequestDto,
   RestoreGachaRequestDto,
   SkipGachaRequestDto,
+  SourceFolderDto,
 } from './classification.dto';
 import {
   toCategory,
   toClassificationItem,
   toClassificationQueue,
   toClassificationResult,
+  toSourceFolder,
 } from './toClassification';
 import type {
   Category,
@@ -22,18 +24,28 @@ import type {
   ClassificationItem,
   ClassificationResult,
   ClassificationStatus,
+  SourceFolder,
 } from '../model/classification';
 
 export interface QueueQuery {
   status: ClassificationStatus;
   query: string;
+  source?: string;
 }
 
-export const getClassificationQueue = async ({ status, query }: QueueQuery) => {
+export const getClassificationQueue = async ({
+  status,
+  query,
+  source,
+}: QueueQuery) => {
   const searchParams = new URLSearchParams({ status });
 
   if (query.trim()) {
     searchParams.set('query', query.trim());
+  }
+
+  if (source) {
+    searchParams.set('source', source);
   }
 
   const dto = await request<ClassificationQueueDto>(
@@ -41,6 +53,12 @@ export const getClassificationQueue = async ({ status, query }: QueueQuery) => {
   );
 
   return toClassificationQueue(dto);
+};
+
+export const getSourceFolders = async (): Promise<SourceFolder[]> => {
+  const dtos = await request<SourceFolderDto[]>('/sources');
+
+  return dtos.map(toSourceFolder);
 };
 
 export const getClassificationItem = async (
@@ -67,6 +85,10 @@ export const createCategory = async (name: string): Promise<Category> => {
   });
 
   return toCategory(dto);
+};
+
+export const deleteCategory = async (categoryId: number): Promise<void> => {
+  await request<void>(`/categories/${categoryId}`, { method: 'DELETE' });
 };
 
 export const classifyGacha = async (

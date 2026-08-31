@@ -3,7 +3,7 @@ import type {
   ClassificationItemDto,
 } from '@/features/classification/api/classification.dto';
 
-export const categories: CategoryDto[] = [
+const initialCategories: CategoryDto[] = [
   { categoryId: 1, categoryName: '제일복권' },
   { categoryId: 2, categoryName: '산리오' },
   { categoryId: 3, categoryName: '캐릭터' },
@@ -13,13 +13,14 @@ export const categories: CategoryDto[] = [
   { categoryId: 7, categoryName: '미니어처' },
 ];
 
-export const classificationItems: ClassificationItemDto[] = [
+const initialClassificationItems: ClassificationItemDto[] = [
   {
     gachaId: 101,
     thumbnailUrl: '/mock/gacha-pink.svg',
     displayName: '귀여운 토끼 피규어',
     originalFileName: 'instagram_2026_0829_001.jpg',
-    source: '홍대 가챠샵 A',
+    source: 'BANDAI',
+    location: '홍대',
     caption: '핑크 컬러 캐릭터 피규어 신상품',
     categoryIds: [],
     status: 'UNCLASSIFIED',
@@ -31,7 +32,8 @@ export const classificationItems: ClassificationItemDto[] = [
     thumbnailUrl: '/mock/gacha-blue.svg',
     displayName: '로봇 전사 블루',
     originalFileName: 'instagram_2026_0829_002.jpg',
-    source: '홍대 가챠샵 A',
+    source: 'BANDAI',
+    location: '홍대',
     caption: '메카 컬렉션 시리즈',
     categoryIds: [],
     status: 'UNCLASSIFIED',
@@ -43,7 +45,8 @@ export const classificationItems: ClassificationItemDto[] = [
     thumbnailUrl: '/mock/gacha-green.svg',
     displayName: null,
     originalFileName: 'instagram_2026_0829_003.jpg',
-    source: '국제전자센터 9층 B매장',
+    source: 'AMUSE',
+    location: '국제전자센터 9층',
     caption: '내용물 미확인 캡슐',
     categoryIds: [],
     status: 'UNCLASSIFIED',
@@ -55,7 +58,8 @@ export const classificationItems: ClassificationItemDto[] = [
     thumbnailUrl: '/mock/gacha-sushi.svg',
     displayName: '미니어처 초밥 세트',
     originalFileName: 'instagram_2026_0829_004.jpg',
-    source: '국제전자센터 9층 B매장',
+    source: 'AMUSE',
+    location: '국제전자센터 9층',
     caption: '초밥 미니어처 5종 세트',
     categoryIds: [],
     status: 'UNCLASSIFIED',
@@ -67,7 +71,8 @@ export const classificationItems: ClassificationItemDto[] = [
     thumbnailUrl: '/mock/gacha-pink.svg',
     displayName: '산리오 미니 피규어',
     originalFileName: 'instagram_2026_0829_005.jpg',
-    source: '홍대 캡슐샵 C',
+    source: 'INSTAGRAM',
+    location: '홍대',
     caption: '산리오 캐릭터 미니 피규어',
     categoryIds: [],
     status: 'UNCLASSIFIED',
@@ -79,7 +84,8 @@ export const classificationItems: ClassificationItemDto[] = [
     thumbnailUrl: '/mock/gacha-blue.svg',
     displayName: '중복 수집 이미지',
     originalFileName: 'instagram_2026_0829_006.jpg',
-    source: '홍대 캡슐샵 C',
+    source: 'INSTAGRAM',
+    location: '홍대',
     caption: '분류 중 중복으로 확인된 데이터',
     categoryIds: [],
     status: 'SKIPPED',
@@ -87,3 +93,19 @@ export const classificationItems: ClassificationItemDto[] = [
     createdAt: '2026-08-29T10:36:00+09:00',
   },
 ];
+
+const cloneCategories = () =>
+  initialCategories.map((category) => ({ ...category }));
+const cloneItems = () =>
+  initialClassificationItems.map((item) => ({
+    ...item,
+    categoryIds: [...item.categoryIds],
+  }));
+
+export const categories = cloneCategories();
+export const classificationItems = cloneItems();
+
+export const resetMockData = () => {
+  categories.splice(0, categories.length, ...cloneCategories());
+  classificationItems.splice(0, classificationItems.length, ...cloneItems());
+};

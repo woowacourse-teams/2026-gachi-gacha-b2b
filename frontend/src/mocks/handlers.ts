@@ -20,10 +20,18 @@ const isStatus = (value: string | null): value is ClassificationStatus =>
 const findItem = (itemId: number) =>
   classificationItems.find((item) => item.gachaId === itemId);
 
-const getNextItemId = (currentItemId: number) =>
-  classificationItems.find(
-    (item) => item.status === 'UNCLASSIFIED' && item.gachaId !== currentItemId,
-  )?.gachaId ?? null;
+const getNextItemId = (currentItemId: number) => {
+  const currentItem = findItem(currentItemId);
+
+  return (
+    classificationItems.find(
+      (item) =>
+        item.status === 'UNCLASSIFIED' &&
+        item.gachaId !== currentItemId &&
+        item.source === currentItem?.source,
+    )?.gachaId ?? null
+  );
+};
 
 const conflict = () =>
   HttpResponse.json(
@@ -42,13 +50,14 @@ export const handlers = [
       .get('query')
       ?.trim()
       .toLocaleLowerCase('ko-KR');
+    const source = url.searchParams.get('source');
     const statusItems = classificationItems.filter(
-      (item) => item.status === status,
+      (item) => item.status === status && (!source || item.source === source),
     );
     const items = query
       ? statusItems.filter((item) =>
-          [item.displayName, item.caption, item.source].some((value) =>
-            value?.toLocaleLowerCase('ko-KR').includes(query),
+          [item.displayName, item.caption, item.source, item.location].some(
+            (value) => value?.toLocaleLowerCase('ko-KR').includes(query),
           ),
         )
       : statusItems;
@@ -62,6 +71,26 @@ export const handlers = [
         (item) => item.status === 'SKIPPED',
       ).length,
     });
+  }),
+
+  http.get(apiPath('/sources'), async () => {
+    await delay(150);
+
+    const sourceCounts = classificationItems.reduce<Map<string, number>>(
+      (counts, item) => {
+        const pendingCount = item.status === 'UNCLASSIFIED' ? 1 : 0;
+        counts.set(item.source, (counts.get(item.source) ?? 0) + pendingCount);
+        return counts;
+      },
+      new Map(),
+    );
+
+    return HttpResponse.json(
+      [...sourceCounts.entries()].map(([source, pendingCount]) => ({
+        source,
+        pendingCount,
+      })),
+    );
   }),
 
   http.get(apiPath('/classifications/:itemId'), async ({ params }) => {
@@ -226,5 +255,36 @@ export const handlers = [
     categories.push(category);
 
     return HttpResponse.json(category, { status: 201 });
+  }),
+
+  http.delete(apiPath('/categories/:categoryId'), async ({ params }) => {
+    await delay(180);
+
+    const categoryId = Number(params.categoryId);
+    const categoryIndex = categories.findIndex(
+      (category) => category.categoryId === categoryId,
+    );
+
+    if (categoryIndex < 0) {
+      return HttpResponse.json(
+        { message: '카테고리를 찾을 수 없습니다.' },
+        { status: 404 },
+      );
+    }
+
+    const isInUse = classificationItems.some((item) =>
+      item.categoryIds.includes(categoryId),
+    );
+
+    if (isInUse) {
+      return HttpResponse.json(
+        { message: '분류 데이터에 사용 중인 카테고리는 삭제할 수 없습니다.' },
+        { status: 409 },
+      );
+    }
+
+    categories.splice(categoryIndex, 1);
+
+    return new HttpResponse(null, { status: 204 });
   }),
 ];

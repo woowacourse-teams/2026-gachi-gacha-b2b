@@ -3,12 +3,14 @@ import type {
   ClassificationItemDto,
   ClassificationQueueDto,
   ClassificationResultDto,
+  SourceFolderDto,
 } from './classification.dto';
 import type {
   Category,
   ClassificationItem,
   ClassificationQueue,
   ClassificationResult,
+  SourceFolder,
 } from '../model/classification';
 
 export const toCategory = (dto: CategoryDto): Category => ({
@@ -23,7 +25,8 @@ export const toClassificationItem = (
   imageUrl: dto.thumbnailUrl,
   name: dto.displayName ?? '',
   originalFileName: dto.originalFileName,
-  sourceLabel: dto.source,
+  source: dto.source,
+  locationLabel: dto.location,
   description: dto.caption ?? '',
   categoryIds: dto.categoryIds,
   status: dto.status,
@@ -43,4 +46,9 @@ export const toClassificationResult = (
   dto: ClassificationResultDto,
 ): ClassificationResult => ({
   nextItemId: dto.nextGachaId,
+});
+
+export const toSourceFolder = (dto: SourceFolderDto): SourceFolder => ({
+  name: dto.source,
+  pendingCount: dto.pendingCount,
 });

@@ -31,6 +31,7 @@ import {
 import {
   classifyGacha,
   createCategory,
+  deleteCategory,
   getCategories,
   getClassificationItem,
   getClassificationQueue,
@@ -86,11 +87,15 @@ export default function ClassificationPage({
       setHasImageError(false);
 
       try {
-        const [loadedItem, loadedCategories, queue] = await Promise.all([
+        const [loadedItem, loadedCategories] = await Promise.all([
           getClassificationItem(itemId),
           getCategories(),
-          getClassificationQueue({ status: 'UNCLASSIFIED', query: '' }),
         ]);
+        const queue = await getClassificationQueue({
+          status: 'UNCLASSIFIED',
+          query: '',
+          source: loadedItem.source,
+        });
 
         if (!isCurrent) return;
 
@@ -100,7 +105,7 @@ export default function ClassificationPage({
           name: loadedItem.name,
           categoryIds: loadedItem.categoryIds,
         });
-        setRemainingCount(queue.totalCount);
+        setRemainingCount(queue.items.length);
       } catch (cause) {
         if (isCurrent) setError(getErrorMessage(cause));
       } finally {
@@ -205,6 +210,21 @@ export default function ClassificationPage({
     );
   };
 
+  const handleDeleteCategory = async (categoryId: number) => {
+    await deleteCategory(categoryId);
+    setCategories((current) =>
+      current.filter((category) => category.id !== categoryId),
+    );
+    setDraft((current) =>
+      current
+        ? {
+            ...current,
+            categoryIds: current.categoryIds.filter((id) => id !== categoryId),
+          }
+        : current,
+    );
+  };
+
   useEffect(() => {
     const handleShortcut = (event: KeyboardEvent) => {
       if (
@@ -249,6 +269,11 @@ export default function ClassificationPage({
   ]);
 
   const handleBack = () => {
+    if (!item) {
+      onNavigate('/');
+      return;
+    }
+
     if (
       isDirty &&
       !window.confirm('저장하지 않은 변경사항이 있습니다. 나갈까요?')
@@ -256,7 +281,7 @@ export default function ClassificationPage({
       return;
     }
 
-    onNavigate('/');
+    onNavigate(`/sources/${encodeURIComponent(item.source)}`);
   };
 
   if (isLoading) {
@@ -286,7 +311,10 @@ export default function ClassificationPage({
           ← 목록으로
         </BackButton>
         <HeaderTitle>데이터 분류 작업</HeaderTitle>
-        <ItemCount>남은 항목 {remainingCount ?? '-'}개</ItemCount>
+        <ItemCount>
+          {item.source} · {item.locationLabel} · 남은 항목{' '}
+          {remainingCount ?? '-'}개
+        </ItemCount>
       </Header>
 
       <Workspace>
@@ -371,7 +399,7 @@ export default function ClassificationPage({
                 type="button"
                 onClick={() => setIsCategoryDialogOpen(true)}
               >
-                + 카테고리 추가
+                + 카테고리 관리
               </AddCategoryButton>
             </FieldHeader>
             <CategoryGrid>
@@ -433,6 +461,7 @@ export default function ClassificationPage({
           categories={categories}
           onClose={() => setIsCategoryDialogOpen(false)}
           onCreate={handleCreateCategory}
+          onDelete={handleDeleteCategory}
         />
       )}
       {isSkipDialogOpen && (

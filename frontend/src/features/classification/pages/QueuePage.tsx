@@ -9,8 +9,11 @@ import {
   CardButton,
   CardGrid,
   CardTitle,
+  CategoryTag,
+  CategoryTags,
   Description,
   ErrorMessage,
+  FolderBackButton,
   Header,
   Heading,
   ImageWrap,
@@ -24,20 +27,31 @@ import {
   StatusBadge,
   Toolbar,
 } from './QueuePage.styles';
-import { getClassificationQueue, restoreGacha } from '../api/classificationApi';
+import {
+  getCategories,
+  getClassificationQueue,
+  restoreGacha,
+} from '../api/classificationApi';
 import type {
+  Category,
   ClassificationItem,
   ClassificationQueue,
 } from '../model/classification';
 
 interface QueuePageProps {
-  status: 'UNCLASSIFIED' | 'SKIPPED';
+  source: string | undefined;
+  status: 'UNCLASSIFIED' | 'CLASSIFIED' | 'SKIPPED';
   onNavigate: (path: string) => void;
 }
 
-export default function QueuePage({ status, onNavigate }: QueuePageProps) {
+export default function QueuePage({
+  source,
+  status,
+  onNavigate,
+}: QueuePageProps) {
   const [query, setQuery] = useState('');
   const [queue, setQueue] = useState<ClassificationQueue | null>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [restoringId, setRestoringId] = useState<number | null>(null);
@@ -47,13 +61,20 @@ export default function QueuePage({ status, onNavigate }: QueuePageProps) {
     setError('');
 
     try {
-      setQueue(await getClassificationQueue({ status, query }));
+      const queueQuery = source ? { status, query, source } : { status, query };
+      const [loadedQueue, loadedCategories] = await Promise.all([
+        getClassificationQueue(queueQuery),
+        getCategories(),
+      ]);
+
+      setQueue(loadedQueue);
+      setCategories(loadedCategories);
     } catch (cause) {
       setError(getErrorMessage(cause));
     } finally {
       setIsLoading(false);
     }
-  }, [query, status]);
+  }, [query, source, status]);
 
   useEffect(() => {
     void loadQueue();
@@ -75,17 +96,34 @@ export default function QueuePage({ status, onNavigate }: QueuePageProps) {
 
   const firstItem = queue?.items[0];
   const isSkippedView = status === 'SKIPPED';
+  const isClassifiedView = status === 'CLASSIFIED';
+  const title = isSkippedView
+    ? '건너뛴 데이터'
+    : isClassifiedView
+      ? '분류 완료 데이터'
+      : `${source ?? '미분류'} 폴더`;
+  const description = isSkippedView
+    ? '제외했던 데이터를 확인하고 분류 대기 상태로 복구합니다.'
+    : isClassifiedView
+      ? '저장된 이름과 카테고리를 확인합니다. MSW에서는 새로고침 전까지 유지됩니다.'
+      : `${source ?? '선택한 출처'}에서 수집한 가챠 데이터만 분류합니다.`;
+  const statusLabel = isSkippedView
+    ? '건너뜀'
+    : isClassifiedView
+      ? '분류 완료'
+      : '분류 대기';
 
   return (
     <Page>
       <Header>
         <div>
-          <Heading>{isSkippedView ? '건너뛴 데이터' : '미분류 데이터'}</Heading>
-          <Description>
-            {isSkippedView
-              ? '제외했던 데이터를 확인하고 분류 대기 상태로 복구합니다.'
-              : '크롤링된 가챠 이미지와 이름을 확인하고 카테고리를 지정합니다.'}
-          </Description>
+          {status === 'UNCLASSIFIED' && source && (
+            <FolderBackButton type="button" onClick={() => onNavigate('/')}>
+              ← 출처 폴더로
+            </FolderBackButton>
+          )}
+          <Heading>{title}</Heading>
+          <Description>{description}</Description>
         </div>
         <Stats aria-label="분류 현황">
           <Stat>
@@ -104,13 +142,13 @@ export default function QueuePage({ status, onNavigate }: QueuePageProps) {
           <span aria-hidden>⌕&nbsp;</span>
           <input
             aria-label="가챠 데이터 검색"
-            placeholder="이름, 설명, 매장으로 검색"
+            placeholder="이름, 설명, 출처, 지역으로 검색"
             type="search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
           />
         </SearchLabel>
-        {!isSkippedView && (
+        {status === 'UNCLASSIFIED' && (
           <PrimaryButton
             disabled={!firstItem}
             type="button"
@@ -136,12 +174,12 @@ export default function QueuePage({ status, onNavigate }: QueuePageProps) {
                   src={item.imageUrl}
                   alt={`${item.name || '이름 미정'} 이미지`}
                 />
-                <StatusBadge status={status}>
-                  {isSkippedView ? '건너뜀' : '분류 대기'}
-                </StatusBadge>
+                <StatusBadge status={status}>{statusLabel}</StatusBadge>
               </ImageWrap>
               <CardBody>
-                <Source>{item.sourceLabel}</Source>
+                <Source>
+                  {item.source} · {item.locationLabel}
+                </Source>
                 <CardTitle>{item.name || '이름을 입력해 주세요'}</CardTitle>
                 <Caption>{item.description || item.originalFileName}</Caption>
                 {isSkippedView ? (
@@ -155,13 +193,27 @@ export default function QueuePage({ status, onNavigate }: QueuePageProps) {
                       ? '복구 중...'
                       : '분류 대기로 복구'}
                   </CardButton>
-                ) : (
+                ) : status === 'UNCLASSIFIED' ? (
                   <CardButton
                     type="button"
                     onClick={() => onNavigate(`/classify/${item.id}`)}
                   >
                     분류하기&nbsp; →
                   </CardButton>
+                ) : (
+                  <CategoryTags aria-label="저장된 카테고리">
+                    {item.categoryIds.map((categoryId) => {
+                      const category = categories.find(
+                        ({ id }) => id === categoryId,
+                      );
+
+                      return category ? (
+                        <CategoryTag key={category.id}>
+                          {category.name}
+                        </CategoryTag>
+                      ) : null;
+                    })}
+                  </CategoryTags>
                 )}
               </CardBody>
             </Card>
@@ -175,7 +227,9 @@ export default function QueuePage({ status, onNavigate }: QueuePageProps) {
             </strong>
             {isSkippedView
               ? '건너뛴 데이터가 생기면 이곳에서 복구할 수 있습니다.'
-              : '새로운 크롤링 데이터가 들어오면 이곳에 표시됩니다.'}
+              : isClassifiedView
+                ? '분류를 완료하면 저장 결과가 이곳에 표시됩니다.'
+                : '이 출처의 분류 대기 데이터가 없습니다.'}
           </div>
         </StatePanel>
       )}

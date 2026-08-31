@@ -1,23 +1,43 @@
 import { useCallback, useEffect, useState } from 'react';
 
 export type AppRoute =
-  | { page: 'queue'; status: 'UNCLASSIFIED' | 'SKIPPED' }
+  | { page: 'sources' }
+  | {
+      page: 'queue';
+      status: 'UNCLASSIFIED' | 'CLASSIFIED' | 'SKIPPED';
+      source?: string;
+    }
   | { page: 'classify'; itemId: number };
 
 const ROUTE_CHANGE_EVENT = 'gachi-gacha:route-change';
 
 const parseRoute = (): AppRoute => {
-  const match = window.location.pathname.match(/^\/classify\/(\d+)$/);
+  const classifyMatch = window.location.pathname.match(/^\/classify\/(\d+)$/);
 
-  if (match) {
-    return { page: 'classify', itemId: Number(match[1]) };
+  if (classifyMatch) {
+    return { page: 'classify', itemId: Number(classifyMatch[1]) };
+  }
+
+  const sourceMatch = window.location.pathname.match(/^\/sources\/([^/]+)$/);
+  const encodedSource = sourceMatch?.[1];
+
+  if (encodedSource) {
+    return {
+      page: 'queue',
+      status: 'UNCLASSIFIED',
+      source: decodeURIComponent(encodedSource),
+    };
+  }
+
+  if (window.location.pathname === '/classified') {
+    return { page: 'queue', status: 'CLASSIFIED' };
   }
 
   if (window.location.pathname === '/skipped') {
     return { page: 'queue', status: 'SKIPPED' };
   }
 
-  return { page: 'queue', status: 'UNCLASSIFIED' };
+  return { page: 'sources' };
 };
 
 export const useAppRoute = () => {

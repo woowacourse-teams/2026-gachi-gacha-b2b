@@ -41,5 +41,9 @@ export const request = async <Response>(
     throw new ApiError(message, response.status);
   }
 
+  if (response.status === 204) {
+    return undefined as Response;
+  }
+
   return response.json() as Promise<Response>;
 };
