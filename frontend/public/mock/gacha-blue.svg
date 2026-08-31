@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 460" role="img" aria-labelledby="title">
+  <title id="title">파란색 로봇 피규어 목업</title>
+  <defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#f4f8ff"/><stop offset="1" stop-color="#dbe2ec"/></linearGradient></defs>
+  <rect width="640" height="460" fill="url(#bg)"/><ellipse cx="320" cy="390" rx="126" ry="24" fill="#9aa8bb" opacity=".45"/>
+  <path d="M270 92h100l38 66-32 76H264l-32-76z" fill="#416da6"/><rect x="273" y="135" width="94" height="48" rx="10" fill="#d8efff"/><circle cx="301" cy="159" r="9" fill="#172434"/><circle cx="340" cy="159" r="9" fill="#172434"/>
+  <path d="M252 226h136l24 122H228z" fill="#2e5f9b"/><rect x="284" y="250" width="72" height="58" rx="8" fill="#9ec7e8"/><path d="M228 244l-62 70 38 28 52-56M412 244l62 70-38 28-52-56" fill="#416da6"/><path d="M267 341l-18 65h48l23-65M373 341l18 65h-48l-23-65" fill="#294e7d"/>
+</svg>

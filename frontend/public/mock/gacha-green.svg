@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 460" role="img" aria-labelledby="title">
+  <title id="title">초록색 개구리 캡슐 목업</title>
+  <defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fbfff1"/><stop offset="1" stop-color="#e1e7da"/></linearGradient></defs>
+  <rect width="640" height="460" fill="url(#bg)"/><ellipse cx="320" cy="382" rx="132" ry="25" fill="#a9b49e" opacity=".4"/>
+  <circle cx="320" cy="245" r="137" fill="#b8d83c" opacity=".86"/><circle cx="245" cy="134" r="51" fill="#b8d83c"/><circle cx="395" cy="134" r="51" fill="#b8d83c"/><circle cx="245" cy="134" r="16" fill="#303b25"/><circle cx="395" cy="134" r="16" fill="#303b25"/>
+  <path d="M259 253q61 66 122 0" fill="none" stroke="#526427" stroke-width="8" stroke-linecap="round"/><path d="M184 244h272" stroke="#f4f8df" stroke-width="8" opacity=".8"/>
+</svg>
