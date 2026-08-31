@@ -1,5 +1,7 @@
 package com.gachi.gacha.backend.gacha.domain;
 
+import com.gachi.gacha.backend.common.exception.BusinessException;
+import com.gachi.gacha.backend.common.exception.ErrorCode;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -24,6 +26,17 @@ public class Category {
     private String name;
 
     public Category(final String name) {
-        this.name = name;
+        this.name = normalize(name);
+    }
+
+    public void rename(final String name) {
+        this.name = normalize(name);
+    }
+
+    private String normalize(final String name) {
+        if (name == null || name.isBlank() || name.trim().length() > 100) {
+            throw new BusinessException(ErrorCode.INVALID_CATEGORY_POLICY);
+        }
+        return name.trim();
     }
 }

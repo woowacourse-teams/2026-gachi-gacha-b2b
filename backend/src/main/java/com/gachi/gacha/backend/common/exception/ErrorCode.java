@@ -18,6 +18,11 @@ public enum ErrorCode {
     GACHA_NOT_FOUND(HttpStatus.NOT_FOUND, "GE001", "존재하지 않는 가챠입니다."),
     INVALID_GACHA_POLICY(HttpStatus.BAD_REQUEST, "GE002", "유효하지 않은 가챠 정책입니다."),
 
+    // Category
+    CATEGORY_NOT_FOUND(HttpStatus.NOT_FOUND, "CAE01", "존재하지 않는 카테고리입니다."),
+    CATEGORY_ALREADY_EXISTS(HttpStatus.CONFLICT, "CAE02", "이미 존재하는 카테고리입니다."),
+    INVALID_CATEGORY_POLICY(HttpStatus.BAD_REQUEST, "CAE03", "유효하지 않은 카테고리입니다."),
+
     // Store
     STORE_NOT_FOUND(HttpStatus.NOT_FOUND, "SE001", "존재하지 않는 매장입니다."),
     INVALID_STORE_POLICY(HttpStatus.BAD_REQUEST, "SE002", "유효하지 않은 매장 정보입니다."),

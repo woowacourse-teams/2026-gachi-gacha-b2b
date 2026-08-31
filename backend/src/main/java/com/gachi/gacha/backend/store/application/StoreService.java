@@ -2,7 +2,6 @@ package com.gachi.gacha.backend.store.application;
 
 import com.gachi.gacha.backend.common.exception.ErrorCode;
 import com.gachi.gacha.backend.common.exception.InvalidPageRequestException;
-import com.gachi.gacha.backend.common.infra.application.ImageUploader;
 import com.gachi.gacha.backend.common.infra.domain.ImageType;
 import com.gachi.gacha.backend.common.util.S3TransactionManager;
 import com.gachi.gacha.backend.store.application.dto.StoreCreateCommand;
@@ -22,18 +21,15 @@ import com.gachi.gacha.backend.store.domain.StoreImageJpaRepository;
 import com.gachi.gacha.backend.store.domain.StoreJpaRepository;
 import com.gachi.gacha.backend.store.domain.exception.InvalidNearbyRequestException;
 import com.gachi.gacha.backend.store.domain.exception.StoreNotFoundException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.multipart.MultipartFile;
 
 @Service
 @Transactional(readOnly = true)
@@ -46,10 +42,6 @@ public class StoreService {
     private final StoreDetailJpaRepository storeDetailJpaRepository;
     private final StoreImageJpaRepository storeImageJpaRepository;
     private final S3TransactionManager s3TransactionManager;
-    private final ImageUploader imageUploader;
-
-    @Value("${cloud.aws.s3.folder}")
-    private String s3RootFolder;
 
     public StoreNearbyResult findNearbyStores(
             final Double latitude,
@@ -97,11 +89,10 @@ public class StoreService {
     }
 
     @Transactional
-    public StoreCreateResult addStore(final StoreCreateCommand command, final List<MultipartFile> images) {
+    public StoreCreateResult addStore(final StoreCreateCommand command) {
         Store store = command.toStore();
         Store savedStore = storeJpaRepository.save(store);
         storeDetailJpaRepository.save(command.toStoreDetail(savedStore));
-        saveStoreImages(savedStore, images);
 
         return StoreCreateResult.from(savedStore);
     }
@@ -150,25 +141,6 @@ public class StoreService {
 
     public Slice<StoreDetail> findStoresWithInstagram(Pageable pageable) {
         return storeDetailJpaRepository.findAllByInstagramIdIsNotNull(pageable);
-    }
-
-    private void saveStoreImages(final Store store, final List<MultipartFile> images) {
-        if (images == null || images.isEmpty()) {
-            return;
-        }
-
-        List<String> uploadedImageUrls = new ArrayList<>();
-        s3TransactionManager.deleteImagesOnRollback(ImageType.STORE, store.getId(), uploadedImageUrls);
-
-        List<StoreImage> storeImages = images.stream()
-                .map(file -> {
-                    String imageUrl = imageUploader.upload(file, ImageType.STORE.buildPath(s3RootFolder));
-                    uploadedImageUrls.add(imageUrl);
-                    return new StoreImage(store, imageUrl);
-                })
-                .toList();
-
-        storeImageJpaRepository.saveAll(storeImages);
     }
 
     private Map<Long, StoreDetail> findStoreDetails(final Page<Store> stores) {

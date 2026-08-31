@@ -6,7 +6,6 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.gachi.gacha.backend.common.infra.application.ImageUploader;
 import com.gachi.gacha.backend.store.domain.StoreJpaRepository;
 import com.gachi.gacha.backend.usecase.domain.StoreGachaJpaRepository;
@@ -38,8 +37,6 @@ class StoreControllerTest {
     private static final String STORE_ADDRESS = "서울시 마포구 테스트로 1";
     private static final double STORE_LATITUDE = 37.5299;
     private static final double STORE_LONGITUDE = 126.9648;
-
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     @LocalServerPort
     private int port;
@@ -645,16 +642,12 @@ class StoreControllerTest {
     }
 
     private ExtractableResponse<Response> requestCreateStore(final Map<String, Object> request) {
-        try {
-            return RestAssured.given().log().all()
-                    .multiPart("request", "request.json", OBJECT_MAPPER.writeValueAsBytes(request), "application/json")
-                    .multiPart("images", "store-image.png", "dummy-image-content".getBytes(), "image/png")
-                    .when()
-                    .post("/api/v1/stores")
-                    .then().log().all()
-                    .extract();
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        return RestAssured.given().log().all()
+                .contentType(ContentType.JSON)
+                .body(request)
+                .when()
+                .post("/api/v1/stores")
+                .then().log().all()
+                .extract();
     }
 }

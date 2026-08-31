@@ -9,4 +9,8 @@ import org.springframework.stereotype.Repository;
 public interface CategoryJpaRepository extends JpaRepository<Category, Long> {
 
     List<Category> findAllByNameIn(Collection<String> names);
+
+    List<Category> findAllByOrderByNameAsc();
+
+    boolean existsByName(String name);
 }
