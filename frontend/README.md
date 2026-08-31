@@ -48,18 +48,22 @@ HTTP API 또는 MSW
 - 실제 백엔드 응답이 확정되면 DTO, 변환 함수, API 경로를 먼저 수정합니다.
 - MSW 핸들러는 실제 서버의 상태 전이를 흉내 내며 목 데이터 원본은 `src/mocks/data.ts`에 있습니다.
 
+현재 저장소에는 백엔드 애플리케이션이 없으므로 MSW 저장 결과만 검증할 수 있습니다. 실제 DB 반영 여부는 백엔드 API가 추가된 뒤 통합 환경에서 별도로 검증해야 합니다.
+
 ## 임시 API 계약
 
 이 계약은 프론트엔드 개발을 위한 초안이며 백엔드 계약으로 확정된 것이 아닙니다.
 
 ```text
-GET  /api/b2b/classifications?status=UNCLASSIFIED&query=
+GET  /api/b2b/sources
+GET  /api/b2b/classifications?status=UNCLASSIFIED&source=BANDAI&query=
 GET  /api/b2b/classifications/:gachaId
 PUT  /api/b2b/classifications/:gachaId/classify
 POST /api/b2b/classifications/:gachaId/skip
 POST /api/b2b/classifications/:gachaId/restore
 GET  /api/b2b/categories
 POST /api/b2b/categories
+DELETE /api/b2b/categories/:categoryId
 ```
 
 분류 저장 요청 예시:
@@ -74,6 +78,10 @@ POST /api/b2b/categories
 
 건너뛰기는 삭제가 아니라 `SKIPPED` 상태 전환으로 모델링했습니다. 실제 백엔드도 작업자·시각·사유를 기록하고 복구 API를 제공해야 합니다.
 
+`source`는 `BANDAI`, `AMUSE`, `INSTAGRAM`처럼 데이터를 수집한 채널을 의미합니다. 홍대, 국제전자센터 같은 지역 정보는 `location`으로 분리합니다. 첫 화면은 source별 폴더와 분류 대기 개수를 보여주며, 저장 후 다음 항목도 같은 source 안에서 선택합니다.
+
+카테고리 삭제는 분류 데이터에서 사용되지 않은 경우에만 허용합니다. 이미 사용 중인 카테고리는 `409 Conflict`를 반환하며, 실제 백엔드에서는 물리 삭제보다 비활성화 정책을 우선 검토해야 합니다.
+
 ## 실제 API 연결 체크리스트
 
 - 관리자 인증 및 `credentials: include` 쿠키 정책 확정
@@ -83,6 +91,8 @@ POST /api/b2b/categories
 - `version`을 이용한 낙관적 잠금과 `409 Conflict` 처리 연결
 - 다중 작업자 claim/lease 정책 반영
 - 카테고리 중복 판정 및 비활성화 정책 반영
+- source 종류와 location 필드의 실제 DB 규약 반영
+- 분류 저장 후 DB 재조회 통합 테스트 추가
 - 건너뛰기 사유와 감사 로그 저장 확인
 - MSW 계약 테스트를 실제 API 계약 테스트로 갱신
 
