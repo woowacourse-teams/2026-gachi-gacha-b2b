@@ -43,11 +43,14 @@ import { toggleCategory } from '../model/category';
 import type {
   Category,
   ClassificationDraft,
+  ClassificationIdRange,
   ClassificationItem,
 } from '../model/classification';
 
 interface ClassificationPageProps {
   itemId: number;
+  minId: number | undefined;
+  maxId: number | undefined;
   onNavigate: (path: string) => void;
 }
 
@@ -58,8 +61,24 @@ const isTextInput = (target: EventTarget | null) =>
   target instanceof HTMLElement &&
   Boolean(target.closest('input, textarea, select, [contenteditable="true"]'));
 
+const withIdRange = (
+  pathname: string,
+  { minId, maxId }: ClassificationIdRange,
+) => {
+  const searchParams = new URLSearchParams();
+
+  if (minId !== undefined) searchParams.set('minId', String(minId));
+  if (maxId !== undefined) searchParams.set('maxId', String(maxId));
+
+  return searchParams.size
+    ? `${pathname}?${searchParams.toString()}`
+    : pathname;
+};
+
 export default function ClassificationPage({
   itemId,
+  minId,
+  maxId,
   onNavigate,
 }: ClassificationPageProps) {
   const [item, setItem] = useState<ClassificationItem | null>(null);
@@ -74,6 +93,13 @@ export default function ClassificationPage({
   const [skipError, setSkipError] = useState('');
   const [zoom, setZoom] = useState(1);
   const [hasImageError, setHasImageError] = useState(false);
+  const idRange = useMemo<ClassificationIdRange>(
+    () => ({
+      ...(minId === undefined ? {} : { minId }),
+      ...(maxId === undefined ? {} : { maxId }),
+    }),
+    [maxId, minId],
+  );
 
   useEffect(() => {
     let isCurrent = true;
@@ -94,7 +120,7 @@ export default function ClassificationPage({
         const queue = await getClassificationQueue({
           status: 'UNCLASSIFIED',
           query: '',
-          source: loadedItem.source,
+          ...idRange,
         });
 
         if (!isCurrent) return;
@@ -118,7 +144,7 @@ export default function ClassificationPage({
     return () => {
       isCurrent = false;
     };
-  }, [itemId]);
+  }, [idRange, itemId]);
 
   const isDirty = useMemo(
     () =>
@@ -149,13 +175,13 @@ export default function ClassificationPage({
   const moveToNext = useCallback(
     (nextItemId: number | null) => {
       if (nextItemId === null) {
-        onNavigate('/');
+        onNavigate(withIdRange('/', idRange));
         return;
       }
 
-      onNavigate(`/classify/${nextItemId}`);
+      onNavigate(withIdRange(`/classify/${nextItemId}`, idRange));
     },
-    [onNavigate],
+    [idRange, onNavigate],
   );
 
   const handleSave = useCallback(async () => {
@@ -173,14 +199,14 @@ export default function ClassificationPage({
     setError('');
 
     try {
-      const result = await classifyGacha(item, draft);
+      const result = await classifyGacha(item, draft, idRange);
       moveToNext(result.nextItemId);
     } catch (cause) {
       setError(getErrorMessage(cause));
     } finally {
       setIsSubmitting(false);
     }
-  }, [draft, item, moveToNext]);
+  }, [draft, idRange, item, moveToNext]);
 
   const handleSkip = async (reason: string) => {
     if (!item) return;
@@ -189,7 +215,7 @@ export default function ClassificationPage({
     setSkipError('');
 
     try {
-      const result = await skipGacha(item, reason);
+      const result = await skipGacha(item, reason, idRange);
       setIsSkipDialogOpen(false);
       moveToNext(result.nextItemId);
     } catch (cause) {
@@ -281,7 +307,7 @@ export default function ClassificationPage({
       return;
     }
 
-    onNavigate(`/sources/${encodeURIComponent(item.source)}`);
+    onNavigate(withIdRange('/', idRange));
   };
 
   if (isLoading) {
@@ -312,7 +338,7 @@ export default function ClassificationPage({
         </BackButton>
         <HeaderTitle>데이터 분류 작업</HeaderTitle>
         <ItemCount>
-          {item.source} · {item.locationLabel} · 남은 항목{' '}
+          ID #{item.id} · {item.source} · {item.locationLabel} · 남은 항목{' '}
           {remainingCount ?? '-'}개
         </ItemCount>
       </Header>

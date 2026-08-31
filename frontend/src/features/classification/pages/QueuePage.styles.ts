@@ -25,16 +25,6 @@ export const Heading = styled.h1`
   letter-spacing: -0.04em;
 `;
 
-export const FolderBackButton = styled.button`
-  margin-bottom: 12px;
-  padding: 5px 0;
-  border: 0;
-  color: ${colors.brand};
-  background: transparent;
-  font-size: 14px;
-  font-weight: 800;
-`;
-
 export const Description = styled.p`
   margin: 10px 0 0;
   color: ${colors.textMuted};
@@ -70,6 +60,7 @@ export const Stat = styled.div`
 
 export const Toolbar = styled.div`
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
@@ -78,6 +69,51 @@ export const Toolbar = styled.div`
   @media (max-width: 560px) {
     align-items: stretch;
     flex-direction: column;
+  }
+`;
+
+export const IdRangeForm = styled.form`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  @media (max-width: 560px) {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+  }
+`;
+
+export const IdInput = styled.input`
+  width: 108px;
+  min-height: 42px;
+  padding: 0 12px;
+  border: 1px solid ${colors.border};
+  border-radius: ${radii.small};
+  outline: 0;
+  background: ${colors.surface};
+
+  &:focus {
+    border-color: ${colors.brand};
+  }
+
+  @media (max-width: 560px) {
+    width: 100%;
+  }
+`;
+
+export const RangeButton = styled.button`
+  min-height: 42px;
+  padding: 0 14px;
+  border: 1px solid ${colors.brand};
+  border-radius: ${radii.small};
+  color: ${colors.brand};
+  background: ${colors.surface};
+  font-size: 13px;
+  font-weight: 800;
+
+  &:hover {
+    color: white;
+    background: ${colors.brand};
   }
 `;
 
@@ -172,6 +208,18 @@ export const StatusBadge = styled.span<{
     if (status === 'CLASSIFIED') return '#eaf7ef';
     return '#fff3df';
   }};
+  font-size: 12px;
+  font-weight: 800;
+`;
+
+export const IdBadge = styled.span`
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  padding: 6px 10px;
+  border-radius: ${radii.round};
+  color: white;
+  background: rgba(23, 26, 33, 0.82);
   font-size: 12px;
   font-weight: 800;
 `;

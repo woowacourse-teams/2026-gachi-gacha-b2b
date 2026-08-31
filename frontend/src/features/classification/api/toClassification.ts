@@ -3,14 +3,12 @@ import type {
   ClassificationItemDto,
   ClassificationQueueDto,
   ClassificationResultDto,
-  SourceFolderDto,
 } from './classification.dto';
 import type {
   Category,
   ClassificationItem,
   ClassificationQueue,
   ClassificationResult,
-  SourceFolder,
 } from '../model/classification';
 
 export const toCategory = (dto: CategoryDto): Category => ({
@@ -46,9 +44,4 @@ export const toClassificationResult = (
   dto: ClassificationResultDto,
 ): ClassificationResult => ({
   nextItemId: dto.nextGachaId,
-});
-
-export const toSourceFolder = (dto: SourceFolderDto): SourceFolder => ({
-  name: dto.source,
-  pendingCount: dto.pendingCount,
 });

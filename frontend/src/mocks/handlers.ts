@@ -20,17 +20,41 @@ const isStatus = (value: string | null): value is ClassificationStatus =>
 const findItem = (itemId: number) =>
   classificationItems.find((item) => item.gachaId === itemId);
 
-const getNextItemId = (currentItemId: number) => {
-  const currentItem = findItem(currentItemId);
+const toOptionalId = (value: string | null) => {
+  const parsed = value ? Number(value) : undefined;
+  return parsed !== undefined && Number.isSafeInteger(parsed) && parsed > 0
+    ? parsed
+    : undefined;
+};
 
-  return (
-    classificationItems.find(
+const getIdRange = (url: URL) => ({
+  minId: toOptionalId(url.searchParams.get('minId')),
+  maxId: toOptionalId(url.searchParams.get('maxId')),
+});
+
+const isInIdRange = (
+  itemId: number,
+  minId: number | undefined,
+  maxId: number | undefined,
+) =>
+  (minId === undefined || itemId >= minId) &&
+  (maxId === undefined || itemId <= maxId);
+
+const getNextItemId = (
+  currentItemId: number,
+  minId: number | undefined,
+  maxId: number | undefined,
+) => {
+  const candidates = classificationItems
+    .filter(
       (item) =>
         item.status === 'UNCLASSIFIED' &&
-        item.gachaId !== currentItemId &&
-        item.source === currentItem?.source,
-    )?.gachaId ?? null
-  );
+        item.gachaId > currentItemId &&
+        isInIdRange(item.gachaId, minId, maxId),
+    )
+    .sort((left, right) => left.gachaId - right.gachaId);
+
+  return candidates[0]?.gachaId ?? null;
 };
 
 const conflict = () =>
@@ -50,10 +74,13 @@ export const handlers = [
       .get('query')
       ?.trim()
       .toLocaleLowerCase('ko-KR');
-    const source = url.searchParams.get('source');
-    const statusItems = classificationItems.filter(
-      (item) => item.status === status && (!source || item.source === source),
-    );
+    const { minId, maxId } = getIdRange(url);
+    const statusItems = classificationItems
+      .filter(
+        (item) =>
+          item.status === status && isInIdRange(item.gachaId, minId, maxId),
+      )
+      .sort((left, right) => left.gachaId - right.gachaId);
     const items = query
       ? statusItems.filter((item) =>
           [item.displayName, item.caption, item.source, item.location].some(
@@ -71,26 +98,6 @@ export const handlers = [
         (item) => item.status === 'SKIPPED',
       ).length,
     });
-  }),
-
-  http.get(apiPath('/sources'), async () => {
-    await delay(150);
-
-    const sourceCounts = classificationItems.reduce<Map<string, number>>(
-      (counts, item) => {
-        const pendingCount = item.status === 'UNCLASSIFIED' ? 1 : 0;
-        counts.set(item.source, (counts.get(item.source) ?? 0) + pendingCount);
-        return counts;
-      },
-      new Map(),
-    );
-
-    return HttpResponse.json(
-      [...sourceCounts.entries()].map(([source, pendingCount]) => ({
-        source,
-        pendingCount,
-      })),
-    );
   }),
 
   http.get(apiPath('/classifications/:itemId'), async ({ params }) => {
@@ -113,6 +120,7 @@ export const handlers = [
     async ({ params, request }) => {
       await delay(300);
 
+      const { minId, maxId } = getIdRange(new URL(request.url));
       const item = findItem(Number(params.itemId));
       const body = (await request.json()) as ClassifyGachaRequestDto;
 
@@ -151,7 +159,9 @@ export const handlers = [
       item.status = 'CLASSIFIED';
       item.version += 1;
 
-      return HttpResponse.json({ nextGachaId: getNextItemId(item.gachaId) });
+      return HttpResponse.json({
+        nextGachaId: getNextItemId(item.gachaId, minId, maxId),
+      });
     },
   ),
 
@@ -160,6 +170,7 @@ export const handlers = [
     async ({ params, request }) => {
       await delay(250);
 
+      const { minId, maxId } = getIdRange(new URL(request.url));
       const item = findItem(Number(params.itemId));
       const body = (await request.json()) as SkipGachaRequestDto;
 
@@ -184,7 +195,9 @@ export const handlers = [
       item.status = 'SKIPPED';
       item.version += 1;
 
-      return HttpResponse.json({ nextGachaId: getNextItemId(item.gachaId) });
+      return HttpResponse.json({
+        nextGachaId: getNextItemId(item.gachaId, minId, maxId),
+      });
     },
   ),
 

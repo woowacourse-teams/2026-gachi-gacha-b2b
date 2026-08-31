@@ -13,12 +13,15 @@ import {
   CategoryTags,
   Description,
   ErrorMessage,
-  FolderBackButton,
   Header,
   Heading,
+  IdBadge,
+  IdInput,
+  IdRangeForm,
   ImageWrap,
   Page,
   PrimaryButton,
+  RangeButton,
   SearchLabel,
   Source,
   Stat,
@@ -34,22 +37,31 @@ import {
 } from '../api/classificationApi';
 import type {
   Category,
+  ClassificationIdRange,
   ClassificationItem,
   ClassificationQueue,
 } from '../model/classification';
 
 interface QueuePageProps {
-  source: string | undefined;
+  initialMinId: number | undefined;
+  initialMaxId: number | undefined;
   status: 'UNCLASSIFIED' | 'CLASSIFIED' | 'SKIPPED';
   onNavigate: (path: string) => void;
 }
 
 export default function QueuePage({
-  source,
+  initialMinId,
+  initialMaxId,
   status,
   onNavigate,
 }: QueuePageProps) {
   const [query, setQuery] = useState('');
+  const [minIdInput, setMinIdInput] = useState(
+    initialMinId === undefined ? '' : String(initialMinId),
+  );
+  const [maxIdInput, setMaxIdInput] = useState(
+    initialMaxId === undefined ? '' : String(initialMaxId),
+  );
   const [queue, setQueue] = useState<ClassificationQueue | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [error, setError] = useState('');
@@ -61,7 +73,12 @@ export default function QueuePage({
     setError('');
 
     try {
-      const queueQuery = source ? { status, query, source } : { status, query };
+      const queueQuery = {
+        status,
+        query,
+        ...(initialMinId === undefined ? {} : { minId: initialMinId }),
+        ...(initialMaxId === undefined ? {} : { maxId: initialMaxId }),
+      };
       const [loadedQueue, loadedCategories] = await Promise.all([
         getClassificationQueue(queueQuery),
         getCategories(),
@@ -74,11 +91,81 @@ export default function QueuePage({
     } finally {
       setIsLoading(false);
     }
-  }, [query, source, status]);
+  }, [initialMaxId, initialMinId, query, status]);
 
   useEffect(() => {
     void loadQueue();
   }, [loadQueue]);
+
+  useEffect(() => {
+    setMinIdInput(initialMinId === undefined ? '' : String(initialMinId));
+    setMaxIdInput(initialMaxId === undefined ? '' : String(initialMaxId));
+  }, [initialMaxId, initialMinId]);
+
+  const getListPath = (idRange: ClassificationIdRange = {}) => {
+    const pathname =
+      status === 'CLASSIFIED'
+        ? '/classified'
+        : status === 'SKIPPED'
+          ? '/skipped'
+          : '/';
+    const searchParams = new URLSearchParams();
+
+    if (idRange.minId !== undefined) {
+      searchParams.set('minId', String(idRange.minId));
+    }
+    if (idRange.maxId !== undefined) {
+      searchParams.set('maxId', String(idRange.maxId));
+    }
+
+    return searchParams.size
+      ? `${pathname}?${searchParams.toString()}`
+      : pathname;
+  };
+
+  const getClassifyPath = (itemId: number) => {
+    const searchParams = new URLSearchParams();
+
+    if (initialMinId !== undefined) {
+      searchParams.set('minId', String(initialMinId));
+    }
+    if (initialMaxId !== undefined) {
+      searchParams.set('maxId', String(initialMaxId));
+    }
+
+    const queryString = searchParams.toString();
+    return `/classify/${itemId}${queryString ? `?${queryString}` : ''}`;
+  };
+
+  const parseIdInput = (value: string) => {
+    if (!value.trim()) return undefined;
+
+    const parsed = Number(value);
+    return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
+  };
+
+  const handleIdRangeSubmit = () => {
+    const minId = parseIdInput(minIdInput);
+    const maxId = parseIdInput(maxIdInput);
+
+    if (minId === null || maxId === null) {
+      setError('ID는 1 이상의 정수로 입력해 주세요.');
+      return;
+    }
+
+    if (minId !== undefined && maxId !== undefined && minId > maxId) {
+      setError('시작 ID는 종료 ID보다 클 수 없습니다.');
+      return;
+    }
+
+    setError('');
+    onNavigate(
+      getListPath({
+        ...(minId === undefined ? {} : { minId }),
+        ...(maxId === undefined ? {} : { maxId }),
+      }),
+    );
+  };
 
   const handleRestore = async (item: ClassificationItem) => {
     setRestoringId(item.id);
@@ -101,12 +188,12 @@ export default function QueuePage({
     ? '건너뛴 데이터'
     : isClassifiedView
       ? '분류 완료 데이터'
-      : `${source ?? '미분류'} 폴더`;
+      : '미분류 데이터';
   const description = isSkippedView
     ? '제외했던 데이터를 확인하고 분류 대기 상태로 복구합니다.'
     : isClassifiedView
       ? '저장된 이름과 카테고리를 확인합니다. MSW에서는 새로고침 전까지 유지됩니다.'
-      : `${source ?? '선택한 출처'}에서 수집한 가챠 데이터만 분류합니다.`;
+      : 'DB ID 오름차순으로 확인하고 담당 범위를 지정해 분류합니다.';
   const statusLabel = isSkippedView
     ? '건너뜀'
     : isClassifiedView
@@ -117,11 +204,6 @@ export default function QueuePage({
     <Page>
       <Header>
         <div>
-          {status === 'UNCLASSIFIED' && source && (
-            <FolderBackButton type="button" onClick={() => onNavigate('/')}>
-              ← 출처 폴더로
-            </FolderBackButton>
-          )}
           <Heading>{title}</Heading>
           <Description>{description}</Description>
         </div>
@@ -148,11 +230,47 @@ export default function QueuePage({
             onChange={(event) => setQuery(event.target.value)}
           />
         </SearchLabel>
+        <IdRangeForm
+          aria-label="담당 ID 범위"
+          onSubmit={(event) => {
+            event.preventDefault();
+            handleIdRangeSubmit();
+          }}
+        >
+          <IdInput
+            aria-label="시작 ID"
+            min="1"
+            placeholder="시작 ID"
+            type="number"
+            value={minIdInput}
+            onChange={(event) => setMinIdInput(event.target.value)}
+          />
+          <span aria-hidden>~</span>
+          <IdInput
+            aria-label="종료 ID"
+            min="1"
+            placeholder="종료 ID"
+            type="number"
+            value={maxIdInput}
+            onChange={(event) => setMaxIdInput(event.target.value)}
+          />
+          <RangeButton type="submit">범위 적용</RangeButton>
+          {(initialMinId !== undefined || initialMaxId !== undefined) && (
+            <RangeButton
+              type="button"
+              onClick={() => onNavigate(getListPath())}
+            >
+              초기화
+            </RangeButton>
+          )}
+        </IdRangeForm>
         {status === 'UNCLASSIFIED' && (
           <PrimaryButton
             disabled={!firstItem}
             type="button"
-            onClick={() => firstItem && onNavigate(`/classify/${firstItem.id}`)}
+            onClick={() =>
+              firstItem && onNavigate(getClassifyPath(firstItem.id))
+            }
           >
             바로 분류하기
           </PrimaryButton>
@@ -174,6 +292,7 @@ export default function QueuePage({
                   src={item.imageUrl}
                   alt={`${item.name || '이름 미정'} 이미지`}
                 />
+                <IdBadge>ID #{item.id}</IdBadge>
                 <StatusBadge status={status}>{statusLabel}</StatusBadge>
               </ImageWrap>
               <CardBody>
@@ -196,7 +315,7 @@ export default function QueuePage({
                 ) : status === 'UNCLASSIFIED' ? (
                   <CardButton
                     type="button"
-                    onClick={() => onNavigate(`/classify/${item.id}`)}
+                    onClick={() => onNavigate(getClassifyPath(item.id))}
                   >
                     분류하기&nbsp; →
                   </CardButton>
@@ -229,7 +348,7 @@ export default function QueuePage({
               ? '건너뛴 데이터가 생기면 이곳에서 복구할 수 있습니다.'
               : isClassifiedView
                 ? '분류를 완료하면 저장 결과가 이곳에 표시됩니다.'
-                : '이 출처의 분류 대기 데이터가 없습니다.'}
+                : '선택한 ID 범위에 분류 대기 데이터가 없습니다.'}
           </div>
         </StatePanel>
       )}

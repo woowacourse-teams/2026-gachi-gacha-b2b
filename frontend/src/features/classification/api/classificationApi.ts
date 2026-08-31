@@ -9,34 +9,43 @@ import type {
   CreateCategoryRequestDto,
   RestoreGachaRequestDto,
   SkipGachaRequestDto,
-  SourceFolderDto,
 } from './classification.dto';
 import {
   toCategory,
   toClassificationItem,
   toClassificationQueue,
   toClassificationResult,
-  toSourceFolder,
 } from './toClassification';
 import type {
   Category,
   ClassificationDraft,
+  ClassificationIdRange,
   ClassificationItem,
   ClassificationResult,
   ClassificationStatus,
-  SourceFolder,
 } from '../model/classification';
 
 export interface QueueQuery {
   status: ClassificationStatus;
   query: string;
-  source?: string;
+  minId?: number;
+  maxId?: number;
 }
+
+const appendIdRange = (
+  searchParams: URLSearchParams,
+  minId?: number,
+  maxId?: number,
+) => {
+  if (minId !== undefined) searchParams.set('minId', String(minId));
+  if (maxId !== undefined) searchParams.set('maxId', String(maxId));
+};
 
 export const getClassificationQueue = async ({
   status,
   query,
-  source,
+  minId,
+  maxId,
 }: QueueQuery) => {
   const searchParams = new URLSearchParams({ status });
 
@@ -44,21 +53,13 @@ export const getClassificationQueue = async ({
     searchParams.set('query', query.trim());
   }
 
-  if (source) {
-    searchParams.set('source', source);
-  }
+  appendIdRange(searchParams, minId, maxId);
 
   const dto = await request<ClassificationQueueDto>(
     `/classifications?${searchParams.toString()}`,
   );
 
   return toClassificationQueue(dto);
-};
-
-export const getSourceFolders = async (): Promise<SourceFolder[]> => {
-  const dtos = await request<SourceFolderDto[]>('/sources');
-
-  return dtos.map(toSourceFolder);
 };
 
 export const getClassificationItem = async (
@@ -94,14 +95,18 @@ export const deleteCategory = async (categoryId: number): Promise<void> => {
 export const classifyGacha = async (
   item: ClassificationItem,
   draft: ClassificationDraft,
+  idRange: ClassificationIdRange = {},
 ): Promise<ClassificationResult> => {
   const body: ClassifyGachaRequestDto = {
     name: draft.name.trim(),
     categoryIds: draft.categoryIds,
     version: item.version,
   };
+  const searchParams = new URLSearchParams();
+  appendIdRange(searchParams, idRange.minId, idRange.maxId);
+  const query = searchParams.size ? `?${searchParams.toString()}` : '';
   const dto = await request<ClassificationResultDto>(
-    `/classifications/${item.id}/classify`,
+    `/classifications/${item.id}/classify${query}`,
     { method: 'PUT', body },
   );
 
@@ -111,13 +116,17 @@ export const classifyGacha = async (
 export const skipGacha = async (
   item: ClassificationItem,
   reason: string,
+  idRange: ClassificationIdRange = {},
 ): Promise<ClassificationResult> => {
   const body: SkipGachaRequestDto = {
     reason: reason.trim(),
     version: item.version,
   };
+  const searchParams = new URLSearchParams();
+  appendIdRange(searchParams, idRange.minId, idRange.maxId);
+  const query = searchParams.size ? `?${searchParams.toString()}` : '';
   const dto = await request<ClassificationResultDto>(
-    `/classifications/${item.id}/skip`,
+    `/classifications/${item.id}/skip${query}`,
     { method: 'POST', body },
   );
 

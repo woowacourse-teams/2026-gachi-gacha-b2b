@@ -19,11 +19,6 @@ export interface ClassificationItemDto {
   createdAt: string;
 }
 
-export interface SourceFolderDto {
-  source: string;
-  pendingCount: number;
-}
-
 export interface ClassificationQueueDto {
   items: ClassificationItemDto[];
   totalCount: number;

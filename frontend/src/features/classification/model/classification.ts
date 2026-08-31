@@ -25,9 +25,9 @@ export interface ClassificationItem {
   createdAt: string;
 }
 
-export interface SourceFolder {
-  name: string;
-  pendingCount: number;
+export interface ClassificationIdRange {
+  minId?: number;
+  maxId?: number;
 }
 
 export interface ClassificationQueue {
