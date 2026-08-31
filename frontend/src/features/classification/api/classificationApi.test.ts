@@ -11,7 +11,6 @@ import {
   getCategories,
   getClassificationItem,
   getClassificationQueue,
-  getSourceFolders,
 } from './classificationApi';
 
 const server = setupServer(...handlers);
@@ -57,15 +56,26 @@ describe('classification API', () => {
     expect(categories).not.toContainEqual(createdCategory);
   });
 
-  it('수집 출처별 분류 대기 개수를 조회한다', async () => {
-    const folders = await getSourceFolders();
+  it('지정한 ID 범위의 데이터를 ID 오름차순으로 조회한다', async () => {
+    const queue = await getClassificationQueue({
+      status: 'UNCLASSIFIED',
+      query: '',
+      minId: 102,
+      maxId: 104,
+    });
 
-    expect(folders).toEqual(
-      expect.arrayContaining([
-        { name: 'BANDAI', pendingCount: 2 },
-        { name: 'AMUSE', pendingCount: 2 },
-        { name: 'INSTAGRAM', pendingCount: 1 },
-      ]),
+    expect(queue.items.map(({ id }) => id)).toEqual([102, 103, 104]);
+  });
+
+  it('분류 후 지정한 ID 범위 안에서만 다음 항목을 반환한다', async () => {
+    const item = await getClassificationItem(102);
+
+    const result = await classifyGacha(
+      item,
+      { name: item.name, categoryIds: [3] },
+      { minId: 102, maxId: 102 },
     );
+
+    expect(result.nextItemId).toBeNull();
   });
 });
