@@ -11,6 +11,7 @@ import com.gachi.gacha.backend.common.infra.application.ImageUploader;
 import com.gachi.gacha.backend.common.infra.domain.ImageType;
 import com.gachi.gacha.backend.common.util.S3TransactionManager;
 import com.gachi.gacha.backend.gacha.application.dto.GachaUpdateCommand;
+import com.gachi.gacha.backend.gacha.domain.Category;
 import com.gachi.gacha.backend.gacha.domain.Gacha;
 import com.gachi.gacha.backend.gacha.domain.GachaJpaRepository;
 import java.util.List;
@@ -33,8 +34,11 @@ class GachaServiceTest {
     @Mock
     private ImageUploader imageUploader;
 
+    @Mock
+    private CategoryService categoryService;
+
     private GachaService service() {
-        return new GachaService(gachaRepository, s3TransactionManager, imageUploader, "test");
+        return new GachaService(gachaRepository, s3TransactionManager, imageUploader, categoryService, "test");
     }
 
     @Test
@@ -47,24 +51,33 @@ class GachaServiceTest {
                 .caption("입고 안내")
                 .thumbnailUrl("https://example.com/thumb.jpg")
                 .instagramMediaId("media-1")
-                .category("키링")
                 .source(CollectionSource.BANDAI)
                 .productCode("BANDAI-001")
                 .build();
+        gacha.patch(null, null, null, List.of(new Category("키링")));
         when(gachaRepository.getById(1L)).thenReturn(gacha);
         when(gachaRepository.save(gacha)).thenReturn(gacha);
+        when(categoryService.resolve(List.of("피규어")))
+                .thenReturn(List.of(new Category("피규어")));
 
         // when
         service().modify(
                 1L,
-                new GachaUpdateCommand("정식 상품명", "새 설명", "https://example.com/new.jpg", "피규어")
+                new GachaUpdateCommand(
+                        "정식 상품명",
+                        "새 설명",
+                        "https://example.com/new.jpg",
+                        List.of("피규어")
+                )
         );
 
         // then
         assertThat(gacha.getName()).isEqualTo("정식 상품명");
         assertThat(gacha.getCaption()).isEqualTo("새 설명");
         assertThat(gacha.getThumbnailUrl()).isEqualTo("https://example.com/new.jpg");
-        assertThat(gacha.getCategory()).isEqualTo("피규어");
+        assertThat(gacha.getGachaCategories())
+                .extracting(gachaCategory -> gachaCategory.getCategory().getName())
+                .containsExactly("피규어");
         assertThat(gacha.getSource()).isEqualTo(CollectionSource.BANDAI);
         assertThat(gacha.getProductCode()).isEqualTo("BANDAI-001");
         verify(gachaRepository).save(gacha);
@@ -79,19 +92,23 @@ class GachaServiceTest {
                 .name("기존 이름")
                 .caption("기존 설명")
                 .thumbnailUrl("https://example.com/thumb.jpg")
-                .category("기존 카테고리")
                 .build();
+        gacha.patch(null, null, null, List.of(new Category("기존 카테고리")));
         when(gachaRepository.getById(1L)).thenReturn(gacha);
         when(gachaRepository.save(gacha)).thenReturn(gacha);
+        when(categoryService.resolve(List.of("새 카테고리")))
+                .thenReturn(List.of(new Category("새 카테고리")));
 
         // when
-        service().modify(1L, new GachaUpdateCommand(null, null, null, "새 카테고리"));
+        service().modify(1L, new GachaUpdateCommand(null, null, null, List.of("새 카테고리")));
 
         // then
         assertThat(gacha.getName()).isEqualTo("기존 이름");
         assertThat(gacha.getCaption()).isEqualTo("기존 설명");
         assertThat(gacha.getThumbnailUrl()).isEqualTo("https://example.com/thumb.jpg");
-        assertThat(gacha.getCategory()).isEqualTo("새 카테고리");
+        assertThat(gacha.getGachaCategories())
+                .extracting(gachaCategory -> gachaCategory.getCategory().getName())
+                .containsExactly("새 카테고리");
         verify(gachaRepository).save(gacha);
     }
 

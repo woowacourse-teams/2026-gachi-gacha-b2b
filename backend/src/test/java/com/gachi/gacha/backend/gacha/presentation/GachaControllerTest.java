@@ -16,6 +16,7 @@ import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import io.restassured.response.ExtractableResponse;
 import io.restassured.response.Response;
+import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -136,7 +137,7 @@ class GachaControllerTest {
                     "name", "신규 가챠",
                     "caption", "가챠 설명입니다.",
                     "thumbnailUrl", "https://example.com/image.png",
-                    "category", "피규어"
+                    "categories", List.of("피규어")
             );
 
             // when
@@ -153,7 +154,8 @@ class GachaControllerTest {
             assertThat(response.header("Location")).isNotNull();
             assertThat(response.jsonPath().getString("code")).isEqualTo("C001");
             assertThat(response.jsonPath().getLong("data.gachaId")).isNotNull();
-            assertThat(response.jsonPath().getString("data.category")).isEqualTo("피규어");
+            assertThat(response.jsonPath().getList("data.categories", String.class))
+                    .containsExactly("피규어");
             assertThat(response.jsonPath().getString("data.source")).isEqualTo("MANUAL");
         }
 
@@ -194,7 +196,7 @@ class GachaControllerTest {
                     "name", "수정된 가챠 이름",
                     "caption", "수정된 설명",
                     "thumbnailUrl", "https://example.com/updated.png",
-                    "category", "키링"
+                    "categories", List.of("키링")
             );
 
             // when
@@ -216,7 +218,8 @@ class GachaControllerTest {
                     .get("/api/v1/gachas/{gachaId}", gachaId)
                     .then()
                     .extract();
-            assertThat(detailResponse.jsonPath().getString("data.category")).isEqualTo("키링");
+            assertThat(detailResponse.jsonPath().getList("data.categories", String.class))
+                    .containsExactly("키링");
             assertThat(detailResponse.jsonPath().getString("data.thumbnailUrl"))
                     .isEqualTo("https://example.com/updated.png");
             assertThat(detailResponse.jsonPath().getString("data.source")).isEqualTo("MANUAL");
@@ -230,7 +233,7 @@ class GachaControllerTest {
             Map<String, Object> updateRequest = Map.of(
                     "name", "수정된 가챠 이름",
                     "caption", "수정된 설명",
-                    "category", "키링"
+                    "categories", List.of("키링")
             );
 
             // when
@@ -408,7 +411,7 @@ class GachaControllerTest {
                 "name", name,
                 "caption", "가챠 설명",
                 "thumbnailUrl", "https://example.com/image.png",
-                "category", "피규어"
+                "categories", List.of("피규어")
         );
 
         return RestAssured.given()

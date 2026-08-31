@@ -3,6 +3,7 @@ package com.gachi.gacha.backend.gacha.application.dto;
 import com.gachi.gacha.backend.collection.domain.CollectionSource;
 import com.gachi.gacha.backend.gacha.domain.Gacha;
 import java.time.LocalDateTime;
+import java.util.List;
 import lombok.Builder;
 
 @Builder
@@ -11,21 +12,24 @@ public record GachaInfo(
         String name,
         String caption,
         String thumbnailUrl,
-        String category,
-        CollectionSource source,
         String productCode,
+        List<String> categories,
+        CollectionSource source,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {
     public static GachaInfo from(final Gacha gacha) {
+        List<String> categories = gacha.getGachaCategories().stream()
+                .map(category -> category.getCategory().getName())
+                .toList();
         return GachaInfo.builder()
                 .gachaId(gacha.getId())
                 .name(gacha.getName())
                 .caption(gacha.getCaption())
                 .thumbnailUrl(gacha.getThumbnailUrl())
-                .category(gacha.getCategory())
-                .source(gacha.getSource())
                 .productCode(gacha.getProductCode())
+                .categories(categories)
+                .source(gacha.getSource())
                 .createdAt(gacha.getCreatedAt())
                 .updatedAt(gacha.getUpdatedAt())
                 .build();

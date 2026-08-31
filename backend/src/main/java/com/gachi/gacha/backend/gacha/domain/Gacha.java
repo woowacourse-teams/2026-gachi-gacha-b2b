@@ -4,6 +4,7 @@ import com.gachi.gacha.backend.collection.domain.CollectionSource;
 import com.gachi.gacha.backend.common.domain.BaseTimeEntity;
 import com.gachi.gacha.backend.common.exception.BusinessException;
 import com.gachi.gacha.backend.common.exception.ErrorCode;
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -11,8 +12,13 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -56,28 +62,29 @@ public class Gacha extends BaseTimeEntity {
     @Column(name = "product_code", length = 255)
     private String productCode;
 
-    @Column(length = 255)
-    private String category;
+    @Builder.Default
+    @OneToMany(mappedBy = "gacha", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<GachaCategory> gachaCategories = new ArrayList<>();
 
     public Gacha(
             final String name,
             final String thumbnailUrl,
             final CollectionSource source,
             final String productCode,
-            final String category
+            final List<Category> categories
     ) {
         this.name = name;
         this.thumbnailUrl = thumbnailUrl;
         this.source = source;
         this.productCode = productCode;
-        this.category = category;
+        replaceCategories(categories);
     }
 
     public void patch(
             final String name,
             final String caption,
             final String thumbnailUrl,
-            final String category
+            final List<Category> categories
     ) {
         if (name != null) {
             validateName(name);
@@ -89,8 +96,8 @@ public class Gacha extends BaseTimeEntity {
         if (thumbnailUrl != null) {
             this.thumbnailUrl = thumbnailUrl;
         }
-        if (category != null) {
-            this.category = category;
+        if (categories != null) {
+            replaceCategories(categories);
         }
     }
 
@@ -100,6 +107,27 @@ public class Gacha extends BaseTimeEntity {
 
     public void removeThumbnailUrl() {
         this.thumbnailUrl = null;
+    }
+
+    private void replaceCategories(final List<Category> categories) {
+        if (gachaCategories == null) {
+            gachaCategories = new ArrayList<>();
+        }
+        Set<String> categoryNames = categories.stream()
+                .map(Category::getName)
+                .collect(Collectors.toSet());
+        gachaCategories.removeIf(gachaCategory ->
+                !categoryNames.contains(gachaCategory.getCategory().getName())
+        );
+
+        Set<String> existingCategoryNames = gachaCategories.stream()
+                .map(GachaCategory::getCategory)
+                .map(Category::getName)
+                .collect(Collectors.toSet());
+        categories.stream()
+                .filter(category -> !existingCategoryNames.contains(category.getName()))
+                .map(category -> new GachaCategory(this, category))
+                .forEach(gachaCategories::add);
     }
 
     private void validateName(final String name) {

@@ -5,6 +5,7 @@ import com.gachi.gacha.backend.common.exception.ErrorCode;
 import com.gachi.gacha.backend.gacha.domain.exception.GachaNotFoundException;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import org.jspecify.annotations.NonNull;
 import org.springframework.data.domain.Page;
@@ -18,10 +19,30 @@ import org.springframework.stereotype.Repository;
 public interface GachaJpaRepository extends JpaRepository<Gacha, Long> {
 
     default Gacha getById(@NonNull final Long gachaId) {
-        return findById(gachaId).orElseThrow(() -> new GachaNotFoundException(ErrorCode.GACHA_NOT_FOUND));
+        return findByIdWithCategories(gachaId).orElseThrow(() -> new GachaNotFoundException(ErrorCode.GACHA_NOT_FOUND));
     }
 
-    Page<Gacha> findByNameContaining(final String keyword, final Pageable pageable);
+    @Query("SELECT DISTINCT g FROM Gacha g " +
+            "LEFT JOIN FETCH g.gachaCategories gc " +
+            "LEFT JOIN FETCH gc.category c " +
+            "WHERE g.id = :id")
+    Optional<Gacha> findByIdWithCategories(@Param("id") final Long id);
+
+    @Query(value = "SELECT DISTINCT g FROM Gacha g " +
+            "LEFT JOIN FETCH g.gachaCategories gc " +
+            "LEFT JOIN FETCH gc.category c",
+            countQuery = "SELECT COUNT(g) FROM Gacha g")
+    Page<Gacha> findAllWithCategories(final Pageable pageable);
+
+    @Query(value = "SELECT DISTINCT g FROM Gacha g " +
+            "LEFT JOIN FETCH g.gachaCategories gc " +
+            "LEFT JOIN FETCH gc.category c " +
+            "WHERE g.name LIKE %:keyword%",
+            countQuery = "SELECT COUNT(g) FROM Gacha g WHERE g.name LIKE %:keyword%")
+    Page<Gacha> findByNameContainingWithCategories(
+            @Param("keyword") final String keyword,
+            final Pageable pageable
+    );
 
     List<String> findInstagramMediaIdByInstagramMediaIdIn(final List<String> instagramMediaIds);
 

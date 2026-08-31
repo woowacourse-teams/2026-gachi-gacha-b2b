@@ -8,6 +8,7 @@ import com.gachi.gacha.backend.gacha.application.dto.GachaDeleteResult;
 import com.gachi.gacha.backend.gacha.application.dto.GachaInfo;
 import com.gachi.gacha.backend.gacha.application.dto.GachaResult;
 import com.gachi.gacha.backend.gacha.application.dto.GachaUpdateCommand;
+import com.gachi.gacha.backend.gacha.domain.Category;
 import com.gachi.gacha.backend.gacha.domain.Gacha;
 import com.gachi.gacha.backend.gacha.domain.GachaJpaRepository;
 import java.util.List;
@@ -26,23 +27,27 @@ public class GachaService {
     private final GachaJpaRepository gachaRepository;
     private final S3TransactionManager s3TransactionManager;
     private final ImageUploader imageUploader;
+    private final CategoryService categoryService;
     private final String s3RootFolder;
 
     public GachaService(
             final GachaJpaRepository gachaRepository,
             final S3TransactionManager s3TransactionManager,
             final ImageUploader imageUploader,
+            final CategoryService categoryService,
             @Value("${cloud.aws.s3.folder}") final String s3RootFolder
     ) {
         this.gachaRepository = gachaRepository;
         this.s3TransactionManager = s3TransactionManager;
         this.imageUploader = imageUploader;
+        this.categoryService = categoryService;
         this.s3RootFolder = s3RootFolder;
     }
 
     @Transactional
     public GachaInfo addGacha(final GachaCreateCommand command) {
-        Gacha gacha = command.toEntity();
+        List<Category> categories = categoryService.resolve(command.categories());
+        Gacha gacha = command.toEntity(categories);
         Gacha savedGacha = gachaRepository.save(gacha);
         return GachaInfo.from(savedGacha);
     }
@@ -50,7 +55,10 @@ public class GachaService {
     @Transactional
     public GachaResult modify(final Long gachaId, final GachaUpdateCommand command) {
         Gacha gacha = gachaRepository.getById(gachaId);
-        gacha.patch(command.name(), command.caption(), command.thumbnailUrl(), command.category());
+        List<Category> categories = command.categories() == null
+                ? null
+                : categoryService.resolve(command.categories());
+        gacha.patch(command.name(), command.caption(), command.thumbnailUrl(), categories);
         Gacha saved = gachaRepository.save(gacha);
         return GachaResult.from(saved);
     }
@@ -107,10 +115,10 @@ public class GachaService {
 
     public Page<GachaInfo> findAllGacha(@Nullable final String keyword, final Pageable pageable) {
         if (keyword == null) {
-            return gachaRepository.findAll(pageable)
+            return gachaRepository.findAllWithCategories(pageable)
                     .map(GachaInfo::from);
         }
-        return gachaRepository.findByNameContaining(keyword, pageable)
+        return gachaRepository.findByNameContainingWithCategories(keyword, pageable)
                 .map(GachaInfo::from);
     }
 
