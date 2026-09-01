@@ -13,6 +13,7 @@ import {
   createMockFieldUpload,
   fieldUploads,
 } from './data';
+import type { AiCategorySuggestionRequestDto } from '../features/classification/api/aiSuggestion.dto';
 import type {
   CategoryDto,
   ClassifyGachaRequestDto,
@@ -26,6 +27,7 @@ import type {
 } from '../features/registration/api/registration.dto';
 
 const apiPath = (path: string) => `${__API_BASE_URL__}${path}`;
+const aiApiPath = (path: string) => `${__AI_API_BASE_URL__}${path}`;
 
 const toAbsoluteApiUrl = (requestUrl: string, path: string) =>
   new URL(apiPath(path), requestUrl).toString();
@@ -93,7 +95,40 @@ const conflict = () =>
     { status: 409 },
   );
 
+const getMockCategoryNames = (itemId: number) => {
+  if (itemId === 101) return ['캐릭터', '피규어'];
+  if (itemId === 102) return ['캐릭터'];
+  if (itemId === 103) return ['캡슐토이', '가챠'];
+  if (itemId === 104) return ['미니어처'];
+  return ['가챠'];
+};
+
 export const handlers = [
+  http.post(aiApiPath('/suggest-categories'), async ({ request }) => {
+    await delay(650);
+
+    const body = (await request.json()) as AiCategorySuggestionRequestDto;
+    const item = findItem(body.itemId);
+
+    if (!item || item.version !== body.itemVersion) {
+      return HttpResponse.json(
+        { message: 'AI 추천 대상 데이터가 변경되었거나 없습니다.' },
+        { status: 409 },
+      );
+    }
+
+    const allowedCategoryNames = new Set(body.allowedCategoryNames);
+    const categoryNames = getMockCategoryNames(item.gachaId).filter((name) =>
+      allowedCategoryNames.has(name),
+    );
+
+    return HttpResponse.json({
+      categoryNames,
+      model: 'msw-gacha-category-classifier',
+      generatedAt: new Date().toISOString(),
+    });
+  }),
+
   http.get(apiPath('/classifications'), async ({ request }) => {
     await delay(250);
 
@@ -106,6 +141,12 @@ export const handlers = [
       .toLocaleLowerCase('ko-KR');
     const { minId, maxId } = getIdRange(url);
     const categoryIds = getCategoryIds(url);
+    const cursor = toOptionalId(url.searchParams.get('cursor'));
+    const requestedLimit = Number(url.searchParams.get('limit'));
+    const limit =
+      Number.isSafeInteger(requestedLimit) && requestedLimit > 0
+        ? Math.min(requestedLimit, 100)
+        : 50;
     const statusItems = classificationItems
       .filter(
         (item) =>
@@ -117,13 +158,22 @@ export const handlers = [
             )),
       )
       .sort((left, right) => left.gachaId - right.gachaId);
-    const items = query
+    const filteredItems = query
       ? statusItems.filter((item) =>
           [item.displayName, item.caption, item.source, item.location].some(
             (value) => value?.toLocaleLowerCase('ko-KR').includes(query),
           ),
         )
       : statusItems;
+    const cursorItems =
+      cursor === undefined
+        ? filteredItems
+        : filteredItems.filter(({ gachaId }) => gachaId > cursor);
+    const items = cursorItems.slice(0, limit);
+    const nextCursor =
+      cursorItems.length > items.length
+        ? (items.at(-1)?.gachaId ?? null)
+        : null;
 
     return HttpResponse.json({
       items,
@@ -133,6 +183,8 @@ export const handlers = [
       skippedCount: classificationItems.filter(
         (item) => item.status === 'SKIPPED',
       ).length,
+      filteredCount: filteredItems.length,
+      nextCursor,
     });
   }),
 

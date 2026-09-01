@@ -1,4 +1,6 @@
 import type {
+  BackendCategoryDto,
+  BackendGachaDto,
   CategoryDto,
   ClassificationItemDto,
   ClassificationQueueDto,
@@ -38,6 +40,8 @@ export const toClassificationQueue = (
   items: dto.items.map(toClassificationItem),
   totalCount: dto.totalCount,
   skippedCount: dto.skippedCount,
+  filteredCount: dto.filteredCount,
+  nextCursor: dto.nextCursor,
 });
 
 export const toClassificationResult = (
@@ -45,3 +49,36 @@ export const toClassificationResult = (
 ): ClassificationResult => ({
   nextItemId: dto.nextGachaId,
 });
+
+export const toBackendCategory = (dto: BackendCategoryDto): Category => ({
+  id: dto.categoryId,
+  name: dto.name,
+});
+
+export const toBackendClassificationItem = (
+  dto: BackendGachaDto,
+  categories: Category[],
+): ClassificationItem => {
+  const categoryIdsByName = new Map(
+    categories.map((category) => [category.name, category.id]),
+  );
+  const categoryIds = dto.categories.flatMap((categoryName) => {
+    const categoryId = categoryIdsByName.get(categoryName);
+    return categoryId === undefined ? [] : [categoryId];
+  });
+  const version = Date.parse(dto.updatedAt);
+
+  return {
+    id: dto.gachaId,
+    imageUrl: dto.thumbnailUrl ?? '',
+    name: dto.name ?? '',
+    originalFileName: dto.productCode ?? `gacha-${dto.gachaId}`,
+    source: dto.source,
+    locationLabel: '위치 정보 없음',
+    description: dto.caption ?? '',
+    categoryIds,
+    status: categoryIds.length > 0 ? 'CLASSIFIED' : 'UNCLASSIFIED',
+    version: Number.isSafeInteger(version) && version >= 0 ? version : 0,
+    createdAt: dto.createdAt,
+  };
+};

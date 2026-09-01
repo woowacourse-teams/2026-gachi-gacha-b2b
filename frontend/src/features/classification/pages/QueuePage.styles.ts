@@ -221,47 +221,82 @@ export const ClearFilterButton = styled.button`
   text-decoration: underline;
 `;
 
-export const CardGrid = styled.ul`
+const listColumns =
+  '108px minmax(220px, 2fr) minmax(160px, 1fr) minmax(180px, 1.4fr) 150px';
+
+export const ListHeader = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(238px, 1fr));
-  gap: 22px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
+  grid-template-columns: ${listColumns};
+  gap: 16px;
+  padding: 0 20px 10px;
+  color: ${colors.textMuted};
+  font-size: 12px;
+  font-weight: 800;
+
+  @media (max-width: 960px) {
+    display: none;
+  }
 `;
 
-export const Card = styled.li`
+export const List = styled.ul`
   overflow: hidden;
+  margin: 0;
+  padding: 0;
   border: 1px solid ${colors.borderStrong};
   border-radius: ${radii.large};
   background: ${colors.surface};
   box-shadow: 0 12px 28px ${colors.shadow};
+  list-style: none;
+`;
 
-  &:hover img {
-    transform: scale(1.025);
+export const ListRow = styled.li`
+  display: grid;
+  min-height: 76px;
+  grid-template-columns: ${listColumns};
+  align-items: center;
+  gap: 16px;
+  padding: 12px 20px;
+  border-bottom: 1px solid ${colors.border};
+
+  &:last-of-type {
+    border-bottom: 0;
+  }
+
+  &:hover {
+    background: ${colors.surfaceMuted};
+  }
+
+  @media (max-width: 960px) {
+    grid-template-columns: minmax(94px, auto) 1fr;
+
+    & > :nth-of-type(n + 3) {
+      grid-column: 2;
+    }
+  }
+
+  @media (max-width: 560px) {
+    grid-template-columns: 1fr;
+
+    & > :nth-of-type(n) {
+      grid-column: 1;
+    }
   }
 `;
 
-export const ImageWrap = styled.div`
-  position: relative;
-  overflow: hidden;
-  aspect-ratio: 4 / 3;
-  background: ${colors.surfaceMuted};
+export const IdCell = styled.div`
+  display: grid;
+  justify-items: start;
+  gap: 6px;
 
-  img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    transition: transform 180ms ease;
+  strong {
+    font-variant-numeric: tabular-nums;
   }
 `;
 
 export const StatusBadge = styled.span<{
   status: 'UNCLASSIFIED' | 'CLASSIFIED' | 'SKIPPED';
 }>`
-  position: absolute;
-  top: 12px;
-  right: 12px;
+  display: inline-flex;
   padding: 6px 10px;
   border-radius: ${radii.round};
   color: ${({ status }) => {
@@ -278,51 +313,46 @@ export const StatusBadge = styled.span<{
   font-weight: 800;
 `;
 
-export const IdBadge = styled.span`
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  padding: 6px 10px;
-  border-radius: ${radii.round};
-  color: white;
-  background: rgba(23, 26, 33, 0.82);
-  font-size: 12px;
-  font-weight: 800;
+export const ListNameCell = styled.div`
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+
+  strong,
+  span {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  span {
+    color: ${colors.textMuted};
+    font-size: 13px;
+  }
 `;
 
-export const CardBody = styled.div`
-  padding: 18px;
+export const ListMetaCell = styled.div`
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+
+  strong,
+  span {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  span {
+    color: ${colors.textMuted};
+    font-size: 13px;
+  }
 `;
 
-export const Source = styled.p`
-  margin: 0 0 7px;
+export const ListCategoryCell = styled.div`
+  min-width: 0;
   color: ${colors.textMuted};
   font-size: 13px;
-`;
-
-export const CardTitle = styled.h2`
-  overflow: hidden;
-  min-height: 58px;
-  margin: 0;
-  font-size: 21px;
-  line-height: 1.35;
-  letter-spacing: -0.025em;
-  text-overflow: ellipsis;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-`;
-
-export const Caption = styled.p`
-  overflow: hidden;
-  height: 44px;
-  margin: 8px 0 16px;
-  color: ${colors.textMuted};
-  font-size: 14px;
-  line-height: 1.55;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
 `;
 
 export const CategoryTags = styled.div`
@@ -330,7 +360,6 @@ export const CategoryTags = styled.div`
   min-height: 30px;
   flex-wrap: wrap;
   gap: 6px;
-  margin-top: 14px;
 `;
 
 export const CategoryTag = styled.span`
@@ -342,7 +371,7 @@ export const CategoryTag = styled.span`
   font-weight: 800;
 `;
 
-export const CardButton = styled.button<{ secondary?: boolean }>`
+export const ListActionButton = styled.button<{ secondary?: boolean }>`
   width: 100%;
   min-height: 42px;
   border: 1px solid ${colors.brand};
@@ -357,6 +386,46 @@ export const CardButton = styled.button<{ secondary?: boolean }>`
   }
 
   &:disabled {
+    opacity: 0.55;
+  }
+`;
+
+export const ListActionPlaceholder = styled.span`
+  color: ${colors.textMuted};
+  text-align: center;
+`;
+
+export const ListFooter = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 4px 0;
+  color: ${colors.textMuted};
+  font-size: 13px;
+
+  @media (max-width: 560px) {
+    align-items: stretch;
+    flex-direction: column;
+  }
+`;
+
+export const LoadMoreButton = styled.button`
+  min-height: 42px;
+  padding: 0 18px;
+  border: 1px solid ${colors.brand};
+  border-radius: ${radii.small};
+  color: ${colors.brand};
+  background: ${colors.surface};
+  font-weight: 800;
+
+  &:hover:not(:disabled) {
+    color: white;
+    background: ${colors.brand};
+  }
+
+  &:disabled {
+    cursor: wait;
     opacity: 0.55;
   }
 `;

@@ -24,3 +24,10 @@ export interface CreateFieldGachaRequestDto {
 export interface CreateFieldGachaResponseDto {
   item: ClassificationItemDto;
 }
+
+export interface BackendCreateGachaRequestDto {
+  name: string;
+  caption: null;
+  thumbnailUrl: null;
+  categories: string[];
+}

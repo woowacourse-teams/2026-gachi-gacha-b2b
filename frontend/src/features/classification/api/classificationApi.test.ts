@@ -4,6 +4,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { resetMockData } from '@/mocks/data';
 import { handlers } from '@/mocks/handlers';
 
+import { getAiCategorySuggestion } from './aiSuggestionApi';
 import {
   classifyGacha,
   createCategory,
@@ -19,6 +20,7 @@ beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 afterEach(() => {
   server.resetHandlers();
   resetMockData();
+  sessionStorage.clear();
 });
 afterAll(() => server.close());
 
@@ -65,6 +67,38 @@ describe('classification API', () => {
     });
 
     expect(queue.items.map(({ id }) => id)).toEqual([102, 103, 104]);
+  });
+
+  it('ID 커서 다음 데이터를 제한 개수만큼 이어서 조회한다', async () => {
+    const firstPage = await getClassificationQueue({
+      status: 'UNCLASSIFIED',
+      query: '',
+      limit: 2,
+    });
+    const secondPage = await getClassificationQueue({
+      status: 'UNCLASSIFIED',
+      query: '',
+      cursor: firstPage.nextCursor!,
+      limit: 2,
+    });
+
+    expect(firstPage.items.map(({ id }) => id)).toEqual([101, 102]);
+    expect(firstPage.filteredCount).toBe(4);
+    expect(firstPage.nextCursor).toBe(102);
+    expect(secondPage.items.map(({ id }) => id)).toEqual([103, 104]);
+    expect(secondPage.nextCursor).toBeNull();
+  });
+
+  it('이미지 분류 추천을 등록된 카테고리 이름으로 조회한다', async () => {
+    const [item, categories] = await Promise.all([
+      getClassificationItem(101),
+      getCategories(),
+    ]);
+
+    const suggestion = await getAiCategorySuggestion(item, categories, true);
+
+    expect(suggestion.categoryNames).toEqual(['캐릭터', '피규어']);
+    expect(suggestion.model).toBe('msw-gacha-category-classifier');
   });
 
   it('분류 후 지정한 ID 범위 안에서만 다음 항목을 반환한다', async () => {

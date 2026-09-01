@@ -3,12 +3,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { getErrorMessage } from '@/utils/getErrorMessage';
 
 import {
-  Caption,
-  Card,
-  CardBody,
-  CardButton,
-  CardGrid,
-  CardTitle,
   CategoryFilterButton,
   CategoryFilterList,
   CategoryFilterPanel,
@@ -20,15 +14,23 @@ import {
   Header,
   HeaderActions,
   Heading,
-  IdBadge,
+  IdCell,
   IdInput,
   IdRangeForm,
-  ImageWrap,
+  List,
+  ListActionButton,
+  ListActionPlaceholder,
+  ListCategoryCell,
+  ListFooter,
+  ListHeader,
+  ListMetaCell,
+  ListNameCell,
+  ListRow,
+  LoadMoreButton,
   Page,
   PrimaryButton,
   RangeButton,
   SearchLabel,
-  Source,
   Stat,
   StatePanel,
   Stats,
@@ -74,41 +76,63 @@ export default function QueuePage({
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<number[]>([]);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [restoringId, setRestoringId] = useState<number | null>(null);
   const latestRequestIdRef = useRef(0);
 
-  const loadQueue = useCallback(async () => {
-    const requestId = latestRequestIdRef.current + 1;
-    latestRequestIdRef.current = requestId;
-    setIsLoading(true);
-    setError('');
+  const loadQueue = useCallback(
+    async (cursor?: number) => {
+      const requestId = latestRequestIdRef.current + 1;
+      latestRequestIdRef.current = requestId;
+      const isAppending = cursor !== undefined;
 
-    try {
-      const queueQuery = {
-        status,
-        query,
-        ...(initialMinId === undefined ? {} : { minId: initialMinId }),
-        ...(initialMaxId === undefined ? {} : { maxId: initialMaxId }),
-        ...(status === 'CLASSIFIED' && selectedCategoryIds.length > 0
-          ? { categoryIds: selectedCategoryIds }
-          : {}),
-      };
-      const [loadedQueue, loadedCategories] = await Promise.all([
-        getClassificationQueue(queueQuery),
-        getCategories(),
-      ]);
+      if (isAppending) {
+        setIsLoadingMore(true);
+      } else {
+        setIsLoading(true);
+        setQueue(null);
+      }
+      setError('');
 
-      if (requestId !== latestRequestIdRef.current) return;
+      try {
+        const queueQuery = {
+          status,
+          query,
+          ...(initialMinId === undefined ? {} : { minId: initialMinId }),
+          ...(initialMaxId === undefined ? {} : { maxId: initialMaxId }),
+          ...(status === 'CLASSIFIED' && selectedCategoryIds.length > 0
+            ? { categoryIds: selectedCategoryIds }
+            : {}),
+          ...(cursor === undefined ? {} : { cursor }),
+        };
+        const [loadedQueue, loadedCategories] = await Promise.all([
+          getClassificationQueue(queueQuery),
+          getCategories(),
+        ]);
 
-      setQueue(loadedQueue);
-      setCategories(loadedCategories);
-    } catch (cause) {
-      if (requestId !== latestRequestIdRef.current) return;
-      setError(getErrorMessage(cause));
-    } finally {
-      if (requestId === latestRequestIdRef.current) setIsLoading(false);
-    }
-  }, [initialMaxId, initialMinId, query, selectedCategoryIds, status]);
+        if (requestId !== latestRequestIdRef.current) return;
+
+        setQueue((current) =>
+          isAppending && current
+            ? {
+                ...loadedQueue,
+                items: [...current.items, ...loadedQueue.items],
+              }
+            : loadedQueue,
+        );
+        setCategories(loadedCategories);
+      } catch (cause) {
+        if (requestId !== latestRequestIdRef.current) return;
+        setError(getErrorMessage(cause));
+      } finally {
+        if (requestId === latestRequestIdRef.current) {
+          setIsLoading(false);
+          setIsLoadingMore(false);
+        }
+      }
+    },
+    [initialMaxId, initialMinId, query, selectedCategoryIds, status],
+  );
 
   useEffect(() => {
     void loadQueue();
@@ -209,7 +233,9 @@ export default function QueuePage({
   const description = isSkippedView
     ? '제외했던 데이터를 확인하고 분류 대기 상태로 복구합니다.'
     : isClassifiedView
-      ? '저장된 이름과 카테고리를 확인합니다. MSW에서는 새로고침 전까지 유지됩니다.'
+      ? __USE_MOCK_API__
+        ? '저장된 이름과 카테고리를 확인합니다. MSW에서는 새로고침 전까지 유지됩니다.'
+        : '실제 DB에 저장된 이름과 카테고리를 확인합니다.'
       : 'DB ID 오름차순으로 확인하고 담당 범위를 지정해 분류합니다.';
   const statusLabel = isSkippedView
     ? '건너뜀'
@@ -231,12 +257,14 @@ export default function QueuePage({
           <Stats aria-label="분류 현황">
             <Stat>
               <strong>{queue?.totalCount ?? '-'}</strong>
-              <span>분류 대기</span>
+              <span>{__USE_MOCK_API__ ? '분류 대기' : '전체 데이터'}</span>
             </Stat>
-            <Stat>
-              <strong>{queue?.skippedCount ?? '-'}</strong>
-              <span>건너뜀</span>
-            </Stat>
+            {__USE_MOCK_API__ && (
+              <Stat>
+                <strong>{queue?.skippedCount ?? '-'}</strong>
+                <span>건너뜀</span>
+              </Stat>
+            )}
           </Stats>
         </HeaderActions>
       </Header>
@@ -249,7 +277,9 @@ export default function QueuePage({
             placeholder={
               isClassifiedView
                 ? '등록된 가챠 이름으로 검색'
-                : '이름, 설명, 출처, 지역으로 검색'
+                : __USE_MOCK_API__
+                  ? '이름, 설명, 출처, 지역으로 검색'
+                  : '등록된 가챠 이름으로 검색'
             }
             type="search"
             value={query}
@@ -345,25 +375,50 @@ export default function QueuePage({
           분류 데이터를 불러오는 중입니다.
         </StatePanel>
       ) : queue?.items.length ? (
-        <CardGrid>
-          {queue.items.map((item) => (
-            <Card key={item.id}>
-              <ImageWrap>
-                <img
-                  src={item.imageUrl}
-                  alt={`${item.name || '이름 미정'} 이미지`}
-                />
-                <IdBadge>ID #{item.id}</IdBadge>
-                <StatusBadge status={status}>{statusLabel}</StatusBadge>
-              </ImageWrap>
-              <CardBody>
-                <Source>
-                  {item.source} · {item.locationLabel}
-                </Source>
-                <CardTitle>{item.name || '이름을 입력해 주세요'}</CardTitle>
-                <Caption>{item.description || item.originalFileName}</Caption>
+        <>
+          <ListHeader aria-hidden="true">
+            <span>ID · 상태</span>
+            <span>가챠 이름</span>
+            <span>출처 · 위치</span>
+            <span>카테고리</span>
+            <span>작업</span>
+          </ListHeader>
+          <List>
+            {queue.items.map((item) => (
+              <ListRow key={item.id}>
+                <IdCell>
+                  <strong>#{item.id}</strong>
+                  <StatusBadge status={status}>{statusLabel}</StatusBadge>
+                </IdCell>
+                <ListNameCell>
+                  <strong>{item.name || '이름을 입력해 주세요'}</strong>
+                  <span>{item.description || item.originalFileName}</span>
+                </ListNameCell>
+                <ListMetaCell>
+                  <strong>{item.source}</strong>
+                  <span>{item.locationLabel}</span>
+                </ListMetaCell>
+                <ListCategoryCell>
+                  {isClassifiedView ? (
+                    <CategoryTags aria-label="저장된 카테고리">
+                      {item.categoryIds.map((categoryId) => {
+                        const category = categories.find(
+                          ({ id }) => id === categoryId,
+                        );
+
+                        return category ? (
+                          <CategoryTag key={category.id}>
+                            {category.name}
+                          </CategoryTag>
+                        ) : null;
+                      })}
+                    </CategoryTags>
+                  ) : (
+                    <span>미분류</span>
+                  )}
+                </ListCategoryCell>
                 {isSkippedView ? (
-                  <CardButton
+                  <ListActionButton
                     secondary
                     disabled={restoringId === item.id}
                     type="button"
@@ -372,33 +427,37 @@ export default function QueuePage({
                     {restoringId === item.id
                       ? '복구 중...'
                       : '분류 대기로 복구'}
-                  </CardButton>
+                  </ListActionButton>
                 ) : status === 'UNCLASSIFIED' ? (
-                  <CardButton
+                  <ListActionButton
                     type="button"
                     onClick={() => onNavigate(getClassifyPath(item.id))}
                   >
-                    분류하기&nbsp; →
-                  </CardButton>
+                    분류하기 →
+                  </ListActionButton>
                 ) : (
-                  <CategoryTags aria-label="저장된 카테고리">
-                    {item.categoryIds.map((categoryId) => {
-                      const category = categories.find(
-                        ({ id }) => id === categoryId,
-                      );
-
-                      return category ? (
-                        <CategoryTag key={category.id}>
-                          {category.name}
-                        </CategoryTag>
-                      ) : null;
-                    })}
-                  </CategoryTags>
+                  <ListActionPlaceholder aria-hidden>—</ListActionPlaceholder>
                 )}
-              </CardBody>
-            </Card>
-          ))}
-        </CardGrid>
+              </ListRow>
+            ))}
+          </List>
+          <ListFooter>
+            <span>
+              {__USE_MOCK_API__
+                ? `${queue.filteredCount.toLocaleString()}개 중 ${queue.items.length.toLocaleString()}개 표시`
+                : `${queue.items.length.toLocaleString()}개 표시 · 전체 ${queue.totalCount.toLocaleString()}개`}
+            </span>
+            {queue.nextCursor !== null && (
+              <LoadMoreButton
+                disabled={isLoadingMore}
+                type="button"
+                onClick={() => void loadQueue(queue.nextCursor ?? undefined)}
+              >
+                {isLoadingMore ? '불러오는 중...' : '다음 50개 불러오기'}
+              </LoadMoreButton>
+            )}
+          </ListFooter>
+        </>
       ) : (
         <StatePanel>
           <div>
@@ -406,7 +465,9 @@ export default function QueuePage({
               {query ? '검색 결과가 없습니다.' : '표시할 데이터가 없습니다.'}
             </strong>
             {isSkippedView
-              ? '건너뛴 데이터가 생기면 이곳에서 복구할 수 있습니다.'
+              ? __USE_MOCK_API__
+                ? '건너뛴 데이터가 생기면 이곳에서 복구할 수 있습니다.'
+                : '현재 백엔드는 복구 가능한 건너뛰기 상태를 지원하지 않습니다.'
               : isClassifiedView
                 ? '분류를 완료하면 저장 결과가 이곳에 표시됩니다.'
                 : '선택한 ID 범위에 분류 대기 데이터가 없습니다.'}

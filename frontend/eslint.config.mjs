@@ -45,7 +45,7 @@ export default tseslint.config(
     files: typescriptFiles,
   })),
   {
-    files: ['**/*.{js,ts,tsx}'],
+    files: ['**/*.{js,mjs,ts,tsx}'],
     plugins: {
       'import-x': importX,
     },
@@ -67,7 +67,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ['webpack.config.cjs', 'vitest.config.mts'],
+    files: ['webpack.config.cjs', 'vitest.config.mts', 'server/**/*.mjs'],
     languageOptions: {
       globals: globals.node,
     },
