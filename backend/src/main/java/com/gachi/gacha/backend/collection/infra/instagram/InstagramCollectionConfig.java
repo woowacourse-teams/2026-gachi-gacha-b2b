@@ -13,7 +13,7 @@ public class InstagramCollectionConfig {
     private static final int THREAD_POOL_SIZE = 4;
 
     @Bean(name = "instagramImageUploadExecutor", destroyMethod = "shutdown")
-    ExecutorService instagramImageUploadExecutor() {
+    public ExecutorService instagramImageUploadExecutor() {
         return Executors.newFixedThreadPool(THREAD_POOL_SIZE);
     }
 }
