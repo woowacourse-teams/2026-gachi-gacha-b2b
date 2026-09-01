@@ -1,5 +1,14 @@
 import { request } from '@/apis/httpClient';
 
+import {
+  classifyBackendGacha,
+  createBackendCategory,
+  deleteBackendCategory,
+  getBackendCategories,
+  getBackendClassificationItem,
+  getBackendClassificationQueue,
+  unsupportedBackendSkip,
+} from './backendClassificationApi';
 import type {
   CategoryDto,
   ClassificationItemDto,
@@ -22,16 +31,8 @@ import type {
   ClassificationIdRange,
   ClassificationItem,
   ClassificationResult,
-  ClassificationStatus,
+  QueueQuery,
 } from '../model/classification';
-
-export interface QueueQuery {
-  status: ClassificationStatus;
-  query: string;
-  minId?: number;
-  maxId?: number;
-  categoryIds?: number[];
-}
 
 const appendIdRange = (
   searchParams: URLSearchParams,
@@ -48,8 +49,22 @@ export const getClassificationQueue = async ({
   minId,
   maxId,
   categoryIds = [],
+  cursor,
+  limit = 50,
 }: QueueQuery) => {
-  const searchParams = new URLSearchParams({ status });
+  if (!__USE_MOCK_API__) {
+    return getBackendClassificationQueue({
+      status,
+      query,
+      ...(minId === undefined ? {} : { minId }),
+      ...(maxId === undefined ? {} : { maxId }),
+      ...(categoryIds.length === 0 ? {} : { categoryIds }),
+      ...(cursor === undefined ? {} : { cursor }),
+      limit,
+    });
+  }
+
+  const searchParams = new URLSearchParams({ status, limit: String(limit) });
 
   if (query.trim()) {
     searchParams.set('query', query.trim());
@@ -59,6 +74,10 @@ export const getClassificationQueue = async ({
 
   if (categoryIds.length > 0) {
     searchParams.set('categoryIds', categoryIds.join(','));
+  }
+
+  if (cursor !== undefined) {
+    searchParams.set('cursor', String(cursor));
   }
 
   const dto = await request<ClassificationQueueDto>(
@@ -71,6 +90,8 @@ export const getClassificationQueue = async ({
 export const getClassificationItem = async (
   itemId: number,
 ): Promise<ClassificationItem> => {
+  if (!__USE_MOCK_API__) return getBackendClassificationItem(itemId);
+
   const dto = await request<ClassificationItemDto>(
     `/classifications/${itemId}`,
   );
@@ -79,12 +100,16 @@ export const getClassificationItem = async (
 };
 
 export const getCategories = async (): Promise<Category[]> => {
+  if (!__USE_MOCK_API__) return getBackendCategories();
+
   const dtos = await request<CategoryDto[]>('/categories');
 
   return dtos.map(toCategory);
 };
 
 export const createCategory = async (name: string): Promise<Category> => {
+  if (!__USE_MOCK_API__) return createBackendCategory(name);
+
   const body: CreateCategoryRequestDto = { name };
   const dto = await request<CategoryDto>('/categories', {
     method: 'POST',
@@ -95,6 +120,8 @@ export const createCategory = async (name: string): Promise<Category> => {
 };
 
 export const deleteCategory = async (categoryId: number): Promise<void> => {
+  if (!__USE_MOCK_API__) return deleteBackendCategory(categoryId);
+
   await request<void>(`/categories/${categoryId}`, { method: 'DELETE' });
 };
 
@@ -103,6 +130,10 @@ export const classifyGacha = async (
   draft: ClassificationDraft,
   idRange: ClassificationIdRange = {},
 ): Promise<ClassificationResult> => {
+  if (!__USE_MOCK_API__) {
+    return classifyBackendGacha(item, draft, idRange);
+  }
+
   const body: ClassifyGachaRequestDto = {
     name: draft.name.trim(),
     categoryIds: draft.categoryIds,
@@ -124,6 +155,8 @@ export const skipGacha = async (
   reason: string,
   idRange: ClassificationIdRange = {},
 ): Promise<ClassificationResult> => {
+  if (!__USE_MOCK_API__) return unsupportedBackendSkip();
+
   const body: SkipGachaRequestDto = {
     reason: reason.trim(),
     version: item.version,
@@ -140,6 +173,8 @@ export const skipGacha = async (
 };
 
 export const restoreGacha = async (item: ClassificationItem): Promise<void> => {
+  if (!__USE_MOCK_API__) return unsupportedBackendSkip();
+
   const body: RestoreGachaRequestDto = { version: item.version };
 
   await request<ClassificationItemDto>(`/classifications/${item.id}/restore`, {

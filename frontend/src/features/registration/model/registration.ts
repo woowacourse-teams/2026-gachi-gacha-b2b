@@ -1,4 +1,7 @@
-import type { ClassificationItem } from '@/features/classification/model/classification';
+import type {
+  Category,
+  ClassificationItem,
+} from '@/features/classification/model/classification';
 
 export const MAX_FIELD_IMAGE_SIZE = 10 * 1024 * 1024;
 
@@ -31,6 +34,13 @@ export type RegistrationStage =
 
 export interface RegistrationResult {
   item: ClassificationItem;
+  warning?: string;
+}
+
+export interface BackendFieldGachaRegistration {
+  file: File;
+  draft: FieldGachaDraft;
+  categories: Category[];
 }
 
 export const validateFieldImage = (file: File): string | null => {

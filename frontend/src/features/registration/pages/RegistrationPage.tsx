@@ -48,6 +48,7 @@ import {
   Workspace,
 } from './RegistrationPage.styles';
 import {
+  createBackendFieldGacha,
   createFieldGacha,
   createFieldImageUploadTicket,
   uploadFieldImage,
@@ -95,6 +96,7 @@ export default function RegistrationPage({
   const [createdItem, setCreatedItem] = useState<ClassificationItem | null>(
     null,
   );
+  const [registrationWarning, setRegistrationWarning] = useState('');
   const isSubmitting = stage !== 'IDLE';
   const isDirty = Boolean(
     !createdItem && (file || draft.name.trim() || draft.categoryIds.length > 0),
@@ -203,6 +205,18 @@ export default function RegistrationPage({
     setHasSubmitFailed(false);
 
     try {
+      if (!__USE_MOCK_API__) {
+        setStage('SAVING_DATA');
+        const result = await createBackendFieldGacha({
+          file,
+          draft,
+          categories,
+        });
+        setRegistrationWarning(result.warning ?? '');
+        setCreatedItem(result.item);
+        return;
+      }
+
       let objectKey = pendingObjectKey;
 
       if (!objectKey) {
@@ -243,6 +257,7 @@ export default function RegistrationPage({
     setDraft(INITIAL_DRAFT);
     setPendingObjectKey(null);
     setCreatedItem(null);
+    setRegistrationWarning('');
     setError('');
     setHasSubmitFailed(false);
   };
@@ -256,6 +271,9 @@ export default function RegistrationPage({
           <p>
             ID #{createdItem.id} · {createdItem.name}
           </p>
+          {registrationWarning && (
+            <FormError role="alert">{registrationWarning}</FormError>
+          )}
           <SuccessActions>
             <ActionButton type="button" onClick={resetForm}>
               다른 사진 등록
@@ -283,7 +301,9 @@ export default function RegistrationPage({
           <h1>현장 가챠 사진 등록</h1>
           <p>사진과 분류 정보를 한 번에 등록합니다.</p>
         </HeaderCopy>
-        <SourceBadge>수집 경로 · FIELD</SourceBadge>
+        <SourceBadge>
+          수집 경로 · {__USE_MOCK_API__ ? 'FIELD' : 'MANUAL'}
+        </SourceBadge>
       </Header>
 
       <Workspace>

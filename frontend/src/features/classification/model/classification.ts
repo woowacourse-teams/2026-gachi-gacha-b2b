@@ -6,6 +6,16 @@ export const CLASSIFICATION_STATUSES = [
 
 export type ClassificationStatus = (typeof CLASSIFICATION_STATUSES)[number];
 
+export interface QueueQuery {
+  status: ClassificationStatus;
+  query: string;
+  minId?: number;
+  maxId?: number;
+  categoryIds?: number[];
+  cursor?: number;
+  limit?: number;
+}
+
 export interface Category {
   id: number;
   name: string;
@@ -34,6 +44,8 @@ export interface ClassificationQueue {
   items: ClassificationItem[];
   totalCount: number;
   skippedCount: number;
+  filteredCount: number;
+  nextCursor: number | null;
 }
 
 export interface ClassificationDraft {

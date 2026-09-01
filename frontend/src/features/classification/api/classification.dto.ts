@@ -23,6 +23,8 @@ export interface ClassificationQueueDto {
   items: ClassificationItemDto[];
   totalCount: number;
   skippedCount: number;
+  filteredCount: number;
+  nextCursor: number | null;
 }
 
 export interface ClassificationResultDto {
@@ -46,4 +48,42 @@ export interface RestoreGachaRequestDto {
 
 export interface CreateCategoryRequestDto {
   name: string;
+}
+
+export interface BackendCategoryDto {
+  categoryId: number;
+  name: string;
+}
+
+export interface BackendGachaDto {
+  gachaId: number;
+  name: string | null;
+  caption: string | null;
+  thumbnailUrl: string | null;
+  productCode: string | null;
+  categories: string[];
+  source: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BackendPageDto<Item> {
+  content: Item[];
+  totalElements: number;
+  totalPages: number;
+  size: number;
+  number: number;
+  first: boolean;
+  last: boolean;
+  empty: boolean;
+}
+
+export interface BackendGachaUpdateRequestDto {
+  name: string;
+  categories: number[];
+}
+
+export interface BackendGachaUpdateResponseDto {
+  gachaId: number;
+  updatedAt: string;
 }

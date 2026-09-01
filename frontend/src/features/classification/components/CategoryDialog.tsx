@@ -155,7 +155,7 @@ export default function CategoryDialog({
           <DeleteConfirm role="alertdialog" aria-label="카테고리 삭제 확인">
             <p>
               <strong>{categoryToDelete.name}</strong> 카테고리를 삭제할까요?
-              분류 데이터에서 사용 중이면 삭제할 수 없습니다.
+              연결된 가챠에서도 이 카테고리가 제거됩니다.
             </p>
             <ConfirmActions>
               <button type="button" onClick={() => setCategoryToDelete(null)}>

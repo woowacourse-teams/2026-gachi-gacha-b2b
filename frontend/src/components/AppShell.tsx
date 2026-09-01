@@ -58,14 +58,16 @@ export default function AppShell({
             <span aria-hidden>✓</span>
             <span>분류 완료</span>
           </NavigationButton>
-          <NavigationButton
-            active={currentSection === 'SKIPPED'}
-            type="button"
-            onClick={() => onNavigate('/skipped')}
-          >
-            <span aria-hidden>↶</span>
-            <span>건너뛴 데이터</span>
-          </NavigationButton>
+          {__USE_MOCK_API__ && (
+            <NavigationButton
+              active={currentSection === 'SKIPPED'}
+              type="button"
+              onClick={() => onNavigate('/skipped')}
+            >
+              <span aria-hidden>↶</span>
+              <span>건너뛴 데이터</span>
+            </NavigationButton>
+          )}
         </Navigation>
       </Sidebar>
       <Main>{children}</Main>
