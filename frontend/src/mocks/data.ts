@@ -93,6 +93,78 @@ const initialClassificationItems: ClassificationItemDto[] = [
     version: 3,
     createdAt: '2026-08-29T10:36:00+09:00',
   },
+  {
+    gachaId: 107,
+    thumbnailUrl: '/mock/gacha-blue.svg',
+    displayName: '건담 캡슐 피규어',
+    originalFileName: 'bandai_2026_0829_007.jpg',
+    source: 'BANDAI',
+    location: '국제전자센터 9층',
+    caption: '모빌 슈트 미니 피규어 컬렉션',
+    categoryIds: [5],
+    status: 'CLASSIFIED',
+    version: 1,
+    createdAt: '2026-08-29T10:37:00+09:00',
+  },
+  {
+    gachaId: 108,
+    thumbnailUrl: '/mock/gacha-sushi.svg',
+    displayName: '편의점 음식 미니어처',
+    originalFileName: 'amuse_2026_0829_008.jpg',
+    source: 'AMUSE',
+    location: '홍대',
+    caption: '작은 음식 소품 컬렉션',
+    categoryIds: [7],
+    status: 'CLASSIFIED',
+    version: 1,
+    createdAt: '2026-08-29T10:38:00+09:00',
+  },
+];
+
+export interface MockStore {
+  storeId: number;
+  name: string;
+  thumbnailUrl: string | null;
+  address: string;
+  latitude: number;
+  longitude: number;
+  gachaMachineAmount: number | null;
+}
+
+const initialStores: MockStore[] = [
+  {
+    storeId: 1,
+    name: '가챠샵 홍대점',
+    thumbnailUrl: '/mock/gacha-pink.svg',
+    address: '서울특별시 마포구 와우산로 1층',
+    latitude: 37.5563,
+    longitude: 126.9236,
+    gachaMachineAmount: 48,
+  },
+  {
+    storeId: 2,
+    name: '국제전자센터 가챠존',
+    thumbnailUrl: '/mock/gacha-blue.svg',
+    address: '서울특별시 서초구 효령로 304 9층',
+    latitude: 37.4847,
+    longitude: 127.0177,
+    gachaMachineAmount: 72,
+  },
+  {
+    storeId: 3,
+    name: '캡슐 스테이션 연남',
+    thumbnailUrl: null,
+    address: '서울특별시 마포구 동교로 2층',
+    latitude: 37.5621,
+    longitude: 126.9252,
+    gachaMachineAmount: 24,
+  },
+];
+
+const initialStoreGachaAssignments: Array<[number, number[]]> = [
+  [1, [105]],
+  [2, [107]],
+  [3, []],
 ];
 
 export interface MockFieldUpload extends CreateUploadUrlRequestDto {
@@ -130,13 +202,28 @@ const cloneItems = () =>
     ...item,
     categoryIds: [...item.categoryIds],
   }));
+const cloneStores = () => initialStores.map((store) => ({ ...store }));
+const cloneAssignments = () =>
+  new Map(
+    initialStoreGachaAssignments.map(([storeId, gachaIds]) => [
+      storeId,
+      new Set(gachaIds),
+    ]),
+  );
 
 export const categories = cloneCategories();
 export const classificationItems = cloneItems();
+export const stores = cloneStores();
+export const storeGachaAssignments = cloneAssignments();
 
 export const resetMockData = () => {
   categories.splice(0, categories.length, ...cloneCategories());
   classificationItems.splice(0, classificationItems.length, ...cloneItems());
+  stores.splice(0, stores.length, ...cloneStores());
+  storeGachaAssignments.clear();
+  cloneAssignments().forEach((gachaIds, storeId) => {
+    storeGachaAssignments.set(storeId, gachaIds);
+  });
   fieldUploads.clear();
   nextUploadSequence = 1;
 };

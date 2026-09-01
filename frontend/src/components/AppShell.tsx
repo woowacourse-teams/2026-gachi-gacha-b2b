@@ -19,7 +19,7 @@ import {
 
 interface AppShellProps {
   children: ReactNode;
-  currentSection: 'UNCLASSIFIED' | 'CLASSIFIED' | 'SKIPPED';
+  currentSection: 'UNCLASSIFIED' | 'CLASSIFIED' | 'SKIPPED' | 'STORES';
   onNavigate: (path: string) => void;
 }
 
@@ -69,6 +69,14 @@ export default function AppShell({
               <span>건너뛴 데이터</span>
             </NavigationButton>
           )}
+          <NavigationButton
+            active={currentSection === 'STORES'}
+            type="button"
+            onClick={() => onNavigate('/stores')}
+          >
+            <span aria-hidden>店</span>
+            <span>매장 가챠 관리</span>
+          </NavigationButton>
         </Navigation>
         <AiControl />
       </Sidebar>

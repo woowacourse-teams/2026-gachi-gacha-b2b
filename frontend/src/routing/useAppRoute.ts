@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 
 export type AppRoute =
   | { page: 'register' }
+  | { page: 'stores' }
+  | { page: 'storeInventory'; storeId: number }
   | {
       page: 'queue';
       status: 'UNCLASSIFIED' | 'CLASSIFIED' | 'SKIPPED';
@@ -33,6 +35,21 @@ const getIdRangeFromUrl = () => {
 const parseRoute = (): AppRoute => {
   if (window.location.pathname === '/register') {
     return { page: 'register' };
+  }
+
+  if (window.location.pathname === '/stores') {
+    return { page: 'stores' };
+  }
+
+  const storeInventoryMatch = window.location.pathname.match(
+    /^\/stores\/(\d+)\/gachas$/,
+  );
+
+  if (storeInventoryMatch) {
+    return {
+      page: 'storeInventory',
+      storeId: Number(storeInventoryMatch[1]),
+    };
   }
 
   const classifyMatch = window.location.pathname.match(/^\/classify\/(\d+)$/);

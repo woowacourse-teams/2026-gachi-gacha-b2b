@@ -3,12 +3,19 @@ import { AiSettingsProvider } from '@/features/ai/context/AiSettingsContext';
 import ClassificationPage from '@/features/classification/pages/ClassificationPage';
 import QueuePage from '@/features/classification/pages/QueuePage';
 import RegistrationPage from '@/features/registration/pages/RegistrationPage';
+import StoreInventoryPage from '@/features/storeInventory/pages/StoreInventoryPage';
+import StoreListPage from '@/features/storeInventory/pages/StoreListPage';
 import { useAppRoute } from '@/routing/useAppRoute';
 import GlobalStyles from '@/styles/GlobalStyles';
 
 function AppContent() {
   const { route, navigate } = useAppRoute();
-  const currentSection = route.page === 'queue' ? route.status : 'UNCLASSIFIED';
+  const currentSection =
+    route.page === 'queue'
+      ? route.status
+      : route.page === 'stores' || route.page === 'storeInventory'
+        ? 'STORES'
+        : 'UNCLASSIFIED';
 
   return (
     <>
@@ -16,6 +23,10 @@ function AppContent() {
       <AppShell currentSection={currentSection} onNavigate={navigate}>
         {route.page === 'register' ? (
           <RegistrationPage onNavigate={navigate} />
+        ) : route.page === 'stores' ? (
+          <StoreListPage onNavigate={navigate} />
+        ) : route.page === 'storeInventory' ? (
+          <StoreInventoryPage storeId={route.storeId} onNavigate={navigate} />
         ) : route.page === 'classify' ? (
           <ClassificationPage
             itemId={route.itemId}

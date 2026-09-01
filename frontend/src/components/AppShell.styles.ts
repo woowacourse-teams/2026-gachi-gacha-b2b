@@ -97,7 +97,14 @@ export const Navigation = styled.nav`
   @media (max-width: 820px) {
     display: flex;
     gap: 4px;
+    max-width: calc(100vw - 172px);
     margin: 0 0 0 auto;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+  }
+
+  @media (max-width: 520px) {
+    max-width: calc(100vw - 92px);
   }
 `;
 
