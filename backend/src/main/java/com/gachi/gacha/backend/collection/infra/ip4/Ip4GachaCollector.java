@@ -145,8 +145,6 @@ public class Ip4GachaCollector implements GachaCollector {
         String productCode = extractProductCode(detailUrl);
         String name = extractName(detailElement);
         String imageUrl = imageElement.absUrl("src");
-        Element categoryElement = detailElement.selectFirst(".brand");
-        String category = categoryElement == null ? null : categoryElement.text();
         if (name.isBlank() || imageUrl.isBlank()) {
             return Optional.empty();
         }
@@ -155,8 +153,7 @@ public class Ip4GachaCollector implements GachaCollector {
                 source(),
                 productCode,
                 name,
-                imageUrl,
-                category
+                imageUrl
         ));
     }
 
