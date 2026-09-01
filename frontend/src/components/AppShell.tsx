@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 
 import logoSymbol from '@/assets/gachi-gacha-logo-symbol.svg';
+import AiControl from '@/features/ai/components/AiControl';
 
 import {
   Brand,
@@ -69,6 +70,7 @@ export default function AppShell({
             </NavigationButton>
           )}
         </Navigation>
+        <AiControl />
       </Sidebar>
       <Main>{children}</Main>
     </Layout>

@@ -1,11 +1,12 @@
 import AppShell from '@/components/AppShell';
+import { AiSettingsProvider } from '@/features/ai/context/AiSettingsContext';
 import ClassificationPage from '@/features/classification/pages/ClassificationPage';
 import QueuePage from '@/features/classification/pages/QueuePage';
 import RegistrationPage from '@/features/registration/pages/RegistrationPage';
 import { useAppRoute } from '@/routing/useAppRoute';
 import GlobalStyles from '@/styles/GlobalStyles';
 
-export default function App() {
+function AppContent() {
   const { route, navigate } = useAppRoute();
   const currentSection = route.page === 'queue' ? route.status : 'UNCLASSIFIED';
 
@@ -32,5 +33,13 @@ export default function App() {
         )}
       </AppShell>
     </>
+  );
+}
+
+export default function App() {
+  return (
+    <AiSettingsProvider>
+      <AppContent />
+    </AiSettingsProvider>
   );
 }

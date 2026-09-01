@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { ApiError } from '@/apis/httpClient';
+import { useAiSettings } from '@/features/ai/context/AiSettingsContext';
 import { getErrorMessage } from '@/utils/getErrorMessage';
 
 import {
@@ -86,6 +88,11 @@ export default function ClassificationPage({
   maxId,
   onNavigate,
 }: ClassificationPageProps) {
+  const {
+    credentials,
+    isEnabled: isAiEnabled,
+    recordRequest: recordAiRequest,
+  } = useAiSettings();
   const [item, setItem] = useState<ClassificationItem | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [name, setName] = useState('');
@@ -93,6 +100,8 @@ export default function ClassificationPage({
   const [aiStatus, setAiStatus] = useState<AiSuggestionStatus>('IDLE');
   const [aiModel, setAiModel] = useState('');
   const [aiError, setAiError] = useState('');
+  const [aiWorkNames, setAiWorkNames] = useState<string[]>([]);
+  const [aiCharacterNames, setAiCharacterNames] = useState<string[]>([]);
   const [remainingCount, setRemainingCount] = useState<number | null>(null);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -102,8 +111,10 @@ export default function ClassificationPage({
   const [skipError, setSkipError] = useState('');
   const [zoom, setZoom] = useState(1);
   const [hasImageError, setHasImageError] = useState(false);
+  const hasEditedNameRef = useRef(false);
   const hasEditedCategoryTextRef = useRef(false);
   const aiRequestIdRef = useRef(0);
+  const aiAbortControllerRef = useRef<AbortController | null>(null);
   const idRange = useMemo<ClassificationIdRange>(
     () => ({
       ...(minId === undefined ? {} : { minId }),
@@ -124,9 +135,14 @@ export default function ClassificationPage({
       setAiStatus('IDLE');
       setAiModel('');
       setAiError('');
+      setAiWorkNames([]);
+      setAiCharacterNames([]);
       setZoom(1);
       setHasImageError(false);
+      hasEditedNameRef.current = false;
       hasEditedCategoryTextRef.current = false;
+      aiAbortControllerRef.current?.abort();
+      aiAbortControllerRef.current = null;
 
       try {
         const [loadedItem, loadedCategories] = await Promise.all([
@@ -160,6 +176,8 @@ export default function ClassificationPage({
     return () => {
       isCurrent = false;
       aiRequestIdRef.current += 1;
+      aiAbortControllerRef.current?.abort();
+      aiAbortControllerRef.current = null;
     };
   }, [idRange, itemId]);
 
@@ -170,7 +188,7 @@ export default function ClassificationPage({
 
   const loadAiSuggestion = useCallback(
     async (force = false) => {
-      if (!item || categories.length === 0) return;
+      if (!item || !isAiEnabled || !credentials) return;
 
       if (!item.imageUrl) {
         setAiStatus('FAILED');
@@ -178,41 +196,80 @@ export default function ClassificationPage({
         return;
       }
 
-      if (force) clearCachedAiSuggestion(item.id, item.version);
+      if (force) {
+        clearCachedAiSuggestion(item.id, item.version, credentials.provider);
+      }
       const requestId = aiRequestIdRef.current + 1;
       aiRequestIdRef.current = requestId;
+      aiAbortControllerRef.current?.abort();
+      const abortController = new AbortController();
+      aiAbortControllerRef.current = abortController;
 
       setAiStatus('LOADING');
       setAiError('');
+      setAiWorkNames([]);
+      setAiCharacterNames([]);
 
       try {
-        const suggestion = await getAiCategorySuggestion(
-          item,
-          categories,
+        const suggestion = await getAiCategorySuggestion(item, categories, {
+          credentials,
           force,
-        );
+          onRequest: recordAiRequest,
+          signal: abortController.signal,
+        });
 
         if (requestId !== aiRequestIdRef.current) return;
+
+        if (!hasEditedNameRef.current && suggestion.translatedName) {
+          setName(suggestion.translatedName);
+          hasEditedNameRef.current = false;
+        }
 
         if (!hasEditedCategoryTextRef.current) {
           setCategoryText(formatCategoryText(suggestion.categoryNames));
           hasEditedCategoryTextRef.current = false;
         }
 
+        setAiWorkNames(suggestion.workNames);
+        setAiCharacterNames(suggestion.characterNames);
         setAiModel(suggestion.model);
         setAiStatus('READY');
       } catch (cause) {
         if (requestId !== aiRequestIdRef.current) return;
+        if (cause instanceof DOMException && cause.name === 'AbortError') {
+          setAiStatus('IDLE');
+          return;
+        }
         setAiError(getErrorMessage(cause));
         setAiStatus('FAILED');
+      } finally {
+        if (aiAbortControllerRef.current === abortController) {
+          aiAbortControllerRef.current = null;
+        }
       }
     },
-    [categories, item],
+    [categories, credentials, isAiEnabled, item, recordAiRequest],
   );
 
   useEffect(() => {
+    if (!isAiEnabled || !credentials) {
+      aiRequestIdRef.current += 1;
+      aiAbortControllerRef.current?.abort();
+      aiAbortControllerRef.current = null;
+      setAiStatus('IDLE');
+      setAiError('');
+      setAiModel('');
+      setAiWorkNames([]);
+      setAiCharacterNames([]);
+      return;
+    }
+
     void loadAiSuggestion();
-  }, [loadAiSuggestion]);
+
+    return () => {
+      aiAbortControllerRef.current?.abort();
+    };
+  }, [credentials, isAiEnabled, loadAiSuggestion]);
 
   const isDirty = useMemo(
     () =>
@@ -239,8 +296,7 @@ export default function ClassificationPage({
   const canSave = Boolean(
     item &&
     name.trim() &&
-    categoryResolution.categoryIds.length > 0 &&
-    categoryResolution.unknownCategoryNames.length === 0 &&
+    categoryResolution.categoryNames.length > 0 &&
     !isSubmitting,
   );
 
@@ -260,14 +316,18 @@ export default function ClassificationPage({
     if (
       !item ||
       !name.trim() ||
-      categoryResolution.categoryIds.length === 0 ||
-      categoryResolution.unknownCategoryNames.length > 0
+      categoryResolution.categoryNames.length === 0
     ) {
-      setError(
-        categoryResolution.unknownCategoryNames.length > 0
-          ? '등록되지 않은 카테고리는 관리 메뉴에서 먼저 추가해 주세요.'
-          : '이름과 카테고리를 한 개 이상 입력해 주세요.',
-      );
+      setError('이름과 카테고리를 한 개 이상 입력해 주세요.');
+      return;
+    }
+
+    if (
+      categoryResolution.unknownCategoryNames.length > 0 &&
+      !window.confirm(
+        `다음 카테고리를 공용 목록에 새로 등록하고 저장할까요?\n\n${categoryResolution.unknownCategoryNames.join(', ')}`,
+      )
+    ) {
       return;
     }
 
@@ -275,9 +335,33 @@ export default function ClassificationPage({
     setError('');
 
     try {
+      for (const categoryName of categoryResolution.unknownCategoryNames) {
+        try {
+          await createCategory(categoryName);
+        } catch (cause) {
+          if (!(cause instanceof ApiError && cause.status === 409)) throw cause;
+        }
+      }
+
+      const latestCategories =
+        categoryResolution.unknownCategoryNames.length > 0
+          ? await getCategories()
+          : categories;
+      const latestResolution = resolveCategoryText(
+        categoryText,
+        latestCategories,
+      );
+
+      if (latestResolution.unknownCategoryNames.length > 0) {
+        throw new Error(
+          `카테고리를 등록하지 못했습니다: ${latestResolution.unknownCategoryNames.join(', ')}`,
+        );
+      }
+
+      setCategories(latestCategories);
       const result = await classifyGacha(
         item,
-        { name, categoryIds: categoryResolution.categoryIds },
+        { name, categoryIds: latestResolution.categoryIds },
         idRange,
       );
       moveToNext(result.nextItemId);
@@ -286,7 +370,15 @@ export default function ClassificationPage({
     } finally {
       setIsSubmitting(false);
     }
-  }, [categoryResolution, idRange, item, moveToNext, name]);
+  }, [
+    categories,
+    categoryResolution,
+    categoryText,
+    idRange,
+    item,
+    moveToNext,
+    name,
+  ]);
 
   const handleSkip = async (reason: string) => {
     if (!item) return;
@@ -466,6 +558,7 @@ export default function ClassificationPage({
                 placeholder="가챠 이름을 입력해 주세요"
                 value={name}
                 onChange={(event) => {
+                  hasEditedNameRef.current = true;
                   setName(event.target.value);
                   setError('');
                 }}
@@ -474,7 +567,10 @@ export default function ClassificationPage({
                 <button
                   aria-label="이름 지우기"
                   type="button"
-                  onClick={() => setName('')}
+                  onClick={() => {
+                    hasEditedNameRef.current = true;
+                    setName('');
+                  }}
                 >
                   ×
                 </button>
@@ -483,8 +579,11 @@ export default function ClassificationPage({
 
             <CategoryTextEditor
               aiError={aiError}
+              aiEnabled={isAiEnabled}
+              aiCharacterNames={aiCharacterNames}
               aiModel={aiModel}
               aiStatus={aiStatus}
+              aiWorkNames={aiWorkNames}
               categories={categories}
               disabled={isSubmitting}
               selectedCategoryIds={categoryResolution.categoryIds}

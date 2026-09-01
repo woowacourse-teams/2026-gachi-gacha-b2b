@@ -7,6 +7,9 @@ export interface AiCategorySuggestionRequestDto {
 }
 
 export interface AiCategorySuggestionDto {
+  translatedName: string;
+  workNames: string[];
+  characterNames: string[];
   categoryNames: string[];
   model: string;
   generatedAt: string;

@@ -107,6 +107,16 @@ export const handlers = [
   http.post(aiApiPath('/suggest-categories'), async ({ request }) => {
     await delay(650);
 
+    const provider = request.headers.get('X-Gachi-AI-Provider');
+    const apiKey = request.headers.get('X-Gachi-AI-Key');
+
+    if (!provider || !apiKey) {
+      return HttpResponse.json(
+        { message: '사용할 AI 서비스와 API 키가 필요합니다.' },
+        { status: 401 },
+      );
+    }
+
     const body = (await request.json()) as AiCategorySuggestionRequestDto;
     const item = findItem(body.itemId);
 
@@ -117,14 +127,20 @@ export const handlers = [
       );
     }
 
-    const allowedCategoryNames = new Set(body.allowedCategoryNames);
-    const categoryNames = getMockCategoryNames(item.gachaId).filter((name) =>
-      allowedCategoryNames.has(name),
-    );
+    const workNames = item.gachaId === 101 ? ['산리오 캐릭터즈'] : [];
+    const characterNames = item.gachaId === 101 ? ['마이멜로디'] : [];
+    const categoryNames = [
+      ...workNames,
+      ...characterNames,
+      ...getMockCategoryNames(item.gachaId),
+    ];
 
     return HttpResponse.json({
+      translatedName: item.displayName ?? '미확인 캡슐 가챠',
+      workNames,
+      characterNames,
       categoryNames,
-      model: 'msw-gacha-category-classifier',
+      model: `msw-${provider.toLowerCase()}-gacha-classifier`,
       generatedAt: new Date().toISOString(),
     });
   }),
