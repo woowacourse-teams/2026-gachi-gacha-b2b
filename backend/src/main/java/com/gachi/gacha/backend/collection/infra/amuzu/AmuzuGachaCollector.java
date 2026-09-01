@@ -30,8 +30,6 @@ public class AmuzuGachaCollector implements GachaCollector {
     private final HtmlFetcher htmlFetcher;
     @Value("${collection.sources.amuzu.list-url}")
     private String listUrl;
-    @Value("${collection.sources.amuzu.category:CAPSULE_TOY_006}")
-    private String category;
     @Value("${collection.sources.amuzu.max-pages:100}")
     private int maxPages;
 
@@ -96,8 +94,7 @@ public class AmuzuGachaCollector implements GachaCollector {
                 source(),
                 productCode,
                 titleLink.text(),
-                imageUrl,
-                category
+                imageUrl
         ));
     }
 

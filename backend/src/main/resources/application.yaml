@@ -65,5 +65,4 @@ collection:
       collection-months: ${IP4_COLLECTION_MONTHS:12}
     amuzu:
       list-url: "${AMUZU_COLLECTION_LIST_URL:https://www.a-muzu.com/category/CAPSULE_TOY_006/}"
-      category: CAPSULE_TOY_006
       max-pages: ${AMUZU_COLLECTION_MAX_PAGES:100}

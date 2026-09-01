@@ -48,7 +48,6 @@ class BandaiGachaCollectorTest {
             assertThat(gacha.productCode()).isEqualTo("4582769995552");
             assertThat(gacha.name()).isEqualTo("カーケシGP NISSANセレクション01");
             assertThat(gacha.imageUrl()).isEqualTo("https://bandai.example/images/bandai-1.jpg");
-            assertThat(gacha.category()).isNull();
         });
     }
 

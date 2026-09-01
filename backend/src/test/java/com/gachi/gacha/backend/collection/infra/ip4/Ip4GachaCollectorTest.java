@@ -70,7 +70,6 @@ class Ip4GachaCollectorTest {
             assertThat(gacha.productCode()).isEqualTo("414");
             assertThat(gacha.name()).isEqualTo("スーパー泥だんご");
             assertThat(gacha.imageUrl()).isEqualTo("https://ip4.example/images/VD1475.jpg");
-            assertThat(gacha.category()).isEqualTo("コロコロコレクション");
         });
     }
 

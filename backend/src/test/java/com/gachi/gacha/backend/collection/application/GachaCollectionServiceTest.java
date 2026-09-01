@@ -18,8 +18,6 @@ import com.gachi.gacha.backend.collection.domain.GachaCollectionException;
 import com.gachi.gacha.backend.common.infra.application.ImageUploader;
 import com.gachi.gacha.backend.common.infra.domain.ImageType;
 import com.gachi.gacha.backend.common.util.S3TransactionManager;
-import com.gachi.gacha.backend.gacha.application.CategoryService;
-import com.gachi.gacha.backend.gacha.domain.Category;
 import com.gachi.gacha.backend.gacha.domain.Gacha;
 import com.gachi.gacha.backend.gacha.domain.GachaJpaRepository;
 import java.util.List;
@@ -43,9 +41,6 @@ class GachaCollectionServiceTest {
     @Mock
     private S3TransactionManager s3TransactionManager;
 
-    @Mock
-    private CategoryService categoryService;
-
     @Test
     @SuppressWarnings("unchecked")
     void source와_productCode가_같은_기존_가챠는_저장하지_않는다() {
@@ -61,8 +56,6 @@ class GachaCollectionServiceTest {
                 "https://example.com/image.jpg",
                 ImageType.GACHA.buildPath("root")
         )).willReturn("https://bucket.s3.amazonaws.com/root/gacha/new.jpg");
-        given(categoryService.resolve(List.of("category")))
-                .willReturn(List.of(new Category("category")));
 
         int insertedCount = service.saveNewGachas(CollectionSource.BANDAI, collectedGachas);
 
@@ -77,9 +70,6 @@ class GachaCollectionServiceTest {
                     assertThat(gacha.getName()).isEqualTo("신규 상품");
                     assertThat(gacha.getThumbnailUrl())
                             .isEqualTo("https://bucket.s3.amazonaws.com/root/gacha/new.jpg");
-                    assertThat(gacha.getGachaCategories())
-                            .extracting(gachaCategory -> gachaCategory.getCategory().getName())
-                            .containsExactly("category");
                 });
         verify(imageUploader, times(1)).uploadFromUrl(
                 "https://example.com/image.jpg",
@@ -134,8 +124,7 @@ class GachaCollectionServiceTest {
         GachaCollectionService service = new GachaCollectionService(
                 gachaRepository,
                 imageUploader,
-                s3TransactionManager,
-                categoryService
+                s3TransactionManager
         );
         ReflectionTestUtils.setField(service, "s3RootFolder", "root");
         return service;
@@ -146,6 +135,6 @@ class GachaCollectionServiceTest {
             final String productCode,
             final String name
     ) {
-        return new CollectedGacha(source, productCode, name, "https://example.com/image.jpg", "category");
+        return new CollectedGacha(source, productCode, name, "https://example.com/image.jpg");
     }
 }

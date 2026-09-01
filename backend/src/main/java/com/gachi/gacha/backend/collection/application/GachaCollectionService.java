@@ -1,7 +1,6 @@
 package com.gachi.gacha.backend.collection.application;
 
 import static com.gachi.gacha.backend.common.exception.ErrorCode.COLLECTION_SOURCE_MISMATCH;
-import static java.util.stream.Collectors.toMap;
 
 import com.gachi.gacha.backend.collection.domain.CollectedGacha;
 import com.gachi.gacha.backend.collection.domain.CollectionSource;
@@ -9,8 +8,6 @@ import com.gachi.gacha.backend.collection.domain.GachaCollectionException;
 import com.gachi.gacha.backend.common.infra.application.ImageUploader;
 import com.gachi.gacha.backend.common.infra.domain.ImageType;
 import com.gachi.gacha.backend.common.util.S3TransactionManager;
-import com.gachi.gacha.backend.gacha.application.CategoryService;
-import com.gachi.gacha.backend.gacha.domain.Category;
 import com.gachi.gacha.backend.gacha.domain.Gacha;
 import com.gachi.gacha.backend.gacha.domain.GachaJpaRepository;
 import java.util.ArrayList;
@@ -30,7 +27,7 @@ public class GachaCollectionService {
     private final GachaJpaRepository gachaRepository;
     private final ImageUploader imageUploader;
     private final S3TransactionManager s3TransactionManager;
-    private final CategoryService categoryService;
+
     @Value("${cloud.aws.s3.folder}")
     private String s3RootFolder;
 
@@ -70,18 +67,9 @@ public class GachaCollectionService {
     private List<Gacha> createGachas(final List<CollectedGacha> collectedGachas) {
         List<String> uploadedImageUrls = new ArrayList<>();
         s3TransactionManager.deleteImagesOnRollback(ImageType.GACHA, null, uploadedImageUrls);
-        Map<String, Category> categoriesByName = resolveCategories(collectedGachas);
         return collectedGachas.stream()
-                .map(gacha -> uploadImageAndConvert(gacha, uploadedImageUrls, categoriesByName))
+                .map(gacha -> uploadImageAndConvert(gacha, uploadedImageUrls))
                 .toList();
-    }
-
-    private Map<String, Category> resolveCategories(final List<CollectedGacha> collectedGachas) {
-        return categoryService.resolve(collectedGachas.stream()
-                        .map(CollectedGacha::category)
-                        .toList())
-                .stream()
-                .collect(toMap(Category::getName, category -> category));
     }
 
     private Map<String, CollectedGacha> deduplicate(
@@ -100,8 +88,7 @@ public class GachaCollectionService {
 
     private Gacha uploadImageAndConvert(
             final CollectedGacha collectedGacha,
-            final List<String> uploadedImageUrls,
-            final Map<String, Category> categoriesByName
+            final List<String> uploadedImageUrls
     ) {
         String s3ImageUrl = imageUploader.uploadFromUrl(
                 collectedGacha.imageUrl(),
@@ -114,18 +101,7 @@ public class GachaCollectionService {
                 s3ImageUrl,
                 collectedGacha.source(),
                 collectedGacha.productCode(),
-                findCategories(collectedGacha.category(), categoriesByName)
+                List.of()
         );
-    }
-
-    private List<Category> findCategories(
-            final String categoryName,
-            final Map<String, Category> categoriesByName
-    ) {
-        if (categoryName == null || categoryName.isBlank()) {
-            return List.of();
-        }
-        Category category = categoriesByName.get(categoryName.trim());
-        return category == null ? List.of() : List.of(category);
     }
 }

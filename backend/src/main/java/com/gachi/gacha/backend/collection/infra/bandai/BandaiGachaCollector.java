@@ -4,8 +4,8 @@ import static com.gachi.gacha.backend.common.exception.ErrorCode.INVALID_COLLECT
 
 import com.gachi.gacha.backend.collection.domain.CollectedGacha;
 import com.gachi.gacha.backend.collection.domain.CollectionSource;
-import com.gachi.gacha.backend.collection.domain.GachaCollector;
 import com.gachi.gacha.backend.collection.domain.GachaCollectionException;
+import com.gachi.gacha.backend.collection.domain.GachaCollector;
 import com.gachi.gacha.backend.collection.infra.HtmlFetcher;
 import jakarta.annotation.PostConstruct;
 import java.net.URLDecoder;
@@ -81,27 +81,26 @@ public class BandaiGachaCollector implements GachaCollector {
         return new ArrayList<>(collected.values());
     }
 
-    private java.util.Optional<CollectedGacha> toCollectedGacha(final Element productLink) {
+    private Optional<CollectedGacha> toCollectedGacha(final Element productLink) {
         String href = productLink.absUrl("href");
         Matcher matcher = PRODUCT_CODE_PATTERN.matcher(href);
         Element nameElement = productLink.selectFirst("p:not(.itemList_price)");
         Element imageElement = productLink.selectFirst("img");
         if (!matcher.find() || nameElement == null || imageElement == null) {
-            return java.util.Optional.empty();
+            return Optional.empty();
         }
 
         String productCode = URLDecoder.decode(matcher.group(1), StandardCharsets.UTF_8);
         String imageUrl = imageElement.absUrl("src");
         if (imageUrl.isBlank()) {
-            return java.util.Optional.empty();
+            return Optional.empty();
         }
 
         return Optional.of(new CollectedGacha(
                 source(),
                 productCode,
                 nameElement.text(),
-                imageUrl,
-                null
+                imageUrl
         ));
     }
 

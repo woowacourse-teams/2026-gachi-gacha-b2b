@@ -32,7 +32,6 @@ class AmuzuGachaCollectorTest {
                 """;
         AmuzuGachaCollector collector = new AmuzuGachaCollector(htmlFetcher);
         ReflectionTestUtils.setField(collector, "listUrl", LIST_URL);
-        ReflectionTestUtils.setField(collector, "category", "CAPSULE_TOY_006");
         ReflectionTestUtils.setField(collector, "maxPages", 10);
 
         List<CollectedGacha> result = collector.collect();
@@ -42,7 +41,6 @@ class AmuzuGachaCollectorTest {
             assertThat(gacha.productCode()).isEqualTo("C69710");
             assertThat(gacha.name()).isEqualTo("バルーンわんちゃん（30個入り）");
             assertThat(gacha.imageUrl()).isEqualTo("https://amuzu.example/images/C69710.jpg");
-            assertThat(gacha.category()).isEqualTo("CAPSULE_TOY_006");
         });
     }
 }

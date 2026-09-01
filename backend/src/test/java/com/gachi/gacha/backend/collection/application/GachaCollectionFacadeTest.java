@@ -8,8 +8,8 @@ import static org.mockito.Mockito.verify;
 
 import com.gachi.gacha.backend.collection.domain.CollectedGacha;
 import com.gachi.gacha.backend.collection.domain.CollectionSource;
-import com.gachi.gacha.backend.collection.domain.GachaCollector;
 import com.gachi.gacha.backend.collection.domain.GachaCollectionException;
+import com.gachi.gacha.backend.collection.domain.GachaCollector;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -58,8 +58,7 @@ class GachaCollectionFacadeTest {
                 source,
                 productCode,
                 source.name() + " 상품",
-                "https://example.com/image.jpg",
-                "category"
+                "https://example.com/image.jpg"
         );
     }
 }
