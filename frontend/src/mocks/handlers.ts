@@ -12,6 +12,8 @@ import {
   classificationItems,
   createMockFieldUpload,
   fieldUploads,
+  storeGachaAssignments,
+  stores,
 } from './data';
 import type { AiCategorySuggestionRequestDto } from '../features/classification/api/aiSuggestion.dto';
 import type {
@@ -103,9 +105,55 @@ const getMockCategoryNames = (itemId: number) => {
   return ['가챠'];
 };
 
+const ok = <Data>(data: Data) => ({ code: 'C000', message: '정상', data });
+
+const getPageRequest = (requestUrl: string) => {
+  const url = new URL(requestUrl);
+  const requestedPage = Number(url.searchParams.get('page'));
+  const requestedSize = Number(url.searchParams.get('size'));
+
+  return {
+    page:
+      Number.isSafeInteger(requestedPage) && requestedPage >= 0
+        ? requestedPage
+        : 0,
+    size:
+      Number.isSafeInteger(requestedSize) && requestedSize > 0
+        ? Math.min(requestedSize, 100)
+        : 20,
+  };
+};
+
+const toPage = <Item>(items: Item[], page: number, size: number) => {
+  const totalElements = items.length;
+  const totalPages = totalElements === 0 ? 0 : Math.ceil(totalElements / size);
+  const content = items.slice(page * size, page * size + size);
+
+  return {
+    content,
+    totalElements,
+    totalPages,
+    size,
+    number: page,
+    first: page === 0,
+    last: totalPages === 0 || page >= totalPages - 1,
+    empty: content.length === 0,
+  };
+};
+
 export const handlers = [
   http.post(aiApiPath('/suggest-categories'), async ({ request }) => {
     await delay(650);
+
+    const provider = request.headers.get('X-Gachi-AI-Provider');
+    const apiKey = request.headers.get('X-Gachi-AI-Key');
+
+    if (!provider || !apiKey) {
+      return HttpResponse.json(
+        { message: '사용할 AI 서비스와 API 키가 필요합니다.' },
+        { status: 401 },
+      );
+    }
 
     const body = (await request.json()) as AiCategorySuggestionRequestDto;
     const item = findItem(body.itemId);
@@ -117,16 +165,123 @@ export const handlers = [
       );
     }
 
-    const allowedCategoryNames = new Set(body.allowedCategoryNames);
-    const categoryNames = getMockCategoryNames(item.gachaId).filter((name) =>
-      allowedCategoryNames.has(name),
-    );
+    const workNames = item.gachaId === 101 ? ['산리오 캐릭터즈'] : [];
+    const characterNames = item.gachaId === 101 ? ['마이멜로디'] : [];
+    const categoryNames = [
+      ...workNames,
+      ...characterNames,
+      ...getMockCategoryNames(item.gachaId),
+    ];
 
     return HttpResponse.json({
+      translatedName: item.displayName ?? '미확인 캡슐 가챠',
+      workNames,
+      characterNames,
       categoryNames,
-      model: 'msw-gacha-category-classifier',
+      model: `msw-${provider.toLowerCase()}-gacha-classifier`,
       generatedAt: new Date().toISOString(),
     });
+  }),
+
+  http.get(apiPath('/stores'), async ({ request }) => {
+    await delay(120);
+    const { page, size } = getPageRequest(request.url);
+    const orderedStores = [...stores].sort(
+      (left, right) => left.storeId - right.storeId,
+    );
+
+    return HttpResponse.json(ok(toPage(orderedStores, page, size)));
+  }),
+
+  http.get(apiPath('/stores/:storeId/gachas'), async ({ params, request }) => {
+    await delay(120);
+    const storeId = Number(params.storeId);
+    const store = stores.find((candidate) => candidate.storeId === storeId);
+
+    if (!store) {
+      return HttpResponse.json(
+        { code: 'SE001', message: '매장을 찾을 수 없습니다.' },
+        { status: 404 },
+      );
+    }
+
+    const { page, size } = getPageRequest(request.url);
+    const assignedIds = [...(storeGachaAssignments.get(storeId) ?? [])].sort(
+      (left, right) => left - right,
+    );
+    const assigned = assignedIds.map((gachaId) => ({
+      gachaId,
+      thumbnailUrl: findItem(gachaId)?.thumbnailUrl ?? null,
+    }));
+
+    return HttpResponse.json(ok(toPage(assigned, page, size)));
+  }),
+
+  http.post(apiPath('/stores/:storeId/gachas/:gachaId'), async ({ params }) => {
+    await delay(160);
+    const storeId = Number(params.storeId);
+    const gachaId = Number(params.gachaId);
+    const store = stores.find((candidate) => candidate.storeId === storeId);
+    const gacha = findItem(gachaId);
+
+    if (!store || !gacha) {
+      return HttpResponse.json(
+        { code: 'SE001', message: '매장 또는 가챠를 찾을 수 없습니다.' },
+        { status: 404 },
+      );
+    }
+
+    const assigned = storeGachaAssignments.get(storeId) ?? new Set<number>();
+    if (assigned.has(gachaId)) {
+      return HttpResponse.json(
+        { code: 'SG001', message: '이미 매장에 등록된 가챠입니다.' },
+        { status: 409 },
+      );
+    }
+
+    assigned.add(gachaId);
+    storeGachaAssignments.set(storeId, assigned);
+    return HttpResponse.json(ok({ storeId, gachaId }), { status: 201 });
+  }),
+
+  http.delete(
+    apiPath('/stores/:storeId/gachas/:gachaId'),
+    async ({ params }) => {
+      await delay(140);
+      const storeId = Number(params.storeId);
+      const gachaId = Number(params.gachaId);
+      const assigned = storeGachaAssignments.get(storeId);
+
+      if (!assigned?.has(gachaId)) {
+        return HttpResponse.json(
+          { code: 'SG002', message: '매장에 등록되지 않은 가챠입니다.' },
+          { status: 404 },
+        );
+      }
+
+      assigned.delete(gachaId);
+      return HttpResponse.json(ok({ storeId, gachaId }));
+    },
+  ),
+
+  http.get(apiPath('/stores/:storeId'), async ({ params }) => {
+    await delay(100);
+    const storeId = Number(params.storeId);
+    const store = stores.find((candidate) => candidate.storeId === storeId);
+
+    if (!store) {
+      return HttpResponse.json(
+        { code: 'SE001', message: '매장을 찾을 수 없습니다.' },
+        { status: 404 },
+      );
+    }
+
+    return HttpResponse.json(
+      ok({
+        ...store,
+        ownedGachaAmount: storeGachaAssignments.get(storeId)?.size ?? 0,
+      }),
+    );
   }),
 
   http.get(apiPath('/classifications'), async ({ request }) => {

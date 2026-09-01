@@ -7,6 +7,7 @@ import {
   ManageButton,
   RetryButton,
   UnknownCategoryMessage,
+  AiEvidence,
 } from './CategoryTextEditor.styles';
 import type { AiSuggestionStatus } from '../model/aiSuggestion';
 import type { Category } from '../model/classification';
@@ -19,6 +20,9 @@ interface CategoryTextEditorProps {
   aiStatus: AiSuggestionStatus;
   aiModel: string;
   aiError: string;
+  aiEnabled: boolean;
+  aiWorkNames: string[];
+  aiCharacterNames: string[];
   disabled?: boolean;
   onChange: (value: string) => void;
   onManage: () => void;
@@ -30,7 +34,9 @@ const getAiStateText = (
   status: AiSuggestionStatus,
   model: string,
   error: string,
+  enabled: boolean,
 ) => {
+  if (!enabled) return 'AI 보조가 꺼져 있습니다. 직접 입력해 주세요.';
   if (status === 'LOADING') return 'AI가 이미지를 분석하고 있습니다.';
   if (status === 'READY')
     return `AI 추천을 입력했습니다${model ? ` · ${model}` : ''}`;
@@ -46,6 +52,9 @@ export default function CategoryTextEditor({
   aiStatus,
   aiModel,
   aiError,
+  aiEnabled,
+  aiWorkNames,
+  aiCharacterNames,
   disabled = false,
   onChange,
   onManage,
@@ -58,11 +67,15 @@ export default function CategoryTextEditor({
         <label htmlFor="gacha-categories">카테고리 수정</label>
         <div>
           <RetryButton
-            disabled={disabled || aiStatus === 'LOADING'}
+            disabled={disabled || !aiEnabled || aiStatus === 'LOADING'}
             type="button"
             onClick={onRetry}
           >
-            {aiStatus === 'LOADING' ? 'AI 분석 중...' : 'AI 다시 추천'}
+            {aiStatus === 'LOADING'
+              ? 'AI 분석 중...'
+              : aiEnabled
+                ? 'AI 다시 추천'
+                : 'AI 추천 꺼짐'}
           </RetryButton>
           <ManageButton disabled={disabled} type="button" onClick={onManage}>
             + 카테고리 관리
@@ -83,16 +96,28 @@ export default function CategoryTextEditor({
       />
 
       <HelperText id="category-editor-help">
-        쉼표로 구분해 수정해 주세요. 저장 시 등록된 카테고리 이름과 정확히
-        일치해야 합니다.
+        쉼표로 구분해 수정해 주세요. 등록되지 않은 이름은 저장 전에 새 공용
+        카테고리로 추가할지 확인합니다.
       </HelperText>
       <AiState id="category-ai-state" status={aiStatus}>
-        {getAiStateText(aiStatus, aiModel, aiError)}
+        {getAiStateText(aiStatus, aiModel, aiError, aiEnabled)}
       </AiState>
+
+      {aiStatus === 'READY' &&
+        (aiWorkNames.length > 0 || aiCharacterNames.length > 0) && (
+          <AiEvidence>
+            {aiWorkNames.length > 0 && (
+              <span>작품: {aiWorkNames.join(', ')}</span>
+            )}
+            {aiCharacterNames.length > 0 && (
+              <span>캐릭터: {aiCharacterNames.join(', ')}</span>
+            )}
+          </AiEvidence>
+        )}
 
       {unknownCategoryNames.length > 0 && (
         <UnknownCategoryMessage role="alert">
-          등록되지 않은 카테고리: {unknownCategoryNames.join(', ')}
+          저장 시 새로 등록할 카테고리: {unknownCategoryNames.join(', ')}
         </UnknownCategoryMessage>
       )}
 

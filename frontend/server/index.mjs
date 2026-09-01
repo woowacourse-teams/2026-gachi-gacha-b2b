@@ -29,6 +29,7 @@ const sendJson = (response, status, body) => {
   response.writeHead(status, {
     'Cache-Control': 'no-store',
     'Content-Type': 'application/json; charset=utf-8',
+    'Referrer-Policy': 'no-referrer',
     'X-Content-Type-Options': 'nosniff',
   });
   response.end(JSON.stringify(body));
@@ -119,7 +120,20 @@ const server = createServer(async (request, response) => {
 
   try {
     const body = await readJson(request);
-    const suggestion = await createAiCategorySuggestion(body);
+    const provider = request.headers['x-gachi-ai-provider'];
+    const apiKey = request.headers['x-gachi-ai-key'];
+    const abortController = new AbortController();
+
+    request.once('aborted', () => abortController.abort());
+    response.once('close', () => {
+      if (!response.writableEnded) abortController.abort();
+    });
+
+    const suggestion = await createAiCategorySuggestion(body, {
+      provider: Array.isArray(provider) ? provider[0] : provider,
+      apiKey: Array.isArray(apiKey) ? apiKey[0] : apiKey,
+      signal: abortController.signal,
+    });
     sendJson(response, 200, suggestion);
   } catch (error) {
     if (error instanceof SuggestionError) {

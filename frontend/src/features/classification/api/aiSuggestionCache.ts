@@ -1,16 +1,31 @@
+import type { AiProvider } from '@/features/ai/model/aiSettings';
+
 import type { AiCategorySuggestion } from '../model/aiSuggestion';
 
 const CACHE_PREFIX = 'gachi-gacha:ai-category-suggestion';
 
-const getCacheKey = (itemId: number, itemVersion: number) =>
-  `${CACHE_PREFIX}:${itemId}:${itemVersion}`;
+const getCacheKey = (
+  itemId: number,
+  itemVersion: number,
+  provider: AiProvider,
+) => `${CACHE_PREFIX}:${provider}:${itemId}:${itemVersion}`;
+
+const hasStringArray = (value: Record<string, unknown>, key: string) => {
+  const items = value[key];
+  return (
+    Array.isArray(items) && items.every((item) => typeof item === 'string')
+  );
+};
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
 
 const isSuggestion = (value: unknown): value is AiCategorySuggestion =>
-  typeof value === 'object' &&
-  value !== null &&
-  'categoryNames' in value &&
-  Array.isArray(value.categoryNames) &&
-  value.categoryNames.every((name) => typeof name === 'string') &&
+  isRecord(value) &&
+  typeof value.translatedName === 'string' &&
+  hasStringArray(value, 'workNames') &&
+  hasStringArray(value, 'characterNames') &&
+  hasStringArray(value, 'categoryNames') &&
   'model' in value &&
   typeof value.model === 'string' &&
   'generatedAt' in value &&
@@ -19,10 +34,11 @@ const isSuggestion = (value: unknown): value is AiCategorySuggestion =>
 export const getCachedAiSuggestion = (
   itemId: number,
   itemVersion: number,
+  provider: AiProvider,
 ): AiCategorySuggestion | null => {
   try {
     const cachedValue = sessionStorage.getItem(
-      getCacheKey(itemId, itemVersion),
+      getCacheKey(itemId, itemVersion, provider),
     );
     if (!cachedValue) return null;
 
@@ -36,11 +52,12 @@ export const getCachedAiSuggestion = (
 export const cacheAiSuggestion = (
   itemId: number,
   itemVersion: number,
+  provider: AiProvider,
   suggestion: AiCategorySuggestion,
 ) => {
   try {
     sessionStorage.setItem(
-      getCacheKey(itemId, itemVersion),
+      getCacheKey(itemId, itemVersion, provider),
       JSON.stringify(suggestion),
     );
   } catch {
@@ -51,9 +68,10 @@ export const cacheAiSuggestion = (
 export const clearCachedAiSuggestion = (
   itemId: number,
   itemVersion: number,
+  provider: AiProvider,
 ) => {
   try {
-    sessionStorage.removeItem(getCacheKey(itemId, itemVersion));
+    sessionStorage.removeItem(getCacheKey(itemId, itemVersion, provider));
   } catch {
     // 저장소 접근 실패는 재요청을 막지 않습니다.
   }

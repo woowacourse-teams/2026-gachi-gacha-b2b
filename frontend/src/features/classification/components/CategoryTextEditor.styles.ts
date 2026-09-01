@@ -98,6 +98,18 @@ export const UnknownCategoryMessage = styled.p`
   font-weight: 700;
 `;
 
+export const AiEvidence = styled.div`
+  display: grid;
+  gap: 4px;
+  margin-top: 8px;
+  padding: 10px 12px;
+  border-radius: ${radii.small};
+  color: ${colors.textMuted};
+  background: #f3faf6;
+  font-size: 12px;
+  line-height: 1.5;
+`;
+
 export const CategoryCatalog = styled.div`
   display: grid;
   gap: 10px;

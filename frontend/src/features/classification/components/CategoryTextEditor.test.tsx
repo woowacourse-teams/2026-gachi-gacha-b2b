@@ -17,8 +17,11 @@ const renderEditor = () => {
   render(
     <CategoryTextEditor
       aiError=""
+      aiEnabled
+      aiCharacterNames={['마이멜로디']}
       aiModel="mock-ai"
       aiStatus="READY"
+      aiWorkNames={['산리오 캐릭터즈']}
       categories={categories}
       selectedCategoryIds={[1]}
       unknownCategoryNames={[]}
