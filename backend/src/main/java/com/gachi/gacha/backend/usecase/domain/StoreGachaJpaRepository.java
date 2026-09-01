@@ -16,5 +16,14 @@ public interface StoreGachaJpaRepository extends JpaRepository<StoreGacha, Long>
             countQuery = "select count(sg) from StoreGacha sg where sg.store.id = :storeId"
     )
     Page<Gacha> findGachasByStoreId(final Long storeId, final Pageable pageable);
+
     StoreGacha deleteStoreGachaByStoreAndGacha(final Store store, final Gacha gacha);
+
+    void deleteAllByStoreId(final Long storeId);
+
+    void deleteAllByGachaId(final Long gachaId);
+
+    boolean existsByStoreId(final Long storeId);
+
+    boolean existsByGachaId(final Long gachaId);
 }

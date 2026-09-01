@@ -6,15 +6,10 @@ import java.util.List;
 public record InstagramResponse(
         @JsonProperty("business_discovery") BusinessDiscovery businessDiscovery
 ) {
-    public record BusinessDiscovery(
-            Media media
-    ) {
+    public record BusinessDiscovery(Media media) {
     }
 
-    public record Media(
-            List<MediaData> data,
-            Paging paging
-    ) {
+    public record Media(List<MediaData> data, Paging paging) {
         public String nextCursor() {
             if (paging == null || paging.cursors() == null) {
                 return null;
@@ -23,14 +18,10 @@ public record InstagramResponse(
         }
     }
 
-    public record Paging(
-            Cursors cursors
-    ) {
+    public record Paging(Cursors cursors) {
     }
 
-    public record Cursors(
-            String after
-    ) {
+    public record Cursors(String after) {
     }
 
     public record MediaData(
@@ -55,9 +46,7 @@ public record InstagramResponse(
         }
     }
 
-    public record Children(
-            List<ChildMedia> data
-    ) {
+    public record Children(List<ChildMedia> data) {
     }
 
     public record ChildMedia(

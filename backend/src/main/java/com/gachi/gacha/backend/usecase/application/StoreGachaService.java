@@ -42,4 +42,14 @@ public class StoreGachaService {
                 )
         );
     }
+
+    @Transactional
+    public void removeAllByStoreId(final Long storeId) {
+        storeGachaJpaRepository.deleteAllByStoreId(storeId);
+    }
+
+    @Transactional
+    public void removeAllByGachaId(final Long gachaId) {
+        storeGachaJpaRepository.deleteAllByGachaId(gachaId);
+    }
 }

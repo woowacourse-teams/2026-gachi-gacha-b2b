@@ -15,3 +15,10 @@ spring:
     hibernate:
       ddl-auto: create-drop
     open-in-view: false
+
+cloud:
+  aws:
+    region: ap-northeast-2
+    s3:
+      bucket: test-bucket
+      folder: test

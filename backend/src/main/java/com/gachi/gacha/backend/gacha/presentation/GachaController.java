@@ -10,6 +10,7 @@ import com.gachi.gacha.backend.gacha.presentation.dto.GachaDeleteResponse;
 import com.gachi.gacha.backend.gacha.presentation.dto.GachaResponse;
 import com.gachi.gacha.backend.gacha.presentation.dto.GachaUpdateRequest;
 import com.gachi.gacha.backend.gacha.presentation.dto.GachaUpdateResponse;
+import com.gachi.gacha.backend.usecase.application.StoreGachaFacade;
 import jakarta.validation.Valid;
 import java.net.URI;
 import lombok.RequiredArgsConstructor;
@@ -18,15 +19,19 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort.Direction;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 @RestController
@@ -35,6 +40,7 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 public class GachaController {
 
     private final GachaService gachaService;
+    private final StoreGachaFacade storeGachaFacade;
 
     @PostMapping
     public ResponseEntity<BaseResponse<GachaResponse>> createGacha(@Valid @RequestBody final GachaCreateRequest request) {
@@ -49,15 +55,42 @@ public class GachaController {
         return BaseResponse.created(location, gachaResponse);
     }
 
-    @PutMapping("/{gachaId}")
+    @PatchMapping("/{gachaId}")
     public BaseResponse<GachaUpdateResponse> updateGacha(@PathVariable final Long gachaId, @Valid @RequestBody final GachaUpdateRequest request) {
         GachaResult result = gachaService.modify(gachaId, request.toCommand());
         return BaseResponse.updated(GachaUpdateResponse.from(result));
     }
 
+    @PostMapping("/{gachaId}/categories/{categoryId}")
+    public ResponseEntity<BaseResponse<GachaResponse>> addCategory(
+            @PathVariable final Long gachaId,
+            @PathVariable final Long categoryId
+    ) {
+        GachaResponse response = GachaResponse.from(gachaService.addCategory(gachaId, categoryId));
+        URI location = ServletUriComponentsBuilder.fromCurrentRequest()
+                .build()
+                .toUri();
+        return BaseResponse.created(location, response);
+    }
+
+    @PutMapping(path = "/{gachaId}/thumbnail", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public BaseResponse<GachaResponse> updateThumbnail(
+            @PathVariable final Long gachaId,
+            @RequestPart("image") final MultipartFile image
+    ) {
+        GachaInfo gachaInfo = gachaService.updateThumbnail(gachaId, image);
+        return BaseResponse.updated(GachaResponse.from(gachaInfo));
+    }
+
+    @DeleteMapping("/{gachaId}/thumbnail")
+    public BaseResponse<GachaResponse> deleteThumbnail(@PathVariable final Long gachaId) {
+        GachaInfo gachaInfo = gachaService.removeThumbnail(gachaId);
+        return BaseResponse.deleted(GachaResponse.from(gachaInfo));
+    }
+
     @DeleteMapping("/{gachaId}")
     public BaseResponse<GachaDeleteResponse> deleteGacha(@PathVariable final Long gachaId) {
-        GachaDeleteResult result = gachaService.remove(gachaId);
+        GachaDeleteResult result = storeGachaFacade.removeGacha(gachaId);
         return BaseResponse.deleted(GachaDeleteResponse.from(result));
     }
 
