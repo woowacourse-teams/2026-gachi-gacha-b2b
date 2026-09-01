@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { getErrorMessage } from '@/utils/getErrorMessage';
 
@@ -24,6 +24,8 @@ import {
   Workspace,
   ZoomControls,
 } from './ClassificationPage.styles';
+import { getAiCategorySuggestion } from '../api/aiSuggestionApi';
+import { clearCachedAiSuggestion } from '../api/aiSuggestionCache';
 import {
   classifyGacha,
   createCategory,
@@ -34,12 +36,18 @@ import {
   skipGacha,
 } from '../api/classificationApi';
 import CategoryDialog from '../components/CategoryDialog';
-import CategorySelector from '../components/CategorySelector';
+import CategoryTextEditor from '../components/CategoryTextEditor';
 import SkipDialog from '../components/SkipDialog';
-import { toggleCategory } from '../model/category';
+import type { AiSuggestionStatus } from '../model/aiSuggestion';
+import {
+  appendCategoryText,
+  formatCategoryText,
+  formatCategoryTextByIds,
+  removeCategoryText,
+  resolveCategoryText,
+} from '../model/categoryText';
 import type {
   Category,
-  ClassificationDraft,
   ClassificationIdRange,
   ClassificationItem,
 } from '../model/classification';
@@ -80,7 +88,11 @@ export default function ClassificationPage({
 }: ClassificationPageProps) {
   const [item, setItem] = useState<ClassificationItem | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [draft, setDraft] = useState<ClassificationDraft | null>(null);
+  const [name, setName] = useState('');
+  const [categoryText, setCategoryText] = useState('');
+  const [aiStatus, setAiStatus] = useState<AiSuggestionStatus>('IDLE');
+  const [aiModel, setAiModel] = useState('');
+  const [aiError, setAiError] = useState('');
   const [remainingCount, setRemainingCount] = useState<number | null>(null);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -90,6 +102,8 @@ export default function ClassificationPage({
   const [skipError, setSkipError] = useState('');
   const [zoom, setZoom] = useState(1);
   const [hasImageError, setHasImageError] = useState(false);
+  const hasEditedCategoryTextRef = useRef(false);
+  const aiRequestIdRef = useRef(0);
   const idRange = useMemo<ClassificationIdRange>(
     () => ({
       ...(minId === undefined ? {} : { minId }),
@@ -105,9 +119,14 @@ export default function ClassificationPage({
       setIsLoading(true);
       setError('');
       setItem(null);
-      setDraft(null);
+      setName('');
+      setCategoryText('');
+      setAiStatus('IDLE');
+      setAiModel('');
+      setAiError('');
       setZoom(1);
       setHasImageError(false);
+      hasEditedCategoryTextRef.current = false;
 
       try {
         const [loadedItem, loadedCategories] = await Promise.all([
@@ -124,11 +143,11 @@ export default function ClassificationPage({
 
         setItem(loadedItem);
         setCategories(loadedCategories);
-        setDraft({
-          name: loadedItem.name,
-          categoryIds: loadedItem.categoryIds,
-        });
-        setRemainingCount(queue.items.length);
+        setName(loadedItem.name);
+        setCategoryText(
+          formatCategoryTextByIds(loadedItem.categoryIds, loadedCategories),
+        );
+        setRemainingCount(queue.filteredCount);
       } catch (cause) {
         if (isCurrent) setError(getErrorMessage(cause));
       } finally {
@@ -140,18 +159,70 @@ export default function ClassificationPage({
 
     return () => {
       isCurrent = false;
+      aiRequestIdRef.current += 1;
     };
   }, [idRange, itemId]);
+
+  const categoryResolution = useMemo(
+    () => resolveCategoryText(categoryText, categories),
+    [categories, categoryText],
+  );
+
+  const loadAiSuggestion = useCallback(
+    async (force = false) => {
+      if (!item || categories.length === 0) return;
+
+      if (!item.imageUrl) {
+        setAiStatus('FAILED');
+        setAiError('분석할 썸네일 이미지가 없습니다.');
+        return;
+      }
+
+      if (force) clearCachedAiSuggestion(item.id, item.version);
+      const requestId = aiRequestIdRef.current + 1;
+      aiRequestIdRef.current = requestId;
+
+      setAiStatus('LOADING');
+      setAiError('');
+
+      try {
+        const suggestion = await getAiCategorySuggestion(
+          item,
+          categories,
+          force,
+        );
+
+        if (requestId !== aiRequestIdRef.current) return;
+
+        if (!hasEditedCategoryTextRef.current) {
+          setCategoryText(formatCategoryText(suggestion.categoryNames));
+          hasEditedCategoryTextRef.current = false;
+        }
+
+        setAiModel(suggestion.model);
+        setAiStatus('READY');
+      } catch (cause) {
+        if (requestId !== aiRequestIdRef.current) return;
+        setAiError(getErrorMessage(cause));
+        setAiStatus('FAILED');
+      }
+    },
+    [categories, item],
+  );
+
+  useEffect(() => {
+    void loadAiSuggestion();
+  }, [loadAiSuggestion]);
 
   const isDirty = useMemo(
     () =>
       Boolean(
         item &&
-        draft &&
-        (item.name !== draft.name ||
-          !hasSameCategories(item.categoryIds, draft.categoryIds)),
+        (item.name !== name ||
+          categoryResolution.unknownCategoryNames.length > 0 ||
+          !hasSameCategories(item.categoryIds, categoryResolution.categoryIds)),
       ),
-    [draft, item],
+    [categoryResolution, item, name],
   );
 
   useEffect(() => {
@@ -166,7 +237,11 @@ export default function ClassificationPage({
   }, [isDirty]);
 
   const canSave = Boolean(
-    item && draft?.name.trim() && draft.categoryIds.length > 0 && !isSubmitting,
+    item &&
+    name.trim() &&
+    categoryResolution.categoryIds.length > 0 &&
+    categoryResolution.unknownCategoryNames.length === 0 &&
+    !isSubmitting,
   );
 
   const moveToNext = useCallback(
@@ -184,11 +259,15 @@ export default function ClassificationPage({
   const handleSave = useCallback(async () => {
     if (
       !item ||
-      !draft ||
-      !draft.name.trim() ||
-      draft.categoryIds.length === 0
+      !name.trim() ||
+      categoryResolution.categoryIds.length === 0 ||
+      categoryResolution.unknownCategoryNames.length > 0
     ) {
-      setError('이름을 입력하고 카테고리를 한 개 이상 선택해 주세요.');
+      setError(
+        categoryResolution.unknownCategoryNames.length > 0
+          ? '등록되지 않은 카테고리는 관리 메뉴에서 먼저 추가해 주세요.'
+          : '이름과 카테고리를 한 개 이상 입력해 주세요.',
+      );
       return;
     }
 
@@ -196,14 +275,18 @@ export default function ClassificationPage({
     setError('');
 
     try {
-      const result = await classifyGacha(item, draft, idRange);
+      const result = await classifyGacha(
+        item,
+        { name, categoryIds: categoryResolution.categoryIds },
+        idRange,
+      );
       moveToNext(result.nextItemId);
     } catch (cause) {
       setError(getErrorMessage(cause));
     } finally {
       setIsSubmitting(false);
     }
-  }, [draft, idRange, item, moveToNext]);
+  }, [categoryResolution, idRange, item, moveToNext, name]);
 
   const handleSkip = async (reason: string) => {
     if (!item) return;
@@ -226,11 +309,8 @@ export default function ClassificationPage({
     const category = await createCategory(name);
 
     setCategories((current) => [...current, category]);
-    setDraft((current) =>
-      current
-        ? { ...current, categoryIds: [...current.categoryIds, category.id] }
-        : current,
-    );
+    setCategoryText((current) => appendCategoryText(current, category.name));
+    hasEditedCategoryTextRef.current = true;
   };
 
   const handleDeleteCategory = async (categoryId: number) => {
@@ -238,14 +318,13 @@ export default function ClassificationPage({
     setCategories((current) =>
       current.filter((category) => category.id !== categoryId),
     );
-    setDraft((current) =>
-      current
-        ? {
-            ...current,
-            categoryIds: current.categoryIds.filter((id) => id !== categoryId),
-          }
-        : current,
-    );
+    const deletedCategory = categories.find(({ id }) => id === categoryId);
+    if (deletedCategory) {
+      setCategoryText((current) =>
+        removeCategoryText(current, deletedCategory.name),
+      );
+      hasEditedCategoryTextRef.current = true;
+    }
   };
 
   useEffect(() => {
@@ -259,21 +338,6 @@ export default function ClassificationPage({
         return;
       }
 
-      const shortcutIndex = Number(event.key) - 1;
-      const category = categories[shortcutIndex];
-
-      if (category && shortcutIndex >= 0 && shortcutIndex < 9) {
-        event.preventDefault();
-        setDraft((current) =>
-          current
-            ? {
-                ...current,
-                categoryIds: toggleCategory(current.categoryIds, category.id),
-              }
-            : current,
-        );
-      }
-
       if (event.key === 'Enter' && canSave) {
         event.preventDefault();
         void handleSave();
@@ -284,7 +348,6 @@ export default function ClassificationPage({
     return () => window.removeEventListener('keydown', handleShortcut);
   }, [
     canSave,
-    categories,
     handleSave,
     isCategoryDialogOpen,
     isSkipDialogOpen,
@@ -313,7 +376,7 @@ export default function ClassificationPage({
     );
   }
 
-  if (!item || !draft) {
+  if (!item) {
     return (
       <StatePanel>
         <div>
@@ -335,7 +398,8 @@ export default function ClassificationPage({
         </BackButton>
         <HeaderTitle>데이터 분류 작업</HeaderTitle>
         <ItemCount>
-          ID #{item.id} · {item.source} · {item.locationLabel} · 남은 항목{' '}
+          ID #{item.id} · {item.source} · {item.locationLabel} ·{' '}
+          {__USE_MOCK_API__ ? '남은 항목' : '전체 데이터'}{' '}
           {remainingCount ?? '-'}개
         </ItemCount>
       </Header>
@@ -368,14 +432,15 @@ export default function ClassificationPage({
             </ZoomControls>
           </PanelHeader>
           <ImageStage>
-            {hasImageError ? (
+            {hasImageError || !item.imageUrl ? (
               <ImageError role="alert">
-                이미지를 불러오지 못했습니다. 이미지 URL 또는 접근 권한을 확인해
-                주세요.
+                {item.imageUrl
+                  ? '이미지를 불러오지 못했습니다. 이미지 URL 또는 접근 권한을 확인해 주세요.'
+                  : '등록된 썸네일 이미지가 없습니다.'}
               </ImageError>
             ) : (
               <GachaImage
-                alt={`${draft.name || '이름 미정 가챠'} 분류 이미지`}
+                alt={`${name || '이름 미정 가챠'} 분류 이미지`}
                 src={item.imageUrl}
                 zoom={zoom}
                 onError={() => setHasImageError(true)}
@@ -399,32 +464,54 @@ export default function ClassificationPage({
                 id="gacha-name"
                 maxLength={100}
                 placeholder="가챠 이름을 입력해 주세요"
-                value={draft.name}
+                value={name}
                 onChange={(event) => {
-                  setDraft({ ...draft, name: event.target.value });
+                  setName(event.target.value);
                   setError('');
                 }}
               />
-              {draft.name && (
+              {name && (
                 <button
                   aria-label="이름 지우기"
                   type="button"
-                  onClick={() => setDraft({ ...draft, name: '' })}
+                  onClick={() => setName('')}
                 >
                   ×
                 </button>
               )}
             </NameInputWrap>
 
-            <CategorySelector
+            <CategoryTextEditor
+              aiError={aiError}
+              aiModel={aiModel}
+              aiStatus={aiStatus}
               categories={categories}
-              selectedCategoryIds={draft.categoryIds}
+              disabled={isSubmitting}
+              selectedCategoryIds={categoryResolution.categoryIds}
+              unknownCategoryNames={categoryResolution.unknownCategoryNames}
+              value={categoryText}
+              onChange={(value) => {
+                hasEditedCategoryTextRef.current = true;
+                setCategoryText(value);
+                setError('');
+              }}
               onManage={() => setIsCategoryDialogOpen(true)}
-              onToggle={(categoryId) => {
-                setDraft({
-                  ...draft,
-                  categoryIds: toggleCategory(draft.categoryIds, categoryId),
-                });
+              onRetry={() => {
+                hasEditedCategoryTextRef.current = false;
+                setError('');
+                void loadAiSuggestion(true);
+              }}
+              onToggle={(category) => {
+                const isSelected = categoryResolution.categoryIds.includes(
+                  category.id,
+                );
+
+                hasEditedCategoryTextRef.current = true;
+                setCategoryText((current) =>
+                  isSelected
+                    ? removeCategoryText(current, category.name)
+                    : appendCategoryText(current, category.name),
+                );
                 setError('');
               }}
             />
@@ -433,16 +520,18 @@ export default function ClassificationPage({
           </FormBody>
 
           <Actions>
-            <ActionButton
-              disabled={isSubmitting}
-              type="button"
-              onClick={() => {
-                setSkipError('');
-                setIsSkipDialogOpen(true);
-              }}
-            >
-              건너뛰기
-            </ActionButton>
+            {__USE_MOCK_API__ && (
+              <ActionButton
+                disabled={isSubmitting}
+                type="button"
+                onClick={() => {
+                  setSkipError('');
+                  setIsSkipDialogOpen(true);
+                }}
+              >
+                건너뛰기
+              </ActionButton>
+            )}
             <ActionButton
               disabled={!canSave}
               kind="primary"
@@ -467,7 +556,7 @@ export default function ClassificationPage({
         <SkipDialog
           error={skipError}
           isSubmitting={isSubmitting}
-          itemName={draft.name}
+          itemName={name}
           onClose={() => setIsSkipDialogOpen(false)}
           onConfirm={(reason) => void handleSkip(reason)}
         />
