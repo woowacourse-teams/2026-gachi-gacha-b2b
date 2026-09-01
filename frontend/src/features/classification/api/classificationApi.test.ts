@@ -95,10 +95,21 @@ describe('classification API', () => {
       getCategories(),
     ]);
 
-    const suggestion = await getAiCategorySuggestion(item, categories, true);
+    const suggestion = await getAiCategorySuggestion(item, categories, {
+      credentials: { provider: 'GEMINI', apiKey: 'test-key' },
+      force: true,
+    });
 
-    expect(suggestion.categoryNames).toEqual(['캐릭터', '피규어']);
-    expect(suggestion.model).toBe('msw-gacha-category-classifier');
+    expect(suggestion.translatedName).toBe('귀여운 토끼 피규어');
+    expect(suggestion.workNames).toEqual(['산리오 캐릭터즈']);
+    expect(suggestion.characterNames).toEqual(['마이멜로디']);
+    expect(suggestion.categoryNames).toEqual([
+      '산리오 캐릭터즈',
+      '마이멜로디',
+      '캐릭터',
+      '피규어',
+    ]);
+    expect(suggestion.model).toBe('msw-gemini-gacha-classifier');
   });
 
   it('분류 후 지정한 ID 범위 안에서만 다음 항목을 반환한다', async () => {
