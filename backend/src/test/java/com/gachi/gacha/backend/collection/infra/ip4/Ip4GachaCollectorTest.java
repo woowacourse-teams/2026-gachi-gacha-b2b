@@ -13,6 +13,7 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
 
 class Ip4GachaCollectorTest {
 
@@ -60,14 +61,7 @@ class Ip4GachaCollectorTest {
             }
             throw new GachaCollectionException(GACHA_COLLECTION_FAILED, "예상하지 못한 URL: " + url);
         };
-        Ip4GachaCollector collector = new Ip4GachaCollector(
-                htmlFetcher,
-                LIST_URL_TEMPLATE,
-                100,
-                0,
-                1,
-                CLOCK
-        );
+        Ip4GachaCollector collector = collector(htmlFetcher, 0, 1);
 
         List<CollectedGacha> result = collector.collect();
 
@@ -97,14 +91,7 @@ class Ip4GachaCollectorTest {
             }
             throw new GachaCollectionException(GACHA_COLLECTION_FAILED, "예상하지 못한 URL: " + url);
         };
-        Ip4GachaCollector collector = new Ip4GachaCollector(
-                htmlFetcher,
-                LIST_URL_TEMPLATE,
-                100,
-                0,
-                1,
-                CLOCK
-        );
+        Ip4GachaCollector collector = collector(htmlFetcher, 0, 1);
 
         collector.collect();
 
@@ -118,14 +105,7 @@ class Ip4GachaCollectorTest {
             fetchedUrls.add(url);
             return "<div id=\"cupsuletoy\"><ul></ul></div>";
         };
-        Ip4GachaCollector collector = new Ip4GachaCollector(
-                htmlFetcher,
-                LIST_URL_TEMPLATE,
-                100,
-                0,
-                12,
-                CLOCK
-        );
+        Ip4GachaCollector collector = collector(htmlFetcher, 0, 12);
 
         collector.collect();
 
@@ -152,18 +132,24 @@ class Ip4GachaCollectorTest {
             fetchedUrls.add(url);
             return "<div id=\"cupsuletoy\"><ul></ul></div>";
         };
-        Ip4GachaCollector collector = new Ip4GachaCollector(
-                htmlFetcher,
-                LIST_URL_TEMPLATE,
-                100,
-                1,
-                1,
-                CLOCK
-        );
+        Ip4GachaCollector collector = collector(htmlFetcher, 1, 1);
 
         collector.collect();
 
         assertThat(fetchedUrls)
                 .containsExactly("https://ip4.example/cupsuletoy_top/?search_date=201602");
+    }
+
+    private Ip4GachaCollector collector(
+            final HtmlFetcher htmlFetcher,
+            final int startMonthOffset,
+            final int collectionMonths
+    ) {
+        Ip4GachaCollector collector = new Ip4GachaCollector(htmlFetcher, CLOCK);
+        ReflectionTestUtils.setField(collector, "listUrlTemplate", LIST_URL_TEMPLATE);
+        ReflectionTestUtils.setField(collector, "maxPages", 100);
+        ReflectionTestUtils.setField(collector, "startMonthOffset", startMonthOffset);
+        ReflectionTestUtils.setField(collector, "collectionMonths", collectionMonths);
+        return collector;
     }
 }

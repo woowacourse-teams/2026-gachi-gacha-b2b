@@ -7,6 +7,7 @@ import com.gachi.gacha.backend.collection.domain.CollectionSource;
 import com.gachi.gacha.backend.collection.infra.HtmlFetcher;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
 
 class AmuzuGachaCollectorTest {
 
@@ -29,12 +30,10 @@ class AmuzuGachaCollectorTest {
                   <p>商品コード：C69710</p>
                 </div>
                 """;
-        AmuzuGachaCollector collector = new AmuzuGachaCollector(
-                htmlFetcher,
-                LIST_URL,
-                "CAPSULE_TOY_006",
-                10
-        );
+        AmuzuGachaCollector collector = new AmuzuGachaCollector(htmlFetcher);
+        ReflectionTestUtils.setField(collector, "listUrl", LIST_URL);
+        ReflectionTestUtils.setField(collector, "category", "CAPSULE_TOY_006");
+        ReflectionTestUtils.setField(collector, "maxPages", 10);
 
         List<CollectedGacha> result = collector.collect();
 

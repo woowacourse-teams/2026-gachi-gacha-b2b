@@ -7,6 +7,7 @@ import com.gachi.gacha.backend.collection.domain.CollectionSource;
 import com.gachi.gacha.backend.collection.infra.HtmlFetcher;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
 
 class BandaiGachaCollectorTest {
 
@@ -37,7 +38,7 @@ class BandaiGachaCollectorTest {
                     </div>
                     """;
         };
-        BandaiGachaCollector collector = new BandaiGachaCollector(htmlFetcher, LIST_URL, 1, 10);
+        BandaiGachaCollector collector = collector(htmlFetcher, 1, 10);
 
         List<CollectedGacha> result = collector.collect();
 
@@ -64,12 +65,24 @@ class BandaiGachaCollectorTest {
                     </div>
                     """;
         };
-        BandaiGachaCollector collector = new BandaiGachaCollector(htmlFetcher, LIST_URL, 2, 1);
+        BandaiGachaCollector collector = collector(htmlFetcher, 2, 1);
 
         List<CollectedGacha> result = collector.collect();
 
         assertThat(result).singleElement()
                 .extracting(CollectedGacha::productCode)
                 .isEqualTo("page-two-product");
+    }
+
+    private BandaiGachaCollector collector(
+            final HtmlFetcher htmlFetcher,
+            final int startPage,
+            final int maxPages
+    ) {
+        BandaiGachaCollector collector = new BandaiGachaCollector(htmlFetcher);
+        ReflectionTestUtils.setField(collector, "listUrl", LIST_URL);
+        ReflectionTestUtils.setField(collector, "startPage", startPage);
+        ReflectionTestUtils.setField(collector, "maxPages", maxPages);
+        return collector;
     }
 }

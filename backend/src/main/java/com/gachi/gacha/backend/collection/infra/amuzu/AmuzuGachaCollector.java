@@ -29,11 +29,11 @@ public class AmuzuGachaCollector implements GachaCollector {
 
     private final HtmlFetcher htmlFetcher;
     @Value("${collection.sources.amuzu.list-url}")
-    private final String listUrl;
+    private String listUrl;
     @Value("${collection.sources.amuzu.category:CAPSULE_TOY_006}")
-    private final String category;
+    private String category;
     @Value("${collection.sources.amuzu.max-pages:100}")
-    private final int maxPages;
+    private int maxPages;
 
     @Override
     public CollectionSource source() {

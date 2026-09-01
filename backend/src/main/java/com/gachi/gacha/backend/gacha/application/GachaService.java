@@ -35,7 +35,7 @@ public class GachaService {
     private final ImageUploader imageUploader;
     private final CategoryService categoryService;
     @Value("${cloud.aws.s3.folder}")
-    private final String s3RootFolder;
+    private String s3RootFolder;
 
     @Transactional
     public GachaInfo addGacha(final GachaCreateCommand command) {

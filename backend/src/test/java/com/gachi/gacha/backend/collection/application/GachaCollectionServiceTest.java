@@ -29,6 +29,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
 class GachaCollectionServiceTest {
@@ -130,13 +131,14 @@ class GachaCollectionServiceTest {
     }
 
     private GachaCollectionService service() {
-        return new GachaCollectionService(
+        GachaCollectionService service = new GachaCollectionService(
                 gachaRepository,
                 imageUploader,
                 s3TransactionManager,
-                categoryService,
-                "root"
+                categoryService
         );
+        ReflectionTestUtils.setField(service, "s3RootFolder", "root");
+        return service;
     }
 
     private CollectedGacha gacha(

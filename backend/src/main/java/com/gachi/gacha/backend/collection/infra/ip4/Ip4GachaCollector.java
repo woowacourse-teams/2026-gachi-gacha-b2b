@@ -40,13 +40,17 @@ public class Ip4GachaCollector implements GachaCollector {
 
     private final HtmlFetcher htmlFetcher;
     @Value("${collection.sources.ip4.list-url-template}")
-    private final String listUrlTemplate;
+    private String listUrlTemplate;
+
     @Value("${collection.sources.ip4.max-pages:100}")
-    private final int maxPages;
+    private int maxPages;
+
     @Value("${collection.sources.ip4.start-month-offset:0}")
-    private final int startMonthOffset;
+    private int startMonthOffset;
+
     @Value("${collection.sources.ip4.collection-months:12}")
-    private final int collectionMonths;
+    private int collectionMonths;
+
     private final Clock clock;
 
     @PostConstruct

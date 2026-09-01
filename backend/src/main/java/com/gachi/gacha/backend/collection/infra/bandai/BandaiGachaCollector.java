@@ -33,11 +33,11 @@ public class BandaiGachaCollector implements GachaCollector {
 
     private final HtmlFetcher htmlFetcher;
     @Value("${collection.sources.bandai.list-url}")
-    private final String listUrl;
+    private String listUrl;
     @Value("${collection.sources.bandai.start-page:1}")
-    private final int startPage;
+    private int startPage;
     @Value("${collection.sources.bandai.max-pages:100}")
-    private final int maxPages;
+    private int maxPages;
 
     @PostConstruct
     private void validateConfiguration() {

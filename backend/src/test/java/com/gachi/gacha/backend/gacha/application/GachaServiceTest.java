@@ -21,6 +21,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
 class GachaServiceTest {
@@ -38,7 +39,14 @@ class GachaServiceTest {
     private CategoryService categoryService;
 
     private GachaService service() {
-        return new GachaService(gachaRepository, s3TransactionManager, imageUploader, categoryService, "test");
+        GachaService service = new GachaService(
+                gachaRepository,
+                s3TransactionManager,
+                imageUploader,
+                categoryService
+        );
+        ReflectionTestUtils.setField(service, "s3RootFolder", "test");
+        return service;
     }
 
     @Test

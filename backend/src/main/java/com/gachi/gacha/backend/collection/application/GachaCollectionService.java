@@ -32,7 +32,7 @@ public class GachaCollectionService {
     private final S3TransactionManager s3TransactionManager;
     private final CategoryService categoryService;
     @Value("${cloud.aws.s3.folder}")
-    private final String s3RootFolder;
+    private String s3RootFolder;
 
     @Transactional
     public int saveNewGachas(
