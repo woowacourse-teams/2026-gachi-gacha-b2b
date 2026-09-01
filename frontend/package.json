@@ -9,6 +9,7 @@
   },
   "scripts": {
     "dev": "webpack serve --mode development",
+    "dev:ai": "node server/index.mjs",
     "build": "webpack --mode production",
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --max-warnings 0",
@@ -16,7 +17,8 @@
     "format": "prettier . --write",
     "format:check": "prettier . --check",
     "test": "vitest run",
-    "check": "pnpm run lint && pnpm run format:check && pnpm run typecheck && pnpm run test && pnpm run build"
+    "test:server": "node --test server/**/*.test.mjs",
+    "check": "pnpm run lint && pnpm run format:check && pnpm run typecheck && pnpm run test && pnpm run test:server && pnpm run build"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",

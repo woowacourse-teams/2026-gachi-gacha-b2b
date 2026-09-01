@@ -14,7 +14,10 @@ if (fs.existsSync(envPath)) {
 /** @type {import('webpack').ConfigurationFactory} */
 module.exports = (_env, argv) => {
   const isProduction = argv.mode === 'production';
-  const apiBaseUrl = process.env.B2B_API_BASE_URL ?? '/api/b2b';
+  const apiBaseUrl = process.env.B2B_API_BASE_URL ?? '/api/v1';
+  const aiApiBaseUrl = process.env.B2B_AI_API_BASE_URL ?? '/api/b2b-ai';
+  const backendOrigin =
+    process.env.B2B_BACKEND_ORIGIN ?? 'http://127.0.0.1:8080';
   const useMockApi = process.env.B2B_USE_MSW
     ? process.env.B2B_USE_MSW === 'true'
     : !isProduction;
@@ -72,6 +75,7 @@ module.exports = (_env, argv) => {
       }),
       new webpack.DefinePlugin({
         __API_BASE_URL__: JSON.stringify(apiBaseUrl),
+        __AI_API_BASE_URL__: JSON.stringify(aiApiBaseUrl),
         __USE_MOCK_API__: JSON.stringify(useMockApi),
       }),
     ],
@@ -80,6 +84,41 @@ module.exports = (_env, argv) => {
       port: 3001,
       hot: true,
       historyApiFallback: true,
+      setupMiddlewares: useMockApi
+        ? (middlewares) => {
+            middlewares.unshift({
+              name: 'mock-api-miss',
+              path: '/api',
+              middleware: (_request, response) => {
+                response.statusCode = 503;
+                response.setHeader(
+                  'Content-Type',
+                  'application/json; charset=utf-8',
+                );
+                response.end(
+                  JSON.stringify({
+                    message:
+                      '개발용 목 API가 요청을 처리하지 못했습니다. 페이지를 새로고침해 주세요.',
+                  }),
+                );
+              },
+            });
+
+            return middlewares;
+          }
+        : undefined,
+      proxy: useMockApi
+        ? undefined
+        : [
+            {
+              context: ['/api/v1'],
+              target: backendOrigin,
+            },
+            {
+              context: ['/api/b2b-ai'],
+              target: 'http://127.0.0.1:8787',
+            },
+          ],
       static: {
         directory: path.resolve(__dirname, 'public'),
       },
