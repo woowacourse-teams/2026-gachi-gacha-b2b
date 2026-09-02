@@ -54,6 +54,13 @@ import type {
   ClassificationIdRange,
   ClassificationItem,
 } from '../model/classification';
+import {
+  clearClassificationEditSession,
+  extendClassificationEditSession,
+  getClassificationEditProgress,
+  getClassificationEditSession,
+  getNextLoadedEditItemId,
+} from '../model/classificationEditSession';
 
 interface ClassificationPageProps {
   itemId: number;
@@ -82,6 +89,18 @@ const withIdRange = (
   return searchParams.size
     ? `${pathname}?${searchParams.toString()}`
     : pathname;
+};
+
+const withEditModeAndIdRange = (
+  itemId: number,
+  { minId, maxId }: ClassificationIdRange,
+) => {
+  const searchParams = new URLSearchParams({ mode: 'edit' });
+
+  if (minId !== undefined) searchParams.set('minId', String(minId));
+  if (maxId !== undefined) searchParams.set('maxId', String(maxId));
+
+  return `/classify/${itemId}?${searchParams.toString()}`;
 };
 
 export default function ClassificationPage({
@@ -125,6 +144,10 @@ export default function ClassificationPage({
       ...(maxId === undefined ? {} : { maxId }),
     }),
     [maxId, minId],
+  );
+  const editProgress = useMemo(
+    () => (isEditMode ? getClassificationEditProgress(itemId) : null),
+    [isEditMode, itemId],
   );
   useEffect(() => {
     let isCurrent = true;
@@ -319,6 +342,41 @@ export default function ClassificationPage({
     [idRange, onNavigate],
   );
 
+  const findNextClassifiedEditItemId = useCallback(
+    async (currentItemId: number) => {
+      let session = getClassificationEditSession();
+      if (!session) return null;
+
+      let nextItemId = getNextLoadedEditItemId(session, currentItemId);
+      const visitedCursors = new Set<number>();
+
+      while (nextItemId === null && session.nextCursor !== null) {
+        const cursor = session.nextCursor;
+        if (visitedCursors.has(cursor)) break;
+        visitedCursors.add(cursor);
+
+        const nextQueue = await getClassificationQueue({
+          status: 'CLASSIFIED',
+          query: session.query,
+          categoryIds: session.categoryIds,
+          cursor,
+          limit: 50,
+          ...(session.minId === undefined ? {} : { minId: session.minId }),
+          ...(session.maxId === undefined ? {} : { maxId: session.maxId }),
+        });
+        session = extendClassificationEditSession(
+          session,
+          nextQueue.items.map(({ id }) => id),
+          nextQueue.nextCursor,
+        );
+        nextItemId = getNextLoadedEditItemId(session, currentItemId);
+      }
+
+      return nextItemId;
+    },
+    [],
+  );
+
   const handleSave = useCallback(async () => {
     if (
       !item ||
@@ -373,6 +431,14 @@ export default function ClassificationPage({
 
       if (isEditMode) {
         await updateGachaClassification(item, draft);
+        const nextItemId = await findNextClassifiedEditItemId(item.id);
+
+        if (nextItemId !== null) {
+          onNavigate(withEditModeAndIdRange(nextItemId, idRange));
+          return;
+        }
+
+        clearClassificationEditSession();
         onNavigate(withIdRange('/classified', idRange));
         return;
       }
@@ -388,6 +454,7 @@ export default function ClassificationPage({
     categories,
     categoryResolution,
     categoryText,
+    findNextClassifiedEditItemId,
     idRange,
     item,
     isEditMode,
@@ -464,6 +531,7 @@ export default function ClassificationPage({
 
   const handleBack = () => {
     if (!item) {
+      if (isEditMode) clearClassificationEditSession();
       onNavigate(isEditMode ? '/classified' : '/');
       return;
     }
@@ -475,6 +543,7 @@ export default function ClassificationPage({
       return;
     }
 
+    if (isEditMode) clearClassificationEditSession();
     onNavigate(withIdRange(isEditMode ? '/classified' : '/', idRange));
   };
 
@@ -490,10 +559,7 @@ export default function ClassificationPage({
         <div>
           <h1>데이터를 열 수 없습니다.</h1>
           <p>{error || '분류 데이터를 찾을 수 없습니다.'}</p>
-          <button
-            type="button"
-            onClick={() => onNavigate(isEditMode ? '/classified' : '/')}
-          >
+          <button type="button" onClick={handleBack}>
             목록으로 돌아가기
           </button>
         </div>
@@ -514,6 +580,9 @@ export default function ClassificationPage({
           ID #{item.id} · {item.source} · {item.locationLabel}
           {__USE_MOCK_API__ && !isEditMode
             ? ` · 남은 항목 ${remainingCount ?? '-'}개`
+            : ''}
+          {editProgress
+            ? ` · 연속 수정 ${editProgress.position}/${editProgress.loadedCount}${editProgress.hasNext ? '+' : ''}`
             : ''}
         </ItemCount>
       </Header>
@@ -662,7 +731,11 @@ export default function ClassificationPage({
               {isSubmitting
                 ? '저장 중...'
                 : isEditMode
-                  ? '수정 저장'
+                  ? editProgress?.hasNext
+                    ? '저장 후 다음 →'
+                    : editProgress
+                      ? '수정 저장 후 목록'
+                      : '수정 저장'
                   : '저장 후 다음 →'}
             </ActionButton>
           </Actions>

@@ -51,6 +51,7 @@ import type {
   ClassificationItem,
   ClassificationQueue,
 } from '../model/classification';
+import { startClassificationEditSession } from '../model/classificationEditSession';
 
 interface QueuePageProps {
   initialMinId: number | undefined;
@@ -270,6 +271,26 @@ export default function QueuePage({
     }
   };
 
+  const handleStartClassifiedEdit = (itemIndex: number) => {
+    if (!queue) return;
+
+    const itemIds = queue.items
+      .slice(itemIndex)
+      .map((classificationItem) => classificationItem.id);
+    const currentItemId = itemIds[0];
+    if (currentItemId === undefined) return;
+
+    startClassificationEditSession({
+      itemIds,
+      query: debouncedQuery,
+      categoryIds: selectedCategoryIds,
+      nextCursor: queue.nextCursor,
+      ...(initialMinId === undefined ? {} : { minId: initialMinId }),
+      ...(initialMaxId === undefined ? {} : { maxId: initialMaxId }),
+    });
+    onNavigate(getClassifyPath(currentItemId));
+  };
+
   const firstItem = queue?.items[0];
   const selectedCategoryIdSet = useMemo(
     () => new Set(selectedCategoryIds),
@@ -424,7 +445,7 @@ export default function QueuePage({
             <span>작업</span>
           </ListHeader>
           <List>
-            {queue.items.map((item) => (
+            {queue.items.map((item, itemIndex) => (
               <ListRow key={item.id}>
                 <IdCell>
                   <strong>#{item.id}</strong>
@@ -477,7 +498,7 @@ export default function QueuePage({
                   <ListActionButton
                     secondary
                     type="button"
-                    onClick={() => onNavigate(getClassifyPath(item.id))}
+                    onClick={() => handleStartClassifiedEdit(itemIndex)}
                   >
                     수정하기 →
                   </ListActionButton>
