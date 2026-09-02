@@ -20,7 +20,7 @@ import {
 
 import App from '@/App';
 import { getCategories } from '@/features/classification/api/classificationApi';
-import { resetMockData } from '@/mocks/data';
+import { classificationItems, resetMockData } from '@/mocks/data';
 import { handlers } from '@/mocks/handlers';
 
 const server = setupServer(...handlers);
@@ -122,7 +122,7 @@ describe('App navigation', () => {
     );
   }, 10_000);
 
-  it('분류 완료 목록에서 기존 가챠를 수정하고 완료 목록으로 돌아온다', async () => {
+  it('분류 완료 목록에서 시작한 순서대로 수정하고 마지막에 목록으로 돌아온다', async () => {
     window.history.replaceState({}, '', '/classified');
     render(<App />);
 
@@ -138,12 +138,63 @@ describe('App navigation', () => {
     ).toBeVisible();
     const nameInput = screen.getByDisplayValue('산리오 미니 피규어');
     fireEvent.change(nameInput, { target: { value: '산리오 수정 피규어' } });
-    fireEvent.click(screen.getByRole('button', { name: '수정 저장' }));
+    expect(screen.getByText(/연속 수정 1\/3/)).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: '저장 후 다음 →' }));
+
+    expect(await screen.findByDisplayValue('건담 캡슐 피규어')).toBeVisible();
+    expect(screen.getByText(/연속 수정 2\/3/)).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: '저장 후 다음 →' }));
+
+    const lastNameInput =
+      await screen.findByDisplayValue('편의점 음식 미니어처');
+    expect(screen.getByText(/연속 수정 3\/3/)).toBeVisible();
+    fireEvent.change(lastNameInput, {
+      target: { value: '편의점 음식 미니어처 수정' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: '수정 저장 후 목록' }));
 
     expect(
       await screen.findByRole('heading', { name: '분류 완료 데이터' }),
     ).toBeVisible();
     expect(await screen.findByText('산리오 수정 피규어')).toBeVisible();
+    expect(screen.getByText('편의점 음식 미니어처 수정')).toBeVisible();
+  });
+
+  it('현재 목록의 마지막 가챠를 저장하면 다음 페이지의 첫 가챠로 이어간다', async () => {
+    for (let id = 200; id <= 247; id += 1) {
+      classificationItems.push({
+        gachaId: id,
+        thumbnailUrl: '/mock/gacha-pink.svg',
+        displayName: `경계 가챠 ${id}`,
+        originalFileName: `boundary-${id}.jpg`,
+        source: 'BANDAI',
+        location: '홍대',
+        caption: '페이지 경계 테스트 데이터',
+        categoryIds: [5],
+        status: 'CLASSIFIED',
+        version: 1,
+        createdAt: '2026-09-02T10:00:00+09:00',
+      });
+    }
+    window.history.replaceState({}, '', '/classified');
+    render(<App />);
+
+    const boundaryItemName = await screen.findByText('경계 가챠 246');
+    const boundaryItemRow = boundaryItemName.closest('li');
+    expect(boundaryItemRow).not.toBeNull();
+    fireEvent.click(
+      within(boundaryItemRow!).getByRole('button', { name: '수정하기 →' }),
+    );
+
+    expect(await screen.findByDisplayValue('경계 가챠 246')).toBeVisible();
+    expect(screen.getByText(/연속 수정 1\/1\+/)).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: '저장 후 다음 →' }));
+
+    expect(await screen.findByDisplayValue('경계 가챠 247')).toBeVisible();
+    expect(screen.getByText(/연속 수정 2\/2/)).toBeVisible();
+    expect(
+      screen.getByRole('button', { name: '수정 저장 후 목록' }),
+    ).toBeVisible();
   });
 
   it('선택한 AI 서비스별 API 키 발급 순서와 공식 페이지를 안내한다', async () => {
