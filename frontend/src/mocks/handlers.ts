@@ -37,6 +37,9 @@ const toAbsoluteApiUrl = (requestUrl: string, path: string) =>
 const isStatus = (value: string | null): value is ClassificationStatus =>
   value === 'UNCLASSIFIED' || value === 'CLASSIFIED' || value === 'SKIPPED';
 
+const normalizeSearchText = (value: string) =>
+  value.normalize('NFKC').toLocaleLowerCase('ko-KR').replace(/\s+/gu, '');
+
 const findItem = (itemId: number) =>
   classificationItems.find((item) => item.gachaId === itemId);
 
@@ -290,10 +293,7 @@ export const handlers = [
     const url = new URL(request.url);
     const requestedStatus = url.searchParams.get('status');
     const status = isStatus(requestedStatus) ? requestedStatus : 'UNCLASSIFIED';
-    const query = url.searchParams
-      .get('query')
-      ?.trim()
-      .toLocaleLowerCase('ko-KR');
+    const query = normalizeSearchText(url.searchParams.get('query') ?? '');
     const { minId, maxId } = getIdRange(url);
     const categoryIds = getCategoryIds(url);
     const cursor = toOptionalId(url.searchParams.get('cursor'));
@@ -316,13 +316,14 @@ export const handlers = [
     const categoryNameById = new Map(
       categories.map(({ categoryId, categoryName }) => [
         categoryId,
-        categoryName.toLocaleLowerCase('ko-KR'),
+        normalizeSearchText(categoryName),
       ]),
     );
     const filteredItems = query
       ? statusItems.filter(
           (item) =>
-            item.displayName?.toLocaleLowerCase('ko-KR').includes(query) ||
+            (item.displayName !== null &&
+              normalizeSearchText(item.displayName).includes(query)) ||
             item.categoryIds.some((categoryId) =>
               categoryNameById.get(categoryId)?.includes(query),
             ),

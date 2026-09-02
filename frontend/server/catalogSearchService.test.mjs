@@ -94,6 +94,33 @@ describe('catalog search service', () => {
     );
   });
 
+  it('검색어의 공백과 유니코드 표기 차이를 무시한다', async () => {
+    const search = createCatalogSearchService({
+      backendBaseUrl: 'http://backend.example/api/v1',
+      fetchImpl: async () =>
+        okPage(
+          [
+            createGacha(1, 'SANRIO 캐릭터즈', ['배드바츠마루']),
+            createGacha(2, '이누야샤 피규어', ['이누야샤']),
+          ],
+          0,
+          true,
+        ),
+    });
+
+    const spaced = await search({ query: '배드 바츠마루' });
+    const fullWidth = await search({ query: 'ＳＡＮＲＩＯ' });
+
+    assert.deepEqual(
+      spaced.items.map(({ gachaId }) => gachaId),
+      [1],
+    );
+    assert.deepEqual(
+      fullWidth.items.map(({ gachaId }) => gachaId),
+      [1],
+    );
+  });
+
   it('잘못된 페이지 크기는 백엔드 호출 전에 거절한다', async () => {
     const search = createCatalogSearchService({
       backendBaseUrl: 'http://backend.example/api/v1',
