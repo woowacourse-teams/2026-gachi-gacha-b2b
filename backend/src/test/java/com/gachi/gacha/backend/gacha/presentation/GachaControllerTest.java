@@ -424,14 +424,19 @@ class GachaControllerTest {
         }
 
         @Test
-        @DisplayName("키워드가 포함된 목록 조회를 요청하면 해당 키워드로 필터링된 목록을 반환한다.")
+        @DisplayName("키워드가 이름 또는 카테고리명에 포함된 가챠 목록을 반환한다.")
         void readGacha_withKeyword_success() {
             // given
-            createTargetGacha("포켓몬 가챠");
+            Long nameMatchedGachaId = createTargetGacha("디저트 제목 가챠");
+            createCategory("작은 뽀송뽀송 디저트");
+            Long categoryMatchedGachaId = createTargetGacha(
+                    "포근한 미니어처 컬렉션",
+                    List.of("작은 뽀송뽀송 디저트")
+            );
 
             // when
             ExtractableResponse<Response> response = RestAssured.given().log().all()
-                    .param("keyword", "포켓몬")
+                    .param("keyword", "디저트")
                     .when()
                     .get("/api/v1/gachas")
                     .then().log().all()
@@ -439,7 +444,8 @@ class GachaControllerTest {
 
             // then
             assertThat(response.statusCode()).isEqualTo(HttpStatus.OK.value());
-            assertThat(response.jsonPath().getList("data.content")).isNotEmpty();
+            assertThat(response.jsonPath().getList("data.content.gachaId", Long.class))
+                    .contains(nameMatchedGachaId, categoryMatchedGachaId);
         }
     }
 
@@ -488,11 +494,15 @@ class GachaControllerTest {
     }
 
     private Long createTargetGacha(String name) {
+        return createTargetGacha(name, List.of("피규어"));
+    }
+
+    private Long createTargetGacha(String name, List<String> categories) {
         Map<String, Object> request = Map.of(
                 "name", name,
                 "caption", "가챠 설명",
                 "thumbnailUrl", "https://example.com/image.png",
-                "categories", List.of("피규어")
+                "categories", categories
         );
 
         return RestAssured.given()
