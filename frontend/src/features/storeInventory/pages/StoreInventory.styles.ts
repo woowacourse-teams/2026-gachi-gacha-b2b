@@ -55,12 +55,14 @@ export const CountBadge = styled.div`
 
 export const SearchForm = styled.form`
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   margin-bottom: 24px;
 
   label {
     display: flex;
-    width: min(100%, 560px);
+    min-width: min(100%, 280px);
+    flex: 1 1 420px;
     min-height: 46px;
     padding: 0 16px;
     border: 1px solid ${colors.border};
@@ -78,11 +80,25 @@ export const SearchForm = styled.form`
   > button {
     min-height: 46px;
     padding: 0 20px;
-    border: 0;
     border-radius: ${radii.round};
+    font-weight: 800;
+  }
+
+  > button[type='submit'] {
+    border: 0;
     color: white;
     background: ${colors.brand};
-    font-weight: 800;
+  }
+
+  > button[data-variant='secondary'] {
+    border: 1px solid ${colors.borderStrong};
+    color: ${colors.textMuted};
+    background: ${colors.surface};
+  }
+
+  > button:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
   }
 `;
 

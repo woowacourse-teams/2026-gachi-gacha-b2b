@@ -52,6 +52,8 @@ interface StoreInventoryPageProps {
   onNavigate: (path: string) => void;
 }
 
+const SEARCH_DEBOUNCE_MS = 300;
+
 const appendUniqueItems = (
   current: ClassificationItem[],
   incoming: ClassificationItem[],
@@ -73,9 +75,10 @@ export default function StoreInventoryPage({
   const [catalogItems, setCatalogItems] = useState<ClassificationItem[]>([]);
   const [queryInput, setQueryInput] = useState('');
   const [appliedQuery, setAppliedQuery] = useState('');
+  const [isQueryDirty, setIsQueryDirty] = useState(false);
   const [categoryQuery, setCategoryQuery] = useState('');
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<number[]>([]);
-  const [appliedCategoryIds, setAppliedCategoryIds] = useState<number[]>([]);
+  const [totalCatalogCount, setTotalCatalogCount] = useState(0);
   const [nextCursor, setNextCursor] = useState<number | null>(null);
   const [searchVersion, setSearchVersion] = useState(0);
   const [pendingGachaIds, setPendingGachaIds] = useState<number[]>([]);
@@ -118,6 +121,15 @@ export default function StoreInventoryPage({
     };
   }, [storeId]);
 
+  const invalidateCatalog = useCallback(() => {
+    catalogRequestIdRef.current += 1;
+    setCatalogItems([]);
+    setTotalCatalogCount(0);
+    setNextCursor(null);
+    setIsCatalogLoading(true);
+    setFeedback('');
+  }, []);
+
   const loadCatalog = useCallback(
     async (cursor = 0, append = false) => {
       const requestId = catalogRequestIdRef.current + 1;
@@ -128,7 +140,7 @@ export default function StoreInventoryPage({
       try {
         const queue = await getAssignableGachaPage({
           query: appliedQuery,
-          categoryIds: appliedCategoryIds,
+          categoryIds: selectedCategoryIds,
           cursor,
           limit: 50,
         });
@@ -137,6 +149,7 @@ export default function StoreInventoryPage({
         setCatalogItems((current) =>
           append ? appendUniqueItems(current, queue.items) : queue.items,
         );
+        setTotalCatalogCount(queue.filteredCount);
         setNextCursor(queue.nextCursor);
       } catch (cause) {
         if (requestId !== catalogRequestIdRef.current) return;
@@ -148,14 +161,29 @@ export default function StoreInventoryPage({
         }
       }
     },
-    [appliedCategoryIds, appliedQuery],
+    [appliedQuery, selectedCategoryIds],
   );
 
   useEffect(() => {
+    if (isQueryDirty) return;
+
     setCatalogItems([]);
+    setTotalCatalogCount(0);
     setNextCursor(null);
     void loadCatalog();
-  }, [loadCatalog, searchVersion]);
+  }, [isQueryDirty, loadCatalog, searchVersion]);
+
+  useEffect(() => {
+    if (!isQueryDirty) return;
+
+    const timeoutId = window.setTimeout(() => {
+      setAppliedQuery(queryInput.trim());
+      setIsQueryDirty(false);
+      setSearchVersion((current) => current + 1);
+    }, SEARCH_DEBOUNCE_MS);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [isQueryDirty, queryInput]);
 
   const assignedIds = useMemo(
     () => new Set(assignedGachas.map(({ id }) => id)),
@@ -246,11 +274,26 @@ export default function StoreInventoryPage({
     }
   };
 
-  const applyFilters = () => {
+  const applySearchImmediately = () => {
+    invalidateCatalog();
     setAppliedQuery(queryInput.trim());
-    setAppliedCategoryIds(selectedCategoryIds);
+    setIsQueryDirty(false);
     setSearchVersion((current) => current + 1);
   };
+
+  const resetFilters = () => {
+    invalidateCatalog();
+    setQueryInput('');
+    setAppliedQuery('');
+    setIsQueryDirty(false);
+    setCategoryQuery('');
+    setSelectedCategoryIds([]);
+    setSearchVersion((current) => current + 1);
+  };
+
+  const hasFilters =
+    Boolean(queryInput || appliedQuery || categoryQuery) ||
+    selectedCategoryIds.length > 0;
 
   if (isLoading) {
     return <StatePanel>매장과 보유 가챠 정보를 준비하고 있습니다.</StatePanel>;
@@ -341,14 +384,18 @@ export default function StoreInventoryPage({
               결과를 좁힐 수 있습니다.
             </p>
           </div>
-          <strong>{catalogItems.length}개 표시</strong>
+          <strong>
+            {isCatalogLoading && catalogItems.length === 0
+              ? '검색 중...'
+              : `총 ${totalCatalogCount}개 중 ${catalogItems.length}개 표시`}
+          </strong>
         </SectionHeader>
 
         <FilterPanel>
           <SearchForm
             onSubmit={(event) => {
               event.preventDefault();
-              applyFilters();
+              applySearchImmediately();
             }}
           >
             <label>
@@ -356,14 +403,26 @@ export default function StoreInventoryPage({
                 aria-label="가챠 이름 또는 카테고리 검색"
                 placeholder="가챠 이름 또는 카테고리명 검색"
                 value={queryInput}
-                onChange={(event) => setQueryInput(event.target.value)}
+                onChange={(event) => {
+                  invalidateCatalog();
+                  setQueryInput(event.target.value);
+                  setIsQueryDirty(true);
+                }}
               />
             </label>
-            <button type="submit">검색 적용</button>
+            <button type="submit">즉시 검색</button>
+            <button
+              data-variant="secondary"
+              disabled={!hasFilters}
+              type="button"
+              onClick={resetFilters}
+            >
+              필터 초기화
+            </button>
           </SearchForm>
 
           <CategoryToolbar>
-            <strong>카테고리</strong>
+            <strong>카테고리 (선택 즉시 적용)</strong>
             <input
               aria-label="카테고리 이름 검색"
               placeholder="카테고리 빠르게 찾기"
@@ -379,13 +438,14 @@ export default function StoreInventoryPage({
                   key={category.id}
                   aria-pressed={selected}
                   type="button"
-                  onClick={() =>
+                  onClick={() => {
+                    invalidateCatalog();
                     setSelectedCategoryIds((current) =>
                       selected
                         ? current.filter((id) => id !== category.id)
                         : [...current, category.id],
-                    )
-                  }
+                    );
+                  }}
                 >
                   {selected ? '✓ ' : ''}
                   {category.name}
@@ -410,7 +470,11 @@ export default function StoreInventoryPage({
           </Feedback>
         )}
 
-        {isCatalogLoading && catalogItems.length === 0 ? (
+        {isQueryDirty ? (
+          <StatePanel aria-live="polite">
+            입력한 검색어를 적용하고 있습니다.
+          </StatePanel>
+        ) : isCatalogLoading && catalogItems.length === 0 ? (
           <StatePanel>분류 완료 가챠를 불러오고 있습니다.</StatePanel>
         ) : catalogItems.length === 0 ? (
           <StatePanel>

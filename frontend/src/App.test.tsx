@@ -292,4 +292,41 @@ describe('App navigation', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(previewButton).toHaveFocus();
   }, 10_000);
+
+  it('매장 가챠 검색어와 카테고리 변경을 즉시 결과에 반영한다', async () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole('button', { name: /매장 가챠 관리/ }));
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: '캡슐 스테이션 연남 보유 가챠 관리',
+      }),
+    );
+
+    const queryInput = await screen.findByRole('textbox', {
+      name: '가챠 이름 또는 카테고리 검색',
+    });
+    expect(await screen.findByText('산리오 미니 피규어')).toBeVisible();
+
+    fireEvent.change(queryInput, { target: { value: '산리오' } });
+    expect(screen.queryByText('산리오 미니 피규어')).not.toBeInTheDocument();
+    expect(
+      screen.getByText('입력한 검색어를 적용하고 있습니다.'),
+    ).toBeVisible();
+    expect(await screen.findByText('산리오 미니 피규어')).toBeVisible();
+
+    fireEvent.change(queryInput, { target: { value: '건담' } });
+    expect(screen.queryByText('산리오 미니 피규어')).not.toBeInTheDocument();
+    expect(await screen.findByText('건담 캡슐 피규어')).toBeVisible();
+    expect(screen.queryByText('산리오 미니 피규어')).not.toBeInTheDocument();
+    expect(screen.getByText('총 1개 중 1개 표시')).toBeVisible();
+
+    fireEvent.click(screen.getByRole('button', { name: '필터 초기화' }));
+    expect(await screen.findByText('편의점 음식 미니어처')).toBeVisible();
+
+    fireEvent.click(screen.getByRole('button', { name: '미니어처' }));
+    expect(screen.queryByText('산리오 미니 피규어')).not.toBeInTheDocument();
+    expect(await screen.findByText('편의점 음식 미니어처')).toBeVisible();
+    expect(screen.getByText('총 1개 중 1개 표시')).toBeVisible();
+  }, 10_000);
 });
