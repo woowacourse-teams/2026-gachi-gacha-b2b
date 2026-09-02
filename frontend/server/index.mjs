@@ -4,6 +4,10 @@ import {
   createAiCategorySuggestion,
   SuggestionError,
 } from './aiSuggestionService.mjs';
+import {
+  CatalogSearchError,
+  createCatalogSearchService,
+} from './catalogSearchService.mjs';
 
 try {
   process.loadEnvFile();
@@ -17,6 +21,10 @@ const maxBodyBytes = 64 * 1024;
 const rateLimitWindowMs = 60_000;
 const rateLimitMaxRequests = Number(process.env.AI_RATE_LIMIT_PER_MINUTE ?? 20);
 const requestBuckets = new Map();
+const searchCatalog = createCatalogSearchService({
+  backendBaseUrl:
+    process.env.B2B_BACKEND_BASE_URL ?? 'http://127.0.0.1:8080/api/v1',
+});
 
 if (!Number.isSafeInteger(port) || port < 1 || port > 65_535) {
   throw new Error('AI_PORT는 1부터 65535 사이의 정수여야 합니다.');
@@ -104,6 +112,31 @@ const server = createServer(async (request, response) => {
   }
 
   if (
+    request.method === 'GET' &&
+    url.pathname === '/api/b2b-ai/catalog-search'
+  ) {
+    try {
+      const result = await searchCatalog({
+        query: url.searchParams.get('query') ?? '',
+        categoryNames: url.searchParams.getAll('category'),
+        cursor: url.searchParams.get('cursor'),
+        limit: url.searchParams.get('limit'),
+      });
+      sendJson(response, 200, result);
+    } catch (error) {
+      if (error instanceof CatalogSearchError) {
+        sendJson(response, error.status, { message: error.message });
+      } else {
+        console.error('Unexpected catalog search BFF error', error);
+        sendJson(response, 500, {
+          message: '가챠 통합 검색을 처리하지 못했습니다.',
+        });
+      }
+    }
+    return;
+  }
+
+  if (
     request.method !== 'POST' ||
     url.pathname !== '/api/b2b-ai/suggest-categories'
   ) {
@@ -154,5 +187,5 @@ const server = createServer(async (request, response) => {
 });
 
 server.listen(port, host, () => {
-  console.info(`B2B AI API listening on http://${host}:${port}`);
+  console.info(`B2B frontend BFF listening on http://${host}:${port}`);
 });

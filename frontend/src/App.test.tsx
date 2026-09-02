@@ -239,6 +239,11 @@ describe('App navigation', () => {
     expect(
       await screen.findByRole('heading', { name: '캡슐 스테이션 연남' }),
     ).toBeVisible();
+    expect(
+      screen.getByRole('textbox', {
+        name: '가챠 이름 또는 카테고리 검색',
+      }),
+    ).toHaveAttribute('placeholder', '가챠 이름 또는 카테고리명 검색');
 
     const catalogName = await screen.findByText('산리오 미니 피규어');
     const catalogRow = catalogName.closest('li');

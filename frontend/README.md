@@ -29,18 +29,19 @@ pnpm run check
 cp .env.example .env
 ```
 
-| 이름                       | 기본값                    | 실행 위치     | 설명                               |
-| -------------------------- | ------------------------- | ------------- | ---------------------------------- |
-| `B2B_API_BASE_URL`         | `/api/v1`                 | Webpack 빌드  | Spring B2B API 기준 경로           |
-| `B2B_AI_API_BASE_URL`      | `/api/b2b-ai`             | Webpack 빌드  | AI BFF 기준 경로                   |
-| `B2B_USE_MSW`              | 개발 `true`, 배포 `false` | Webpack 빌드  | MSW 사용 여부                      |
-| `B2B_BACKEND_ORIGIN`       | `http://127.0.0.1:8080`   | 개발 서버     | MSW 비활성화 시 Spring 프록시 대상 |
-| `OPENAI_MODEL`             | `gpt-4o-mini-2024-07-18`  | AI BFF 런타임 | 이미지 분류 모델                   |
-| `GEMINI_MODEL`             | `gemini-3.1-flash-lite`   | AI BFF 런타임 | Gemini 이미지 분류 모델            |
-| `AI_IMAGE_HOST_ALLOWLIST`  | 없음                      | AI BFF 런타임 | 허용 이미지 호스트 목록(쉼표 구분) |
-| `AI_HOST`                  | `127.0.0.1`               | AI BFF 런타임 | 수신 주소                          |
-| `AI_PORT`                  | `8787`                    | AI BFF 런타임 | 수신 포트                          |
-| `AI_RATE_LIMIT_PER_MINUTE` | `20`                      | AI BFF 런타임 | 클라이언트별 분당 AI 요청 상한     |
+| 이름                       | 기본값                         | 실행 위치     | 설명                               |
+| -------------------------- | ------------------------------ | ------------- | ---------------------------------- |
+| `B2B_API_BASE_URL`         | `/api/v1`                      | Webpack 빌드  | Spring B2B API 기준 경로           |
+| `B2B_AI_API_BASE_URL`      | `/api/b2b-ai`                  | Webpack 빌드  | AI BFF 기준 경로                   |
+| `B2B_USE_MSW`              | 개발 `true`, 배포 `false`      | Webpack 빌드  | MSW 사용 여부                      |
+| `B2B_BACKEND_ORIGIN`       | `http://127.0.0.1:8080`        | 개발 서버     | MSW 비활성화 시 Spring 프록시 대상 |
+| `B2B_BACKEND_BASE_URL`     | `http://127.0.0.1:8080/api/v1` | BFF 런타임    | BFF가 읽을 Spring API 기준 URL     |
+| `OPENAI_MODEL`             | `gpt-4o-mini-2024-07-18`       | AI BFF 런타임 | 이미지 분류 모델                   |
+| `GEMINI_MODEL`             | `gemini-3.1-flash-lite`        | AI BFF 런타임 | Gemini 이미지 분류 모델            |
+| `AI_IMAGE_HOST_ALLOWLIST`  | 없음                           | AI BFF 런타임 | 허용 이미지 호스트 목록(쉼표 구분) |
+| `AI_HOST`                  | `127.0.0.1`                    | AI BFF 런타임 | 수신 주소                          |
+| `AI_PORT`                  | `8787`                         | AI BFF 런타임 | 수신 포트                          |
+| `AI_RATE_LIMIT_PER_MINUTE` | `20`                           | AI BFF 런타임 | 클라이언트별 분당 AI 요청 상한     |
 
 AI 제공자 키는 빌드·서버 환경변수·DB·브라우저 저장소에 보관하지 않습니다. 사용자가 화면에 입력한 키는 현재 탭의 React 메모리에만 머물고, 같은 출처의 BFF 요청 헤더로 한 번씩 전달됩니다. 새로고침하거나 AI를 끄면 메모리에서 제거됩니다. 실제 API 연결 전에는 `B2B_USE_MSW=true`로 실행합니다.
 
@@ -55,7 +56,7 @@ HTTP API 또는 MSW
 
 StoreListPage / StoreInventoryPage
       ↓ storeInventoryApi
-매장·가챠 관계 API
+매장·가챠 관계 API 및 통합 검색 BFF
 
 ClassificationPage
       ↓ same-origin /api/b2b-ai
@@ -86,6 +87,7 @@ GET          /api/v1/stores/{storeId}
 GET          /api/v1/stores/{storeId}/gachas
 POST/DELETE  /api/v1/stores/{storeId}/gachas/{gachaId}
 POST         /api/b2b-ai/suggest-categories
+GET          /api/b2b-ai/catalog-search
 ```
 
 현재 연동 범위:
@@ -93,7 +95,7 @@ POST         /api/b2b-ai/suggest-categories
 | 기능                    | 운영 API 연동 | 동작 방식                                                                      |
 | ----------------------- | ------------- | ------------------------------------------------------------------------------ |
 | 가챠 목록·상세          | 완료          | Spring Page를 `id,asc`로 조회하고 DTO를 화면 모델로 변환                       |
-| 이름 검색               | 완료          | 백엔드 `keyword` 쿼리 사용                                                     |
+| 이름·카테고리 통합 검색 | BFF 연동      | 기존 가챠 목록을 30초간 캐시하고 이름 또는 카테고리명 부분 일치로 검색         |
 | 이름·카테고리 분류 저장 | 완료          | `PATCH /gachas/{id}`에 이름과 카테고리 ID 전달                                 |
 | 카테고리 조회·추가·삭제 | 완료          | 실제 카테고리 CRUD 사용. 삭제 시 연결된 가챠에서도 해당 카테고리가 제거됨      |
 | 현장 사진 등록          | 완료          | 가챠 생성 후 백엔드 multipart 썸네일 업로드                                    |
@@ -117,21 +119,22 @@ classificationStatus, minId, maxId, categoryIds, cursor(or page), size
 
 - `store_gacha`의 `(store_id, gacha_id)` 조합에 DB 유니크 제약이 없어 여러 관리자의 동시 요청까지 프론트엔드만으로 완전히 막을 수 없습니다. 유니크 제약과 중복 시 `409 Conflict` 응답이 필요합니다.
 - 매장 보유 가챠 요약에는 `gachaId`, `thumbnailUrl`만 있어 화면이 아직 조회하지 않은 가챠는 이름 대신 DB ID로 표시합니다. 이름과 카테고리를 요약 응답에 추가하면 별도 조회 없이 보강할 수 있습니다.
-- 가챠 목록의 서버 필터는 이름 `keyword`만 지원합니다. 현재 카테고리 필터는 페이지를 순차 조회하므로 수천 건에서는 `categoryIds` 서버 필터와 안정적인 커서 페이지네이션이 필요합니다.
+- 가챠 목록의 서버 필터는 이름 `keyword`만 지원합니다. 매장 관리 화면은 프론트 소유 BFF가 기존 목록 API를 500건씩 읽어 30초간 캐시하고 이름·카테고리 통합 검색과 페이지네이션을 제공합니다. 장기적으로는 백엔드의 `categoryIds` 및 통합 검색 지원이 더 효율적입니다.
 - 매장 상세의 `ownedGachaAmount`는 현재 백엔드 구현에서 고정값이므로 관리 화면은 실제 관계 목록 개수를 표시합니다. 백엔드는 관계 개수를 집계하도록 수정해야 합니다.
 
 현장 등록은 실제 백엔드 계약상 하나의 원자적 요청이 아니라 `POST /gachas` 후 `PUT /gachas/{id}/thumbnail`의 2단계입니다. 두 번째 요청만 실패하면 DB 행은 남으므로 UI가 신규 등록을 성공으로 표시하되 썸네일 보완 경고를 제공합니다. 장기적으로는 단일 multipart 생성 API, 실패 시 생성 데이터 정리 API 또는 멱등성 키가 필요합니다. 브라우저는 S3 키나 IAM 권한을 사용하지 않습니다.
 
 MSW 모드는 복구 가능한 건너뛰기, ID 커서, 업로드 티켓 등 목표 계약까지 포함해 프론트엔드 UX를 검증합니다. 운영 모드는 실제 백엔드가 지원하는 기능만 노출합니다. 이번 구현에는 SHA-256 체크섬과 pHash 유사 이미지 검사가 포함되지 않습니다.
 
-## AI BFF 배포 결정
+## 프론트 BFF 배포 결정
 
-현재 프론트엔드는 정적 파일이고, 제공자별 요청 형식·이미지 호스트 검증·요청 제한을 브라우저에 맡기지 않기 위해 작은 Node BFF를 둡니다. AWS Lambda와 API Gateway를 새로 만들려면 IAM 권한과 배포 설정이 필요하므로, 현재 AWS 권한 제약에서는 기존 프론트 EC2에서 Node 프로세스를 실행하는 방식이 가장 현실적입니다. 엄밀히 말하면 이 구성은 서버리스가 아니라 프론트엔드 팀이 관리하는 BFF입니다.
+현재 프론트엔드는 정적 파일입니다. 제공자별 AI 요청과 기존 백엔드 계약만으로 지원하기 어려운 카테고리 통합 검색을 브라우저에 맡기지 않기 위해 작은 Node BFF를 둡니다. AWS Lambda와 API Gateway를 새로 만들려면 IAM 권한과 배포 설정이 필요하므로, 현재 AWS 권한 제약에서는 기존 프론트 EC2에서 Node 프로세스를 실행하는 방식이 가장 현실적입니다. 엄밀히 말하면 이 구성은 서버리스가 아니라 프론트엔드 팀이 관리하는 BFF입니다.
 
 ```text
 관리자 브라우저
   ├─ /api/v1/*     → Nginx → 127.0.0.1:8080 Spring 백엔드
   └─ /api/b2b-ai/* → Nginx → 127.0.0.1:8787 Node BFF
+                                              ├─ 기존 Spring 읽기 API 캐시·검색
                                               ├─ Gemini
                                               └─ OpenAI
 ```
@@ -182,7 +185,7 @@ Restart=on-failure
 WantedBy=multi-user.target
 ```
 
-`/etc/gachi-gacha-b2b-ai.env`에는 모델 이름과 실제 S3 또는 CDN 호스트 allowlist만 저장하고 Git에 커밋하지 않습니다. 기존 `OPENAI_API_KEY`가 남아 있어도 현재 BFF는 사용하지 않으며 삭제하는 편이 안전합니다. BFF는 `127.0.0.1`에만 바인딩합니다.
+`/etc/gachi-gacha-b2b-ai.env`에는 `B2B_BACKEND_BASE_URL`, 모델 이름과 실제 S3 또는 CDN 호스트 allowlist만 저장하고 Git에 커밋하지 않습니다. 기존 `OPENAI_API_KEY`가 남아 있어도 현재 BFF는 사용하지 않으며 삭제하는 편이 안전합니다. BFF는 `127.0.0.1`에만 바인딩합니다.
 
 개인 키는 현재 탭 메모리에만 저장하며 localStorage, sessionStorage, 쿠키, DB에는 저장하지 않습니다. 다만 브라우저에서 BFF까지 전송되므로 공개 배포는 반드시 HTTPS여야 합니다. 인증서 발급 전에는 SSH 로컬 포워딩처럼 암호화된 경로에서만 사용하고 공인 IP의 평문 HTTP에서는 키를 입력하지 않습니다. API 사용료와 제공자 쿼터는 입력한 키 소유자에게 귀속되며, UI는 현재 탭의 실제 요청 시도 횟수를 표시합니다. 서버가 여러 팀원의 키를 보관하거나 자동 순환하지 않으므로 키 소유권과 과금 책임도 섞이지 않습니다.
 
@@ -193,6 +196,7 @@ B2B 사이트 전체는 관리자 로그인, VPN, IP 제한 또는 최소한 Ngi
 ## 실제 API 연결 체크리스트
 
 - 프론트엔드 빌드 시 `B2B_USE_MSW=false`, `B2B_API_BASE_URL=/api/v1` 적용
+- BFF 런타임의 `B2B_BACKEND_BASE_URL`을 내부 Spring API 주소로 설정
 - Nginx `/api/v1/`과 `/api/b2b-ai/` upstream 및 SPA fallback 순서 확인
 - 관리자 인증 및 `credentials: include` 쿠키 정책 확정
 - CSRF 정책 확정

@@ -2,7 +2,7 @@ import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import { ApiError } from '@/apis/httpClient';
-import { resetMockData } from '@/mocks/data';
+import { categories, classificationItems, resetMockData } from '@/mocks/data';
 import { handlers } from '@/mocks/handlers';
 
 import {
@@ -52,9 +52,31 @@ describe('store inventory API', () => {
     expect(await getAssignedGachas(3)).toEqual([]);
   });
 
-  it('분류 완료 가챠만 이름과 다중 카테고리 OR 조건으로 조회한다', async () => {
+  it('분류 완료 가챠를 이름과 카테고리명 키워드로 통합 검색한다', async () => {
+    categories.push({
+      categoryId: 8,
+      categoryName: '작은 뽀송뽀송 디저트',
+    });
+    classificationItems.push({
+      gachaId: 109,
+      thumbnailUrl: '/mock/gacha-green.svg',
+      displayName: '포근한 미니어처 컬렉션',
+      originalFileName: 'amuse_2026_0829_009.jpg',
+      source: 'AMUSE',
+      location: '홍대',
+      caption: '부드러운 촉감의 소품 컬렉션',
+      categoryIds: [8],
+      status: 'CLASSIFIED',
+      version: 1,
+      createdAt: '2026-08-29T10:39:00+09:00',
+    });
+
     const named = await getAssignableGachaPage({
       query: '산리오',
+      categoryIds: [],
+    });
+    const categoryKeyword = await getAssignableGachaPage({
+      query: '디저트',
       categoryIds: [],
     });
     const categorized = await getAssignableGachaPage({
@@ -63,6 +85,7 @@ describe('store inventory API', () => {
     });
 
     expect(named.items.map(({ id }) => id)).toEqual([105]);
+    expect(categoryKeyword.items.map(({ id }) => id)).toEqual([109]);
     expect(categorized.items.map(({ id }) => id)).toEqual([105, 107, 108]);
     expect(
       categorized.items.every(({ status }) => status === 'CLASSIFIED'),
