@@ -15,3 +15,8 @@ export interface StoreInventoryRelation {
   storeId: number;
   gachaId: number;
 }
+
+export interface CreatedStore {
+  id: number;
+  createdAt: string;
+}

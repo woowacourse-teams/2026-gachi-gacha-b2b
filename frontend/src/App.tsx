@@ -5,6 +5,7 @@ import QueuePage from '@/features/classification/pages/QueuePage';
 import RegistrationPage from '@/features/registration/pages/RegistrationPage';
 import StoreInventoryPage from '@/features/storeInventory/pages/StoreInventoryPage';
 import StoreListPage from '@/features/storeInventory/pages/StoreListPage';
+import StoreRegistrationPage from '@/features/storeInventory/pages/StoreRegistrationPage';
 import { useAppRoute } from '@/routing/useAppRoute';
 import GlobalStyles from '@/styles/GlobalStyles';
 
@@ -13,7 +14,9 @@ function AppContent() {
   const currentSection =
     route.page === 'queue'
       ? route.status
-      : route.page === 'stores' || route.page === 'storeInventory'
+      : route.page === 'stores' ||
+          route.page === 'storeRegistration' ||
+          route.page === 'storeInventory'
         ? 'STORES'
         : 'UNCLASSIFIED';
 
@@ -25,6 +28,8 @@ function AppContent() {
           <RegistrationPage onNavigate={navigate} />
         ) : route.page === 'stores' ? (
           <StoreListPage onNavigate={navigate} />
+        ) : route.page === 'storeRegistration' ? (
+          <StoreRegistrationPage onNavigate={navigate} />
         ) : route.page === 'storeInventory' ? (
           <StoreInventoryPage storeId={route.storeId} onNavigate={navigate} />
         ) : route.page === 'classify' ? (
