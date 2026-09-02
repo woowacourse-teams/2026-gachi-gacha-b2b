@@ -55,13 +55,20 @@ export const toBackendCategory = (dto: BackendCategoryDto): Category => ({
   name: dto.name,
 });
 
+export type CategoryIdByName = ReadonlyMap<string, number>;
+
+export const createCategoryIdByName = (
+  categories: Category[],
+): CategoryIdByName =>
+  new Map(categories.map((category) => [category.name, category.id]));
+
 export const toBackendClassificationItem = (
   dto: BackendGachaDto,
-  categories: Category[],
+  categoriesOrLookup: Category[] | CategoryIdByName,
 ): ClassificationItem => {
-  const categoryIdsByName = new Map(
-    categories.map((category) => [category.name, category.id]),
-  );
+  const categoryIdsByName = Array.isArray(categoriesOrLookup)
+    ? createCategoryIdByName(categoriesOrLookup)
+    : categoriesOrLookup;
   const categoryIds = dto.categories.flatMap((categoryName) => {
     const categoryId = categoryIdsByName.get(categoryName);
     return categoryId === undefined ? [] : [categoryId];

@@ -168,9 +168,10 @@ export const PrimaryButton = styled.button`
 
 export const CategoryFilterPanel = styled.section`
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
   gap: 14px;
-  margin: -4px 0 24px;
+  margin: 24px 0 0;
   padding: 16px;
   border: 1px solid ${colors.border};
   border-radius: ${radii.medium};
@@ -187,11 +188,37 @@ export const FilterLabel = styled.strong`
   font-size: 13px;
 `;
 
+export const CategoryFilterSearch = styled.label`
+  display: flex;
+  min-height: 34px;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  border: 1px solid ${colors.border};
+  border-radius: ${radii.round};
+  background: ${colors.surface};
+
+  input {
+    width: 150px;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    font-size: 12px;
+  }
+`;
+
 export const CategoryFilterList = styled.div`
   display: flex;
+  min-width: 0;
   flex: 1;
   flex-wrap: wrap;
   gap: 8px;
+`;
+
+export const CategoryFilterHint = styled.span`
+  align-self: center;
+  color: ${colors.textMuted};
+  font-size: 12px;
 `;
 
 export const CategoryFilterButton = styled.button<{ selected: boolean }>`

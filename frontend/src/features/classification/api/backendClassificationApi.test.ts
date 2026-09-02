@@ -6,6 +6,8 @@ import {
   classifyBackendGacha,
   getBackendCategories,
   getBackendClassificationQueue,
+  invalidateBackendCategoryCache,
+  updateBackendGachaClassification,
 } from './backendClassificationApi';
 import type { BackendGachaDto, BackendPageDto } from './classification.dto';
 import type { ClassificationItem } from '../model/classification';
@@ -46,7 +48,10 @@ const ok = <Data>(data: Data) =>
 const server = setupServer();
 
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
-afterEach(() => server.resetHandlers());
+afterEach(() => {
+  server.resetHandlers();
+  invalidateBackendCategoryCache();
+});
 afterAll(() => server.close());
 
 describe('실제 B2B 백엔드 API 어댑터', () => {
@@ -60,6 +65,25 @@ describe('실제 B2B 백엔드 API 어댑터', () => {
     await expect(getBackendCategories()).resolves.toEqual([
       { id: 7, name: '피규어' },
     ]);
+  });
+
+  it('동시에 요청한 공통 카테고리를 한 번만 조회하고 캐시한다', async () => {
+    let requestCount = 0;
+    server.use(
+      http.get(`${__API_BASE_URL__}/categories`, () => {
+        requestCount += 1;
+        return ok([{ categoryId: 7, name: '피규어' }]);
+      }),
+    );
+
+    await Promise.all([
+      getBackendCategories(),
+      getBackendCategories(),
+      getBackendCategories(),
+    ]);
+    await getBackendCategories();
+
+    expect(requestCount).toBe(1);
   });
 
   it('Spring Page를 ID 오름차순으로 조회하고 조건에 맞는 페이지까지 탐색한다', async () => {
@@ -129,5 +153,38 @@ describe('실제 B2B 백엔드 API 어댑터', () => {
 
     expect(updateBody).toEqual({ name: '수정 이름', categories: [7] });
     expect(result.nextItemId).toBeNull();
+  });
+
+  it('분류 완료 수정은 다음 미분류 목록을 탐색하지 않는다', async () => {
+    let listRequestCount = 0;
+    server.use(
+      http.patch(`${__API_BASE_URL__}/gachas/11`, () =>
+        ok({ gachaId: 11, updatedAt: '2026-09-01T10:00:00' }),
+      ),
+      http.get(`${__API_BASE_URL__}/gachas`, () => {
+        listRequestCount += 1;
+        return ok(createPage([], 0, true));
+      }),
+    );
+    const item: ClassificationItem = {
+      id: 11,
+      imageUrl: '',
+      name: '기존 이름',
+      originalFileName: 'CODE-11',
+      source: 'BANDAI',
+      locationLabel: '위치 정보 없음',
+      description: '',
+      categoryIds: [7],
+      status: 'CLASSIFIED',
+      version: 0,
+      createdAt: '2026-09-01T09:00:00',
+    };
+
+    await updateBackendGachaClassification(item, {
+      name: '수정 이름',
+      categoryIds: [7],
+    });
+
+    expect(listRequestCount).toBe(0);
   });
 });

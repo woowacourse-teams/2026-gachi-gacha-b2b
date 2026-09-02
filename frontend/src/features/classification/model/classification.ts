@@ -14,6 +14,7 @@ export interface QueueQuery {
   categoryIds?: number[];
   cursor?: number;
   limit?: number;
+  signal?: AbortSignal;
 }
 
 export interface Category {

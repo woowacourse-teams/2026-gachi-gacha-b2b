@@ -8,6 +8,7 @@ import {
   getBackendClassificationItem,
   getBackendClassificationQueue,
   unsupportedBackendSkip,
+  updateBackendGachaClassification,
 } from './backendClassificationApi';
 import type {
   CategoryDto,
@@ -51,6 +52,7 @@ export const getClassificationQueue = async ({
   categoryIds = [],
   cursor,
   limit = 50,
+  signal,
 }: QueueQuery) => {
   if (!__USE_MOCK_API__) {
     return getBackendClassificationQueue({
@@ -61,6 +63,7 @@ export const getClassificationQueue = async ({
       ...(categoryIds.length === 0 ? {} : { categoryIds }),
       ...(cursor === undefined ? {} : { cursor }),
       limit,
+      ...(signal === undefined ? {} : { signal }),
     });
   }
 
@@ -82,6 +85,7 @@ export const getClassificationQueue = async ({
 
   const dto = await request<ClassificationQueueDto>(
     `/classifications?${searchParams.toString()}`,
+    signal ? { signal } : {},
   );
 
   return toClassificationQueue(dto);
@@ -148,6 +152,26 @@ export const classifyGacha = async (
   );
 
   return toClassificationResult(dto);
+};
+
+export const updateGachaClassification = async (
+  item: ClassificationItem,
+  draft: ClassificationDraft,
+): Promise<void> => {
+  if (!__USE_MOCK_API__) {
+    return updateBackendGachaClassification(item, draft);
+  }
+
+  const body: ClassifyGachaRequestDto = {
+    name: draft.name.trim(),
+    categoryIds: draft.categoryIds,
+    version: item.version,
+  };
+
+  await request<ClassificationResultDto>(
+    `/classifications/${item.id}/classify`,
+    { method: 'PUT', body },
+  );
 };
 
 export const skipGacha = async (

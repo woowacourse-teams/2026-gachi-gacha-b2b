@@ -122,6 +122,30 @@ describe('App navigation', () => {
     );
   }, 10_000);
 
+  it('분류 완료 목록에서 기존 가챠를 수정하고 완료 목록으로 돌아온다', async () => {
+    window.history.replaceState({}, '', '/classified');
+    render(<App />);
+
+    const itemName = await screen.findByText('산리오 미니 피규어');
+    const itemRow = itemName.closest('li');
+    expect(itemRow).not.toBeNull();
+    fireEvent.click(
+      within(itemRow!).getByRole('button', { name: '수정하기 →' }),
+    );
+
+    expect(
+      await screen.findByRole('heading', { name: '분류 완료 데이터 수정' }),
+    ).toBeVisible();
+    const nameInput = screen.getByDisplayValue('산리오 미니 피규어');
+    fireEvent.change(nameInput, { target: { value: '산리오 수정 피규어' } });
+    fireEvent.click(screen.getByRole('button', { name: '수정 저장' }));
+
+    expect(
+      await screen.findByRole('heading', { name: '분류 완료 데이터' }),
+    ).toBeVisible();
+    expect(await screen.findByText('산리오 수정 피규어')).toBeVisible();
+  });
+
   it('선택한 AI 서비스별 API 키 발급 순서와 공식 페이지를 안내한다', async () => {
     render(<App />);
 
