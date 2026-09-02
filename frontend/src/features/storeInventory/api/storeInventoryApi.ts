@@ -3,6 +3,7 @@ import type { BackendPageDto } from '@/features/classification/api/classificatio
 import { getClassificationQueue } from '@/features/classification/api/classificationApi';
 import type { ClassificationQueue } from '@/features/classification/model/classification';
 
+import { searchAssignableGachaCatalog } from './catalogSearchApi';
 import type {
   BackendStoreDetailDto,
   BackendStoreGachaRelationDto,
@@ -97,13 +98,20 @@ export const getAssignableGachaPage = ({
   cursor?: number;
   limit?: number;
 }): Promise<ClassificationQueue> =>
-  getClassificationQueue({
-    status: 'CLASSIFIED',
-    query,
-    categoryIds,
-    cursor,
-    limit,
-  });
+  __USE_MOCK_API__
+    ? getClassificationQueue({
+        status: 'CLASSIFIED',
+        query,
+        categoryIds,
+        cursor,
+        limit,
+      })
+    : searchAssignableGachaCatalog({
+        query,
+        categoryIds,
+        cursor,
+        limit,
+      });
 
 export const assignGachaToStore = async (
   storeId: number,
