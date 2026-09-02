@@ -332,7 +332,10 @@ export default function StoreInventoryPage({
         <SectionHeader>
           <div>
             <h2 id="catalog-title">분류 완료 가챠 찾기</h2>
-            <p>이름과 여러 카테고리 중 하나를 기준으로 검색합니다.</p>
+            <p>
+              이름 또는 카테고리명에 포함된 단어로 검색하고, 카테고리 버튼으로
+              결과를 좁힐 수 있습니다.
+            </p>
           </div>
           <strong>{catalogItems.length}개 표시</strong>
         </SectionHeader>
@@ -346,8 +349,8 @@ export default function StoreInventoryPage({
           >
             <label>
               <input
-                aria-label="가챠 이름 검색"
-                placeholder="분류된 가챠 이름으로 검색"
+                aria-label="가챠 이름 또는 카테고리 검색"
+                placeholder="가챠 이름 또는 카테고리명 검색"
                 value={queryInput}
                 onChange={(event) => setQueryInput(event.target.value)}
               />
