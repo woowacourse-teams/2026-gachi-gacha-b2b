@@ -16,7 +16,8 @@ export class CatalogSearchError extends Error {
 const isRecord = (value) =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
-const normalizeText = (value) => value.trim().toLocaleLowerCase('ko-KR');
+const normalizeText = (value) =>
+  value.normalize('NFKC').toLocaleLowerCase('ko-KR').replace(/\s+/gu, '');
 
 const parseInteger = (value, fallback, { min, max }) => {
   if (value === undefined || value === null || value === '') return fallback;
