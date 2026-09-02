@@ -7,6 +7,7 @@ import { handlers } from '@/mocks/handlers';
 
 import {
   assignGachaToStore,
+  createStore,
   getAllStores,
   getAssignableGachaPage,
   getAssignedGachas,
@@ -34,6 +35,46 @@ describe('store inventory API', () => {
       name: '국제전자센터 가챠존',
       machineCount: 72,
     });
+  });
+
+  it('새 매장을 생성하면 목록과 가챠 관리 API에서 즉시 조회할 수 있다', async () => {
+    const created = await createStore({
+      name: '캡슐 스테이션 성수',
+      thumbnailUrl: null,
+      latitude: 37.5445,
+      longitude: 127.0561,
+      phoneNumber: null,
+      instagramId: null,
+      address: '서울특별시 성동구 연무장길 1',
+      floor: 2,
+      unit: null,
+      businessHours: null,
+      paymentMethods: null,
+      gachaMachineAmount: 18,
+      coinPrice: 500,
+      gachaPriceMin: 3000,
+      gachaPriceMax: 5000,
+      kujiAmount: null,
+      kujiPriceMin: null,
+      kujiPriceMax: null,
+      hasSelectGacha: false,
+      selectGachaPriceMin: null,
+      selectGachaPriceMax: null,
+      facilities: ['동전교환기'],
+      hasRandomBox: false,
+    });
+
+    expect(created.id).toBe(4);
+    expect((await getAllStores()).at(-1)).toMatchObject({
+      id: 4,
+      name: '캡슐 스테이션 성수',
+      machineCount: 18,
+    });
+    expect(await getStoreSummary(created.id)).toMatchObject({
+      id: 4,
+      name: '캡슐 스테이션 성수',
+    });
+    expect(await getAssignedGachas(created.id)).toEqual([]);
   });
 
   it('매장에 가챠를 등록하고 제거하며 중복 요청은 충돌로 처리한다', async () => {

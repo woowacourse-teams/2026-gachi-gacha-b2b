@@ -53,6 +53,37 @@ export const CountBadge = styled.div`
   }
 `;
 
+export const HeaderActions = styled.div`
+  display: flex;
+  flex: 0 0 auto;
+  align-items: stretch;
+  gap: 10px;
+
+  @media (max-width: 720px) {
+    width: 100%;
+  }
+`;
+
+export const CreateStoreButton = styled.button`
+  min-height: 100%;
+  padding: 0 20px;
+  border: 1px solid ${colors.brand};
+  border-radius: ${radii.medium};
+  color: white;
+  background: ${colors.brand};
+  font-weight: 800;
+
+  &:hover,
+  &:focus-visible {
+    outline: 0;
+    background: ${colors.brandDark};
+  }
+
+  @media (max-width: 720px) {
+    flex: 1;
+  }
+`;
+
 export const SearchForm = styled.form`
   display: flex;
   flex-wrap: wrap;

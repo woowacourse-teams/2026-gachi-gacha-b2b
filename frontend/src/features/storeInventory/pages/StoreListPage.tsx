@@ -4,8 +4,10 @@ import { getErrorMessage } from '@/utils/getErrorMessage';
 
 import {
   CountBadge,
+  CreateStoreButton,
   Description,
   Header,
+  HeaderActions,
   Heading,
   Page,
   SearchForm,
@@ -67,10 +69,18 @@ export default function StoreListPage({ onNavigate }: StoreListPageProps) {
             등록합니다.
           </Description>
         </div>
-        <CountBadge>
-          <strong>{stores.length}</strong>
-          <span>등록 매장</span>
-        </CountBadge>
+        <HeaderActions>
+          <CountBadge>
+            <strong>{stores.length}</strong>
+            <span>등록 매장</span>
+          </CountBadge>
+          <CreateStoreButton
+            type="button"
+            onClick={() => onNavigate('/stores/new')}
+          >
+            + 새 매장 등록
+          </CreateStoreButton>
+        </HeaderActions>
       </Header>
 
       <SearchForm onSubmit={(event) => event.preventDefault()}>

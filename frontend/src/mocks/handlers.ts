@@ -27,6 +27,7 @@ import type {
   CreateFieldGachaRequestDto,
   CreateUploadUrlRequestDto,
 } from '../features/registration/api/registration.dto';
+import type { BackendStoreCreateRequestDto } from '../features/storeInventory/api/storeInventory.dto';
 
 const apiPath = (path: string) => `${__API_BASE_URL__}${path}`;
 const aiApiPath = (path: string) => `${__AI_API_BASE_URL__}${path}`;
@@ -183,6 +184,34 @@ export const handlers = [
       categoryNames,
       model: `msw-${provider.toLowerCase()}-gacha-classifier`,
       generatedAt: new Date().toISOString(),
+    });
+  }),
+
+  http.post(apiPath('/stores'), async ({ request }) => {
+    await delay(160);
+    const body = (await request.json()) as BackendStoreCreateRequestDto;
+    const storeId = Math.max(0, ...stores.map((store) => store.storeId)) + 1;
+    const createdAt = new Date().toISOString();
+
+    stores.push({
+      storeId,
+      name: body.name,
+      thumbnailUrl: body.thumbnailUrl,
+      address: body.address,
+      latitude: body.latitude,
+      longitude: body.longitude,
+      gachaMachineAmount: body.gachaMachineAmount,
+    });
+    storeGachaAssignments.set(storeId, new Set());
+
+    return HttpResponse.json(ok({ storeId, createdAt }), {
+      status: 201,
+      headers: {
+        Location: new URL(
+          apiPath(`/stores/${storeId}`),
+          request.url,
+        ).toString(),
+      },
     });
   }),
 

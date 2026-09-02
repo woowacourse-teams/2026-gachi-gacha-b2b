@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 export type AppRoute =
   | { page: 'register' }
   | { page: 'stores' }
+  | { page: 'storeRegistration' }
   | { page: 'storeInventory'; storeId: number }
   | {
       page: 'queue';
@@ -45,6 +46,10 @@ const parseRoute = (): AppRoute => {
 
   if (window.location.pathname === '/stores') {
     return { page: 'stores' };
+  }
+
+  if (window.location.pathname === '/stores/new') {
+    return { page: 'storeRegistration' };
   }
 
   const storeInventoryMatch = window.location.pathname.match(

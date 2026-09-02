@@ -263,6 +263,53 @@ describe('App navigation', () => {
     ).toHaveTextContent('1');
   }, 10_000);
 
+  it('새 매장을 등록한 뒤 해당 매장의 가챠 관리로 바로 이어간다', async () => {
+    window.history.replaceState({}, '', '/stores');
+    render(<App />);
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: /새 매장 등록/ }),
+    );
+    expect(screen.getByRole('heading', { name: '새 매장 등록' })).toBeVisible();
+
+    fireEvent.change(screen.getByLabelText(/매장 이름/), {
+      target: { value: '캡슐 스테이션 성수' },
+    });
+    fireEvent.change(screen.getByLabelText(/^주소/), {
+      target: { value: '서울특별시 성동구 연무장길 1' },
+    });
+    fireEvent.change(screen.getByLabelText(/위도/), {
+      target: { value: '37.5445' },
+    });
+    fireEvent.change(screen.getByLabelText(/경도/), {
+      target: { value: '127.0561' },
+    });
+    fireEvent.change(screen.getByLabelText('가챠 기계 수'), {
+      target: { value: '18' },
+    });
+    fireEvent.click(
+      screen.getByRole('button', { name: '매장 등록 후 가챠 관리' }),
+    );
+
+    expect(
+      await screen.findByRole('heading', { name: '캡슐 스테이션 성수' }),
+    ).toBeVisible();
+
+    const catalogName = await screen.findByText('산리오 미니 피규어');
+    const catalogRow = catalogName.closest('li');
+    expect(catalogRow).not.toBeNull();
+    fireEvent.click(
+      within(catalogRow!).getByRole('button', { name: '매장에 추가' }),
+    );
+
+    expect(
+      await screen.findByText('가챠 #105을(를) 매장에 등록했습니다.'),
+    ).toBeVisible();
+    expect(
+      within(catalogRow!).getByRole('button', { name: '매장에서 제거' }),
+    ).toBeVisible();
+  }, 10_000);
+
   it('매장에 추가할 가챠의 섬네일을 확대하고 Escape로 닫는다', async () => {
     render(<App />);
 

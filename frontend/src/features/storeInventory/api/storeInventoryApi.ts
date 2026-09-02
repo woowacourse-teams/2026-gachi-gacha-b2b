@@ -5,6 +5,8 @@ import type { ClassificationQueue } from '@/features/classification/model/classi
 
 import { searchAssignableGachaCatalog } from './catalogSearchApi';
 import type {
+  BackendStoreCreateRequestDto,
+  BackendStoreCreateResponseDto,
   BackendStoreDetailDto,
   BackendStoreGachaRelationDto,
   BackendStoreGachaSummaryDto,
@@ -12,9 +14,11 @@ import type {
 } from './storeInventory.dto';
 import type {
   AssignedGachaSummary,
+  CreatedStore,
   StoreInventoryRelation,
   StoreSummary,
 } from '../model/storeInventory';
+import type { StoreRegistration } from '../model/storeRegistration';
 
 const STORE_PAGE_SIZE = 100;
 const ASSIGNED_GACHA_PAGE_SIZE = 100;
@@ -62,6 +66,18 @@ export const getStoreSummary = async (
 ): Promise<StoreSummary> => {
   const store = await requestData<BackendStoreDetailDto>(`/stores/${storeId}`);
   return toStoreSummary(store);
+};
+
+export const createStore = async (
+  registration: StoreRegistration,
+): Promise<CreatedStore> => {
+  const body: BackendStoreCreateRequestDto = registration;
+  const created = await requestData<BackendStoreCreateResponseDto>('/stores', {
+    method: 'POST',
+    body,
+  });
+
+  return { id: created.storeId, createdAt: created.createdAt };
 };
 
 export const getAssignedGachas = async (
