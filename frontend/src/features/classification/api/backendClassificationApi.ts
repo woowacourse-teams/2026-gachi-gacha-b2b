@@ -8,6 +8,7 @@ import type {
   BackendPageDto,
 } from './classification.dto';
 import {
+  createCategoryIdByName,
   toBackendCategory,
   toBackendClassificationItem,
 } from './toClassification';
@@ -21,9 +22,37 @@ import type {
   QueueQuery,
 } from '../model/classification';
 
+const CATEGORY_CACHE_TTL_MS = 60_000;
+
+let categoryCache: { categories: Category[]; expiresAt: number } | null = null;
+let categoryRequest: Promise<Category[]> | null = null;
+
+export const invalidateBackendCategoryCache = () => {
+  categoryCache = null;
+  categoryRequest = null;
+};
+
 const getBackendCategories = async (): Promise<Category[]> => {
-  const categories = await requestData<BackendCategoryDto[]>('/categories');
-  return categories.map(toBackendCategory);
+  if (categoryCache && categoryCache.expiresAt > Date.now()) {
+    return categoryCache.categories;
+  }
+
+  if (categoryRequest) return categoryRequest;
+
+  categoryRequest = requestData<BackendCategoryDto[]>('/categories')
+    .then((categories) => categories.map(toBackendCategory))
+    .then((categories) => {
+      categoryCache = {
+        categories,
+        expiresAt: Date.now() + CATEGORY_CACHE_TTL_MS,
+      };
+      return categories;
+    })
+    .finally(() => {
+      categoryRequest = null;
+    });
+
+  return categoryRequest;
 };
 
 const matchesStatus = (
@@ -39,6 +68,7 @@ export const getBackendClassificationQueue = async ({
   categoryIds = [],
   cursor = 0,
   limit = 50,
+  signal,
 }: QueueQuery): Promise<ClassificationQueue> => {
   if (status === 'SKIPPED') {
     return {
@@ -51,6 +81,7 @@ export const getBackendClassificationQueue = async ({
   }
 
   const categories = await getBackendCategories();
+  const categoryIdsByName = createCategoryIdByName(categories);
   let pageNumber = cursor;
 
   while (true) {
@@ -63,9 +94,10 @@ export const getBackendClassificationQueue = async ({
 
     const page = await requestData<BackendPageDto<BackendGachaDto>>(
       `/gachas?${searchParams.toString()}`,
+      signal ? { signal } : {},
     );
     const items = page.content
-      .map((item) => toBackendClassificationItem(item, categories))
+      .map((item) => toBackendClassificationItem(item, categoryIdsByName))
       .filter(
         (item) =>
           matchesStatus(item, status) &&
@@ -101,6 +133,21 @@ export const getBackendClassificationItem = async (
   return toBackendClassificationItem(item, categories);
 };
 
+export const updateBackendGachaClassification = async (
+  item: ClassificationItem,
+  draft: ClassificationDraft,
+): Promise<void> => {
+  const body: BackendGachaUpdateRequestDto = {
+    name: draft.name.trim(),
+    categories: draft.categoryIds,
+  };
+
+  await requestData<BackendGachaUpdateResponseDto>(`/gachas/${item.id}`, {
+    method: 'PATCH',
+    body,
+  });
+};
+
 const findNextUnclassifiedItemId = async (
   currentItemId: number,
   idRange: ClassificationIdRange,
@@ -129,15 +176,7 @@ export const classifyBackendGacha = async (
   draft: ClassificationDraft,
   idRange: ClassificationIdRange = {},
 ): Promise<ClassificationResult> => {
-  const body: BackendGachaUpdateRequestDto = {
-    name: draft.name.trim(),
-    categories: draft.categoryIds,
-  };
-
-  await requestData<BackendGachaUpdateResponseDto>(`/gachas/${item.id}`, {
-    method: 'PATCH',
-    body,
-  });
+  await updateBackendGachaClassification(item, draft);
 
   return {
     nextItemId: await findNextUnclassifiedItemId(item.id, idRange),
@@ -151,6 +190,7 @@ export const createBackendCategory = async (
     method: 'POST',
     body: { name },
   });
+  invalidateBackendCategoryCache();
   return toBackendCategory(category);
 };
 
@@ -160,6 +200,7 @@ export const deleteBackendCategory = async (
   await requestData<{ categoryId: number }>(`/categories/${categoryId}`, {
     method: 'DELETE',
   });
+  invalidateBackendCategoryCache();
 };
 
 export const unsupportedBackendSkip = (): never => {

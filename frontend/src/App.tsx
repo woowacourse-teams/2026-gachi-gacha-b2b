@@ -32,6 +32,7 @@ function AppContent() {
             itemId={route.itemId}
             maxId={route.maxId}
             minId={route.minId}
+            mode={route.mode}
             onNavigate={navigate}
           />
         ) : (

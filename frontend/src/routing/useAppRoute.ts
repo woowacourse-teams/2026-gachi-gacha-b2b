@@ -10,7 +10,13 @@ export type AppRoute =
       minId?: number;
       maxId?: number;
     }
-  | { page: 'classify'; itemId: number; minId?: number; maxId?: number };
+  | {
+      page: 'classify';
+      itemId: number;
+      mode: 'classify' | 'edit';
+      minId?: number;
+      maxId?: number;
+    };
 
 const ROUTE_CHANGE_EVENT = 'gachi-gacha:route-change';
 
@@ -55,9 +61,12 @@ const parseRoute = (): AppRoute => {
   const classifyMatch = window.location.pathname.match(/^\/classify\/(\d+)$/);
 
   if (classifyMatch) {
+    const searchParams = new URLSearchParams(window.location.search);
+
     return {
       page: 'classify',
       itemId: Number(classifyMatch[1]),
+      mode: searchParams.get('mode') === 'edit' ? 'edit' : 'classify',
       ...getIdRangeFromUrl(),
     };
   }

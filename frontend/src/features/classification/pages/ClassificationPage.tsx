@@ -36,6 +36,7 @@ import {
   getClassificationItem,
   getClassificationQueue,
   skipGacha,
+  updateGachaClassification,
 } from '../api/classificationApi';
 import CategoryDialog from '../components/CategoryDialog';
 import CategoryTextEditor from '../components/CategoryTextEditor';
@@ -56,6 +57,7 @@ import type {
 
 interface ClassificationPageProps {
   itemId: number;
+  mode: 'classify' | 'edit';
   minId: number | undefined;
   maxId: number | undefined;
   onNavigate: (path: string) => void;
@@ -84,10 +86,12 @@ const withIdRange = (
 
 export default function ClassificationPage({
   itemId,
+  mode,
   minId,
   maxId,
   onNavigate,
 }: ClassificationPageProps) {
+  const isEditMode = mode === 'edit';
   const {
     credentials,
     isEnabled: isAiEnabled,
@@ -122,7 +126,6 @@ export default function ClassificationPage({
     }),
     [maxId, minId],
   );
-
   useEffect(() => {
     let isCurrent = true;
 
@@ -145,15 +148,19 @@ export default function ClassificationPage({
       aiAbortControllerRef.current = null;
 
       try {
-        const [loadedItem, loadedCategories] = await Promise.all([
+        const queuePromise =
+          !isEditMode && __USE_MOCK_API__
+            ? getClassificationQueue({
+                status: 'UNCLASSIFIED',
+                query: '',
+                ...idRange,
+              })
+            : Promise.resolve(null);
+        const [loadedItem, loadedCategories, queue] = await Promise.all([
           getClassificationItem(itemId),
           getCategories(),
+          queuePromise,
         ]);
-        const queue = await getClassificationQueue({
-          status: 'UNCLASSIFIED',
-          query: '',
-          ...idRange,
-        });
 
         if (!isCurrent) return;
 
@@ -163,7 +170,7 @@ export default function ClassificationPage({
         setCategoryText(
           formatCategoryTextByIds(loadedItem.categoryIds, loadedCategories),
         );
-        setRemainingCount(queue.filteredCount);
+        setRemainingCount(queue?.filteredCount ?? null);
       } catch (cause) {
         if (isCurrent) setError(getErrorMessage(cause));
       } finally {
@@ -179,7 +186,7 @@ export default function ClassificationPage({
       aiAbortControllerRef.current?.abort();
       aiAbortControllerRef.current = null;
     };
-  }, [idRange, itemId]);
+  }, [idRange, isEditMode, itemId]);
 
   const categoryResolution = useMemo(
     () => resolveCategoryText(categoryText, categories),
@@ -252,7 +259,7 @@ export default function ClassificationPage({
   );
 
   useEffect(() => {
-    if (!isAiEnabled || !credentials) {
+    if (!isAiEnabled || !credentials || isEditMode) {
       aiRequestIdRef.current += 1;
       aiAbortControllerRef.current?.abort();
       aiAbortControllerRef.current = null;
@@ -269,7 +276,7 @@ export default function ClassificationPage({
     return () => {
       aiAbortControllerRef.current?.abort();
     };
-  }, [credentials, isAiEnabled, loadAiSuggestion]);
+  }, [credentials, isAiEnabled, isEditMode, loadAiSuggestion]);
 
   const isDirty = useMemo(
     () =>
@@ -359,11 +366,18 @@ export default function ClassificationPage({
       }
 
       setCategories(latestCategories);
-      const result = await classifyGacha(
-        item,
-        { name, categoryIds: latestResolution.categoryIds },
-        idRange,
-      );
+      const draft = {
+        name,
+        categoryIds: latestResolution.categoryIds,
+      };
+
+      if (isEditMode) {
+        await updateGachaClassification(item, draft);
+        onNavigate(withIdRange('/classified', idRange));
+        return;
+      }
+
+      const result = await classifyGacha(item, draft, idRange);
       moveToNext(result.nextItemId);
     } catch (cause) {
       setError(getErrorMessage(cause));
@@ -376,8 +390,10 @@ export default function ClassificationPage({
     categoryText,
     idRange,
     item,
+    isEditMode,
     moveToNext,
     name,
+    onNavigate,
   ]);
 
   const handleSkip = async (reason: string) => {
@@ -448,7 +464,7 @@ export default function ClassificationPage({
 
   const handleBack = () => {
     if (!item) {
-      onNavigate('/');
+      onNavigate(isEditMode ? '/classified' : '/');
       return;
     }
 
@@ -459,7 +475,7 @@ export default function ClassificationPage({
       return;
     }
 
-    onNavigate(withIdRange('/', idRange));
+    onNavigate(withIdRange(isEditMode ? '/classified' : '/', idRange));
   };
 
   if (isLoading) {
@@ -474,7 +490,10 @@ export default function ClassificationPage({
         <div>
           <h1>데이터를 열 수 없습니다.</h1>
           <p>{error || '분류 데이터를 찾을 수 없습니다.'}</p>
-          <button type="button" onClick={() => onNavigate('/')}>
+          <button
+            type="button"
+            onClick={() => onNavigate(isEditMode ? '/classified' : '/')}
+          >
             목록으로 돌아가기
           </button>
         </div>
@@ -488,11 +507,14 @@ export default function ClassificationPage({
         <BackButton type="button" onClick={handleBack}>
           ← 목록으로
         </BackButton>
-        <HeaderTitle>데이터 분류 작업</HeaderTitle>
+        <HeaderTitle>
+          {isEditMode ? '분류 완료 데이터 수정' : '데이터 분류 작업'}
+        </HeaderTitle>
         <ItemCount>
-          ID #{item.id} · {item.source} · {item.locationLabel} ·{' '}
-          {__USE_MOCK_API__ ? '남은 항목' : '전체 데이터'}{' '}
-          {remainingCount ?? '-'}개
+          ID #{item.id} · {item.source} · {item.locationLabel}
+          {__USE_MOCK_API__ && !isEditMode
+            ? ` · 남은 항목 ${remainingCount ?? '-'}개`
+            : ''}
         </ItemCount>
       </Header>
 
@@ -619,7 +641,7 @@ export default function ClassificationPage({
           </FormBody>
 
           <Actions>
-            {__USE_MOCK_API__ && (
+            {__USE_MOCK_API__ && !isEditMode && (
               <ActionButton
                 disabled={isSubmitting}
                 type="button"
@@ -637,7 +659,11 @@ export default function ClassificationPage({
               type="button"
               onClick={() => void handleSave()}
             >
-              {isSubmitting ? '저장 중...' : '저장 후 다음 →'}
+              {isSubmitting
+                ? '저장 중...'
+                : isEditMode
+                  ? '수정 저장'
+                  : '저장 후 다음 →'}
             </ActionButton>
           </Actions>
         </FormPanel>
