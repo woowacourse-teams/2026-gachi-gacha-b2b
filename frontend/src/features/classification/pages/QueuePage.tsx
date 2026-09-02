@@ -1,11 +1,13 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { getErrorMessage } from '@/utils/getErrorMessage';
 
 import {
   CategoryFilterButton,
+  CategoryFilterHint,
   CategoryFilterList,
   CategoryFilterPanel,
+  CategoryFilterSearch,
   CategoryTag,
   CategoryTags,
   ClearFilterButton,
@@ -19,7 +21,6 @@ import {
   IdRangeForm,
   List,
   ListActionButton,
-  ListActionPlaceholder,
   ListCategoryCell,
   ListFooter,
   ListHeader,
@@ -65,6 +66,7 @@ export default function QueuePage({
   onNavigate,
 }: QueuePageProps) {
   const [query, setQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
   const [minIdInput, setMinIdInput] = useState(
     initialMinId === undefined ? '' : String(initialMinId),
   );
@@ -74,17 +76,50 @@ export default function QueuePage({
   const [queue, setQueue] = useState<ClassificationQueue | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<number[]>([]);
+  const [categoryFilterQuery, setCategoryFilterQuery] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [restoringId, setRestoringId] = useState<number | null>(null);
   const latestRequestIdRef = useRef(0);
+  const queueAbortControllerRef = useRef<AbortController | null>(null);
+  const isSkippedView = status === 'SKIPPED';
+  const isClassifiedView = status === 'CLASSIFIED';
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => setDebouncedQuery(query), 300);
+    return () => window.clearTimeout(timeoutId);
+  }, [query]);
+
+  useEffect(() => {
+    if (!isClassifiedView) {
+      setCategories([]);
+      return;
+    }
+
+    let isCurrent = true;
+
+    void getCategories()
+      .then((loadedCategories) => {
+        if (isCurrent) setCategories(loadedCategories);
+      })
+      .catch((cause) => {
+        if (isCurrent) setError(getErrorMessage(cause));
+      });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [isClassifiedView]);
 
   const loadQueue = useCallback(
     async (cursor?: number) => {
       const requestId = latestRequestIdRef.current + 1;
       latestRequestIdRef.current = requestId;
       const isAppending = cursor !== undefined;
+      queueAbortControllerRef.current?.abort();
+      const abortController = new AbortController();
+      queueAbortControllerRef.current = abortController;
 
       if (isAppending) {
         setIsLoadingMore(true);
@@ -97,18 +132,16 @@ export default function QueuePage({
       try {
         const queueQuery = {
           status,
-          query,
+          query: debouncedQuery,
           ...(initialMinId === undefined ? {} : { minId: initialMinId }),
           ...(initialMaxId === undefined ? {} : { maxId: initialMaxId }),
           ...(status === 'CLASSIFIED' && selectedCategoryIds.length > 0
             ? { categoryIds: selectedCategoryIds }
             : {}),
           ...(cursor === undefined ? {} : { cursor }),
+          signal: abortController.signal,
         };
-        const [loadedQueue, loadedCategories] = await Promise.all([
-          getClassificationQueue(queueQuery),
-          getCategories(),
-        ]);
+        const loadedQueue = await getClassificationQueue(queueQuery);
 
         if (requestId !== latestRequestIdRef.current) return;
 
@@ -120,23 +153,35 @@ export default function QueuePage({
               }
             : loadedQueue,
         );
-        setCategories(loadedCategories);
       } catch (cause) {
         if (requestId !== latestRequestIdRef.current) return;
+        if (cause instanceof DOMException && cause.name === 'AbortError')
+          return;
         setError(getErrorMessage(cause));
       } finally {
         if (requestId === latestRequestIdRef.current) {
           setIsLoading(false);
           setIsLoadingMore(false);
         }
+        if (queueAbortControllerRef.current === abortController) {
+          queueAbortControllerRef.current = null;
+        }
       }
     },
-    [initialMaxId, initialMinId, query, selectedCategoryIds, status],
+    [debouncedQuery, initialMaxId, initialMinId, selectedCategoryIds, status],
   );
 
   useEffect(() => {
     void loadQueue();
   }, [loadQueue]);
+
+  useEffect(
+    () => () => {
+      latestRequestIdRef.current += 1;
+      queueAbortControllerRef.current?.abort();
+    },
+    [],
+  );
 
   useEffect(() => {
     setMinIdInput(initialMinId === undefined ? '' : String(initialMinId));
@@ -172,6 +217,9 @@ export default function QueuePage({
     }
     if (initialMaxId !== undefined) {
       searchParams.set('maxId', String(initialMaxId));
+    }
+    if (isClassifiedView) {
+      searchParams.set('mode', 'edit');
     }
 
     const queryString = searchParams.toString();
@@ -223,8 +271,35 @@ export default function QueuePage({
   };
 
   const firstItem = queue?.items[0];
-  const isSkippedView = status === 'SKIPPED';
-  const isClassifiedView = status === 'CLASSIFIED';
+  const selectedCategoryIdSet = useMemo(
+    () => new Set(selectedCategoryIds),
+    [selectedCategoryIds],
+  );
+  const categoryById = useMemo(
+    () => new Map(categories.map((category) => [category.id, category])),
+    [categories],
+  );
+  const visibleFilterCategories = useMemo(() => {
+    const normalizedQuery = categoryFilterQuery.trim().toLocaleLowerCase();
+    const selected = categories.filter((category) =>
+      selectedCategoryIdSet.has(category.id),
+    );
+    const candidates = normalizedQuery
+      ? categories.filter((category) =>
+          category.name.toLocaleLowerCase().includes(normalizedQuery),
+        )
+      : categories;
+    const visible = new Map(
+      selected.map((category) => [category.id, category]),
+    );
+
+    for (const category of candidates) {
+      if (visible.size >= 40) break;
+      visible.set(category.id, category);
+    }
+
+    return [...visible.values()];
+  }, [categories, categoryFilterQuery, selectedCategoryIdSet]);
   const title = isSkippedView
     ? '건너뛴 데이터'
     : isClassifiedView
@@ -333,41 +408,6 @@ export default function QueuePage({
         )}
       </Toolbar>
 
-      {isClassifiedView && (
-        <CategoryFilterPanel aria-label="카테고리 다중 필터">
-          <FilterLabel>카테고리</FilterLabel>
-          <CategoryFilterList>
-            {categories.map((category) => {
-              const selected = selectedCategoryIds.includes(category.id);
-
-              return (
-                <CategoryFilterButton
-                  key={category.id}
-                  aria-pressed={selected}
-                  selected={selected}
-                  type="button"
-                  onClick={() =>
-                    setSelectedCategoryIds((current) =>
-                      toggleCategory(current, category.id),
-                    )
-                  }
-                >
-                  {category.name}
-                </CategoryFilterButton>
-              );
-            })}
-          </CategoryFilterList>
-          {selectedCategoryIds.length > 0 && (
-            <ClearFilterButton
-              type="button"
-              onClick={() => setSelectedCategoryIds([])}
-            >
-              선택 초기화
-            </ClearFilterButton>
-          )}
-        </CategoryFilterPanel>
-      )}
-
       {error && <ErrorMessage role="alert">{error}</ErrorMessage>}
 
       {isLoading && !queue ? (
@@ -402,9 +442,7 @@ export default function QueuePage({
                   {isClassifiedView ? (
                     <CategoryTags aria-label="저장된 카테고리">
                       {item.categoryIds.map((categoryId) => {
-                        const category = categories.find(
-                          ({ id }) => id === categoryId,
-                        );
+                        const category = categoryById.get(categoryId);
 
                         return category ? (
                           <CategoryTag key={category.id}>
@@ -436,7 +474,13 @@ export default function QueuePage({
                     분류하기 →
                   </ListActionButton>
                 ) : (
-                  <ListActionPlaceholder aria-hidden>—</ListActionPlaceholder>
+                  <ListActionButton
+                    secondary
+                    type="button"
+                    onClick={() => onNavigate(getClassifyPath(item.id))}
+                  >
+                    수정하기 →
+                  </ListActionButton>
                 )}
               </ListRow>
             ))}
@@ -473,6 +517,55 @@ export default function QueuePage({
                 : '선택한 ID 범위에 분류 대기 데이터가 없습니다.'}
           </div>
         </StatePanel>
+      )}
+
+      {isClassifiedView && (
+        <CategoryFilterPanel aria-label="카테고리 다중 필터">
+          <FilterLabel>카테고리로 결과 좁히기</FilterLabel>
+          <CategoryFilterSearch>
+            <span aria-hidden>⌕</span>
+            <input
+              aria-label="필터 카테고리 검색"
+              placeholder="카테고리명 검색"
+              type="search"
+              value={categoryFilterQuery}
+              onChange={(event) => setCategoryFilterQuery(event.target.value)}
+            />
+          </CategoryFilterSearch>
+          <CategoryFilterList>
+            {visibleFilterCategories.map((category) => {
+              const selected = selectedCategoryIdSet.has(category.id);
+
+              return (
+                <CategoryFilterButton
+                  key={category.id}
+                  aria-pressed={selected}
+                  selected={selected}
+                  type="button"
+                  onClick={() =>
+                    setSelectedCategoryIds((current) =>
+                      toggleCategory(current, category.id),
+                    )
+                  }
+                >
+                  {category.name}
+                </CategoryFilterButton>
+              );
+            })}
+            <CategoryFilterHint>
+              전체 {categories.length.toLocaleString()}개 중 최대 40개를
+              표시합니다.
+            </CategoryFilterHint>
+          </CategoryFilterList>
+          {selectedCategoryIds.length > 0 && (
+            <ClearFilterButton
+              type="button"
+              onClick={() => setSelectedCategoryIds([])}
+            >
+              선택 초기화
+            </ClearFilterButton>
+          )}
+        </CategoryFilterPanel>
       )}
     </Page>
   );

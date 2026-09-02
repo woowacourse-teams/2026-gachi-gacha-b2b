@@ -164,3 +164,34 @@ export const CategoryCatalog = styled.div`
     color: ${colors.brand};
   }
 `;
+
+export const CatalogHeader = styled.header`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+`;
+
+export const CatalogSearch = styled.label`
+  display: flex;
+  min-height: 34px;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  border: 1px solid ${colors.border};
+  border-radius: ${radii.round};
+  background: ${colors.surface};
+
+  input {
+    width: min(180px, 28vw);
+    border: 0;
+    outline: 0;
+    background: transparent;
+    font-size: 12px;
+  }
+`;
+
+export const CatalogHint = styled.small`
+  color: ${colors.textMuted};
+  font-size: 11px;
+`;

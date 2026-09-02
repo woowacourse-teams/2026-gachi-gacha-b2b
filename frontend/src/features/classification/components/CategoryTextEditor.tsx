@@ -1,5 +1,10 @@
+import { useMemo, useState } from 'react';
+
 import {
   AiState,
+  CatalogHeader,
+  CatalogHint,
+  CatalogSearch,
   CategoryCatalog,
   Editor,
   EditorHeader,
@@ -61,6 +66,33 @@ export default function CategoryTextEditor({
   onRetry,
   onToggle,
 }: CategoryTextEditorProps) {
+  const [categoryQuery, setCategoryQuery] = useState('');
+  const selectedCategoryIdSet = useMemo(
+    () => new Set(selectedCategoryIds),
+    [selectedCategoryIds],
+  );
+  const visibleCategories = useMemo(() => {
+    const normalizedQuery = categoryQuery.trim().toLocaleLowerCase();
+    const selected = categories.filter((category) =>
+      selectedCategoryIdSet.has(category.id),
+    );
+    const candidates = normalizedQuery
+      ? categories.filter((category) =>
+          category.name.toLocaleLowerCase().includes(normalizedQuery),
+        )
+      : categories;
+    const visible = new Map(
+      selected.map((category) => [category.id, category]),
+    );
+
+    for (const category of candidates) {
+      if (visible.size >= 40) break;
+      visible.set(category.id, category);
+    }
+
+    return [...visible.values()];
+  }, [categories, categoryQuery, selectedCategoryIdSet]);
+
   return (
     <Editor>
       <EditorHeader>
@@ -122,10 +154,23 @@ export default function CategoryTextEditor({
       )}
 
       <CategoryCatalog>
-        <strong>빠른 카테고리 선택</strong>
+        <CatalogHeader>
+          <strong>빠른 카테고리 선택</strong>
+          <CatalogSearch>
+            <span aria-hidden>⌕</span>
+            <input
+              aria-label="빠른 선택 카테고리 검색"
+              disabled={disabled}
+              placeholder="카테고리명 검색"
+              type="search"
+              value={categoryQuery}
+              onChange={(event) => setCategoryQuery(event.target.value)}
+            />
+          </CatalogSearch>
+        </CatalogHeader>
         <div aria-label="등록된 카테고리 빠른 선택" role="group">
-          {categories.map((category) => {
-            const selected = selectedCategoryIds.includes(category.id);
+          {visibleCategories.map((category) => {
+            const selected = selectedCategoryIdSet.has(category.id);
 
             return (
               <button
@@ -149,6 +194,9 @@ export default function CategoryTextEditor({
             + 카테고리 추가
           </button>
         </div>
+        <CatalogHint>
+          전체 {categories.length.toLocaleString()}개 중 최대 40개를 표시합니다.
+        </CatalogHint>
       </CategoryCatalog>
     </Editor>
   );
