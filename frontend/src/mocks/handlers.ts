@@ -313,11 +313,19 @@ export const handlers = [
             )),
       )
       .sort((left, right) => left.gachaId - right.gachaId);
+    const categoryNameById = new Map(
+      categories.map(({ categoryId, categoryName }) => [
+        categoryId,
+        categoryName.toLocaleLowerCase('ko-KR'),
+      ]),
+    );
     const filteredItems = query
-      ? statusItems.filter((item) =>
-          [item.displayName, item.caption, item.source, item.location].some(
-            (value) => value?.toLocaleLowerCase('ko-KR').includes(query),
-          ),
+      ? statusItems.filter(
+          (item) =>
+            item.displayName?.toLocaleLowerCase('ko-KR').includes(query) ||
+            item.categoryIds.some((categoryId) =>
+              categoryNameById.get(categoryId)?.includes(query),
+            ),
         )
       : statusItems;
     const cursorItems =
