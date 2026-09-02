@@ -31,9 +31,29 @@ public interface GachaJpaRepository extends JpaRepository<Gacha, Long> {
     @Query("SELECT g.id FROM Gacha g")
     Page<Long> findGachaIds(Pageable pageable);
 
-    @Query(value = "SELECT g.id FROM Gacha g WHERE g.name LIKE %:keyword%",
-            countQuery = "SELECT COUNT(g) FROM Gacha g WHERE g.name LIKE %:keyword%")
-    Page<Long> findGachaIdsByNameContaining(@Param("keyword") final String keyword, final Pageable pageable);
+    @Query(value = """
+            SELECT g.id
+            FROM Gacha g
+            WHERE LOWER(g.name) LIKE LOWER(CONCAT('%', :keyword, '%'))
+               OR EXISTS (
+                   SELECT gc.id
+                   FROM GachaCategory gc
+                   WHERE gc.gacha = g
+                     AND LOWER(gc.category.name) LIKE LOWER(CONCAT('%', :keyword, '%'))
+               )
+            """,
+            countQuery = """
+                    SELECT COUNT(g)
+                    FROM Gacha g
+                    WHERE LOWER(g.name) LIKE LOWER(CONCAT('%', :keyword, '%'))
+                       OR EXISTS (
+                           SELECT gc.id
+                           FROM GachaCategory gc
+                           WHERE gc.gacha = g
+                             AND LOWER(gc.category.name) LIKE LOWER(CONCAT('%', :keyword, '%'))
+                       )
+                    """)
+    Page<Long> findGachaIdsByKeyword(@Param("keyword") final String keyword, final Pageable pageable);
 
     @Query("SELECT DISTINCT g FROM Gacha g " +
             "LEFT JOIN FETCH g.gachaCategories gc " +

@@ -119,7 +119,7 @@ public class GachaService {
             return toOrderedPage(gachaRepository.findGachaIds(pageable))
                     .map(GachaInfo::from);
         }
-        return toOrderedPage(gachaRepository.findGachaIdsByNameContaining(keyword, pageable))
+        return toOrderedPage(gachaRepository.findGachaIdsByKeyword(keyword, pageable))
                 .map(GachaInfo::from);
     }
 
