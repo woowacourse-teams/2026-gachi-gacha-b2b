@@ -382,21 +382,103 @@ export const CatalogRow = styled.li`
   }
 `;
 
-export const GachaThumbnail = styled.span`
+export const GachaThumbnail = styled.button`
   display: grid;
   overflow: hidden;
   width: 56px;
   height: 56px;
+  padding: 0;
   place-items: center;
+  border: 0;
   border-radius: ${radii.small};
   color: ${colors.textMuted};
   background: ${colors.surfaceMuted};
+  cursor: zoom-in;
+
+  &:focus-visible {
+    outline: 3px solid ${colors.brand};
+    outline-offset: 2px;
+  }
+
+  &:disabled {
+    cursor: default;
+  }
 
   img {
     width: 100%;
     height: 100%;
     object-fit: cover;
   }
+`;
+
+export const ImagePreviewOverlay = styled.div`
+  position: fixed;
+  z-index: 200;
+  inset: 0;
+  display: grid;
+  padding: 20px;
+  place-items: center;
+  background: rgba(20, 22, 28, 0.78);
+`;
+
+export const ImagePreviewPanel = styled.div`
+  display: grid;
+  overflow: hidden;
+  width: min(100%, 960px);
+  max-height: calc(100dvh - 40px);
+  grid-template-rows: auto minmax(0, 1fr);
+  border-radius: ${radii.large};
+  background: ${colors.surface};
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.36);
+`;
+
+export const ImagePreviewHeader = styled.header`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 16px 18px;
+  border-bottom: 1px solid ${colors.border};
+
+  h2 {
+    margin: 3px 0 0;
+    font-size: clamp(17px, 2.5vw, 22px);
+  }
+
+  small {
+    color: ${colors.brand};
+    font-weight: 800;
+  }
+`;
+
+export const ImagePreviewCloseButton = styled.button`
+  width: 42px;
+  height: 42px;
+  flex: 0 0 auto;
+  border: 1px solid ${colors.borderStrong};
+  border-radius: 50%;
+  color: ${colors.text};
+  background: ${colors.surface};
+  font-size: 28px;
+  line-height: 1;
+
+  &:hover,
+  &:focus-visible {
+    border-color: ${colors.brand};
+    outline: 0;
+    color: ${colors.brand};
+    background: ${colors.brandSoft};
+  }
+`;
+
+export const ImagePreviewImage = styled.img`
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  max-height: calc(100dvh - 132px);
+  object-fit: contain;
+  background: ${colors.surfaceMuted};
 `;
 
 export const GachaName = styled.div`

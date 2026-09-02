@@ -41,6 +41,7 @@ import {
   getStoreSummary,
   removeGachaFromStore,
 } from '../api/storeInventoryApi';
+import GachaImagePreviewDialog from '../components/GachaImagePreviewDialog';
 import type {
   AssignedGachaSummary,
   StoreSummary,
@@ -83,6 +84,9 @@ export default function StoreInventoryPage({
   const [error, setError] = useState('');
   const [feedback, setFeedback] = useState('');
   const [feedbackIsError, setFeedbackIsError] = useState(false);
+  const [previewItem, setPreviewItem] = useState<ClassificationItem | null>(
+    null,
+  );
   const catalogRequestIdRef = useRef(0);
   const pendingGachaIdsRef = useRef(new Set<number>());
 
@@ -421,7 +425,17 @@ export default function StoreInventoryPage({
               return (
                 <CatalogRow key={item.id}>
                   <strong>#{item.id}</strong>
-                  <GachaThumbnail>
+                  <GachaThumbnail
+                    aria-label={
+                      item.imageUrl
+                        ? `가챠 #${item.id} ${item.name} 이미지 확대`
+                        : `가챠 #${item.id} 이미지 없음`
+                    }
+                    disabled={!item.imageUrl}
+                    title={item.imageUrl ? '이미지 확대' : undefined}
+                    type="button"
+                    onClick={() => setPreviewItem(item)}
+                  >
                     {item.imageUrl ? (
                       <img alt="" src={item.imageUrl} />
                     ) : (
@@ -471,6 +485,14 @@ export default function StoreInventoryPage({
           </LoadMoreButton>
         )}
       </Section>
+      {previewItem?.imageUrl && (
+        <GachaImagePreviewDialog
+          gachaId={previewItem.id}
+          imageUrl={previewItem.imageUrl}
+          name={previewItem.name}
+          onClose={() => setPreviewItem(null)}
+        />
+      )}
     </Page>
   );
 }

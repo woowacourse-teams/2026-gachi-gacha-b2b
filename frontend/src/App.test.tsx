@@ -262,4 +262,34 @@ describe('App navigation', () => {
       screen.getByText('현재 보유 가챠').previousSibling,
     ).toHaveTextContent('1');
   }, 10_000);
+
+  it('매장에 추가할 가챠의 섬네일을 확대하고 Escape로 닫는다', async () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole('button', { name: /매장 가챠 관리/ }));
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: '캡슐 스테이션 연남 보유 가챠 관리',
+      }),
+    );
+
+    const previewButton = await screen.findByRole('button', {
+      name: '가챠 #105 산리오 미니 피규어 이미지 확대',
+    });
+    previewButton.focus();
+    fireEvent.click(previewButton);
+
+    expect(screen.getByRole('dialog')).toHaveAccessibleName(
+      '산리오 미니 피규어',
+    );
+    expect(
+      screen.getByRole('img', { name: '산리오 미니 피규어 확대 이미지' }),
+    ).toHaveAttribute('src', '/mock/gacha-pink.svg');
+    expect(screen.getByText('DB ID #105')).toBeVisible();
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(previewButton).toHaveFocus();
+  }, 10_000);
 });
