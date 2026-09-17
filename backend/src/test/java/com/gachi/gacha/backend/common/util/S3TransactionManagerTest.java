@@ -6,7 +6,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
-import com.gachi.gacha.backend.common.infra.domain.ImageType;
+import com.gachi.gacha.backend.common.infra.domain.DomainType;
 import com.gachi.gacha.backend.common.infra.application.ImageUploader;
 import java.util.ArrayList;
 import java.util.List;
@@ -48,7 +48,7 @@ class S3TransactionManagerTest {
         @DisplayName("커밋되면 옛 이미지를 휴지통으로 이동하고, 새 이미지는 건드리지 않는다.")
         void commit_movesOldImageToTrash() {
             // given
-            s3TransactionManager.cleanupAfterImageReplaced(ImageType.STORE, 1L, "old-url", "new-url");
+            s3TransactionManager.cleanupAfterImageReplaced(DomainType.STORE, 1L, "old-url", "new-url");
 
             // when
             triggerAfterCompletion(TransactionSynchronization.STATUS_COMMITTED);
@@ -62,7 +62,7 @@ class S3TransactionManagerTest {
         @DisplayName("롤백되면 방금 올린 새 이미지를 삭제하고, 옛 이미지는 건드리지 않는다.")
         void rollback_deletesNewImage() {
             // given
-            s3TransactionManager.cleanupAfterImageReplaced(ImageType.STORE, 1L, "old-url", "new-url");
+            s3TransactionManager.cleanupAfterImageReplaced(DomainType.STORE, 1L, "old-url", "new-url");
 
             // when
             triggerAfterCompletion(TransactionSynchronization.STATUS_ROLLED_BACK);
@@ -77,7 +77,7 @@ class S3TransactionManagerTest {
         void failure_doesNotPropagate() {
             // given
             doThrow(new RuntimeException("boom")).when(imageUploader).moveToTrash("old-url");
-            s3TransactionManager.cleanupAfterImageReplaced(ImageType.STORE, 1L, "old-url", "new-url");
+            s3TransactionManager.cleanupAfterImageReplaced(DomainType.STORE, 1L, "old-url", "new-url");
 
             // when & then
             assertThatCode(() -> triggerAfterCompletion(TransactionSynchronization.STATUS_COMMITTED))
@@ -93,7 +93,7 @@ class S3TransactionManagerTest {
         @DisplayName("커밋되면 전달받은 이미지를 전부 휴지통으로 이동한다.")
         void commit_movesAllImagesToTrash() {
             // given
-            s3TransactionManager.trashImagesAfterRemoved(ImageType.GACHA, 1L, List.of("url-1", "url-2"));
+            s3TransactionManager.trashImagesAfterRemoved(DomainType.GACHA, 1L, List.of("url-1", "url-2"));
 
             // when
             triggerAfterCommit();
@@ -107,7 +107,7 @@ class S3TransactionManagerTest {
         @DisplayName("롤백되면 아무 작업도 하지 않는다.")
         void rollback_doesNothing() {
             // given
-            s3TransactionManager.trashImagesAfterRemoved(ImageType.GACHA, 1L, List.of("url-1"));
+            s3TransactionManager.trashImagesAfterRemoved(DomainType.GACHA, 1L, List.of("url-1"));
 
             // when
             triggerAfterCompletion(TransactionSynchronization.STATUS_ROLLED_BACK);
@@ -125,7 +125,7 @@ class S3TransactionManagerTest {
         @DisplayName("커밋되면 전달받은 이미지를 전부 완전 삭제한다.")
         void commit_deletesAllImages() {
             // given
-            s3TransactionManager.deleteImagesAfterRemoved(ImageType.STORE, 1L, List.of("url-1", "url-2"));
+            s3TransactionManager.deleteImagesAfterRemoved(DomainType.STORE, 1L, List.of("url-1", "url-2"));
 
             // when
             triggerAfterCommit();
@@ -140,7 +140,7 @@ class S3TransactionManagerTest {
         @DisplayName("롤백되면 아무 작업도 하지 않는다.")
         void rollback_doesNothing() {
             // given
-            s3TransactionManager.deleteImagesAfterRemoved(ImageType.STORE, 1L, List.of("url-1"));
+            s3TransactionManager.deleteImagesAfterRemoved(DomainType.STORE, 1L, List.of("url-1"));
 
             // when
             triggerAfterCompletion(TransactionSynchronization.STATUS_ROLLED_BACK);
@@ -158,7 +158,7 @@ class S3TransactionManagerTest {
         @DisplayName("커밋되면 아무 작업도 하지 않는다.")
         void commit_doesNothing() {
             // given
-            s3TransactionManager.deleteImagesOnRollback(ImageType.STORE, 1L, List.of("url-1"));
+            s3TransactionManager.deleteImagesOnRollback(DomainType.STORE, 1L, List.of("url-1"));
 
             // when
             triggerAfterCompletion(TransactionSynchronization.STATUS_COMMITTED);
@@ -172,7 +172,7 @@ class S3TransactionManagerTest {
         void rollback_deletesAllUploadedImages() {
             // given: 등록 시점엔 비어있다가, 이후 실제 업로드가 진행되며 채워지는 리스트를 그대로 참조로 넘긴다.
             List<String> uploadedImageUrls = new ArrayList<>();
-            s3TransactionManager.deleteImagesOnRollback(ImageType.STORE, 1L, uploadedImageUrls);
+            s3TransactionManager.deleteImagesOnRollback(DomainType.STORE, 1L, uploadedImageUrls);
             uploadedImageUrls.add("url-1");
             uploadedImageUrls.add("url-2");
 
@@ -189,7 +189,7 @@ class S3TransactionManagerTest {
         void failure_doesNotPropagate() {
             // given
             doThrow(new RuntimeException("boom")).when(imageUploader).delete("url-1");
-            s3TransactionManager.deleteImagesOnRollback(ImageType.STORE, 1L, List.of("url-1"));
+            s3TransactionManager.deleteImagesOnRollback(DomainType.STORE, 1L, List.of("url-1"));
 
             // when & then
             assertThatCode(() -> triggerAfterCompletion(TransactionSynchronization.STATUS_ROLLED_BACK))

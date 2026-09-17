@@ -5,7 +5,7 @@ import com.gachi.gacha.backend.collection.domain.GachaKeyword;
 import com.gachi.gacha.backend.collection.infra.platform.PlatformClient;
 import com.gachi.gacha.backend.collection.infra.platform.dto.PlatformPostDto;
 import com.gachi.gacha.backend.common.infra.application.ImageUploader;
-import com.gachi.gacha.backend.common.infra.domain.ImageType;
+import com.gachi.gacha.backend.common.infra.domain.DomainType;
 import com.gachi.gacha.backend.common.infra.exception.ImageInvalidValueException;
 import com.gachi.gacha.backend.common.infra.exception.S3Exception;
 import com.gachi.gacha.backend.gacha.domain.Gacha;
@@ -127,7 +127,7 @@ public class InstagramGachaCollectionService {
         try {
             uploadedImageUrl = imageUploader.uploadFromUrl(
                     post.imageUrl(),
-                    ImageType.GACHA.buildPath(s3RootFolder)
+                    DomainType.GACHA.buildPath(s3RootFolder)
             );
             return new AttemptResult(Optional.of(saveGacha(post, uploadedImageUrl)), false);
         } catch (ImageInvalidValueException exception) {

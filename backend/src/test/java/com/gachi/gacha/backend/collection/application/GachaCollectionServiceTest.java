@@ -16,7 +16,7 @@ import com.gachi.gacha.backend.collection.domain.CollectedGacha;
 import com.gachi.gacha.backend.collection.domain.CollectionSource;
 import com.gachi.gacha.backend.collection.domain.GachaCollectionException;
 import com.gachi.gacha.backend.common.infra.application.ImageUploader;
-import com.gachi.gacha.backend.common.infra.domain.ImageType;
+import com.gachi.gacha.backend.common.infra.domain.DomainType;
 import com.gachi.gacha.backend.common.util.S3TransactionManager;
 import com.gachi.gacha.backend.gacha.application.CategoryService;
 import com.gachi.gacha.backend.gacha.domain.Category;
@@ -59,7 +59,7 @@ class GachaCollectionServiceTest {
                 .willReturn(Set.of("existing"));
         given(imageUploader.uploadFromUrl(
                 "https://example.com/image.jpg",
-                ImageType.GACHA.buildPath("root")
+                DomainType.GACHA.buildPath("root")
         )).willReturn("https://bucket.s3.amazonaws.com/root/gacha/new.jpg");
         given(categoryService.resolve(List.of("category")))
                 .willReturn(List.of(new Category("category")));
@@ -86,7 +86,7 @@ class GachaCollectionServiceTest {
                 "root/gacha"
         );
         verify(s3TransactionManager).deleteImagesOnRollback(
-                eq(ImageType.GACHA),
+                eq(DomainType.GACHA),
                 isNull(),
                 anyList()
         );

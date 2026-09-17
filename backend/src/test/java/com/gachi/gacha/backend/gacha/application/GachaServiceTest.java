@@ -8,7 +8,7 @@ import static org.mockito.Mockito.when;
 
 import com.gachi.gacha.backend.collection.domain.CollectionSource;
 import com.gachi.gacha.backend.common.infra.application.ImageUploader;
-import com.gachi.gacha.backend.common.infra.domain.ImageType;
+import com.gachi.gacha.backend.common.infra.domain.DomainType;
 import com.gachi.gacha.backend.common.util.S3TransactionManager;
 import com.gachi.gacha.backend.gacha.application.dto.GachaUpdateCommand;
 import com.gachi.gacha.backend.gacha.domain.Category;
@@ -158,7 +158,7 @@ class GachaServiceTest {
         // then
         verify(gachaRepository).deleteById(1L);
         verify(s3TransactionManager).trashImagesAfterRemoved(
-                ImageType.GACHA,
+                DomainType.GACHA,
                 1L,
                 List.of("https://example.com/gacha/thumbnail.jpg")
         );
@@ -192,7 +192,7 @@ class GachaServiceTest {
                 .isEqualTo("https://test-bucket.s3.amazonaws.com/test/gacha/new.png");
         verify(gachaRepository).save(gacha);
         verify(s3TransactionManager).cleanupAfterImageReplaced(
-                ImageType.GACHA,
+                DomainType.GACHA,
                 1L,
                 "https://test-bucket.s3.amazonaws.com/test/gacha/old.png",
                 "https://test-bucket.s3.amazonaws.com/test/gacha/new.png"
@@ -219,7 +219,7 @@ class GachaServiceTest {
         assertThat(gacha.getThumbnailUrl()).isNull();
         verify(gachaRepository).save(gacha);
         verify(s3TransactionManager).trashImagesAfterRemoved(
-                ImageType.GACHA,
+                DomainType.GACHA,
                 1L,
                 List.of(oldImageUrl)
         );

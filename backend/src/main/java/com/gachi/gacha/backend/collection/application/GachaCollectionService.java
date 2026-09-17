@@ -7,7 +7,7 @@ import com.gachi.gacha.backend.collection.domain.CollectedGacha;
 import com.gachi.gacha.backend.collection.domain.CollectionSource;
 import com.gachi.gacha.backend.collection.domain.GachaCollectionException;
 import com.gachi.gacha.backend.common.infra.application.ImageUploader;
-import com.gachi.gacha.backend.common.infra.domain.ImageType;
+import com.gachi.gacha.backend.common.infra.domain.DomainType;
 import com.gachi.gacha.backend.common.util.S3TransactionManager;
 import com.gachi.gacha.backend.gacha.application.CategoryService;
 import com.gachi.gacha.backend.gacha.domain.Category;
@@ -69,7 +69,7 @@ public class GachaCollectionService {
 
     private List<Gacha> createGachas(final List<CollectedGacha> collectedGachas) {
         List<String> uploadedImageUrls = new ArrayList<>();
-        s3TransactionManager.deleteImagesOnRollback(ImageType.GACHA, null, uploadedImageUrls);
+        s3TransactionManager.deleteImagesOnRollback(DomainType.GACHA, null, uploadedImageUrls);
         Map<String, Category> categoriesByName = resolveCategories(collectedGachas);
         return collectedGachas.stream()
                 .map(gacha -> uploadImageAndConvert(gacha, uploadedImageUrls, categoriesByName))
@@ -105,7 +105,7 @@ public class GachaCollectionService {
     ) {
         String s3ImageUrl = imageUploader.uploadFromUrl(
                 collectedGacha.imageUrl(),
-                ImageType.GACHA.buildPath(s3RootFolder)
+                DomainType.GACHA.buildPath(s3RootFolder)
         );
         uploadedImageUrls.add(s3ImageUrl);
 

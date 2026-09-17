@@ -1,7 +1,7 @@
 package com.gachi.gacha.backend.store.application;
 
 import com.gachi.gacha.backend.common.infra.application.ImageUploader;
-import com.gachi.gacha.backend.common.infra.domain.ImageType;
+import com.gachi.gacha.backend.common.infra.domain.DomainType;
 import com.gachi.gacha.backend.common.util.S3TransactionManager;
 import com.gachi.gacha.backend.store.application.dto.StoreImageInfo;
 import com.gachi.gacha.backend.store.domain.Store;
@@ -42,7 +42,7 @@ public class StoreImageService {
         Store store = storeRepository.getById(storeId);
 
         List<String> uploadedImageUrls = new ArrayList<>();
-        s3TransactionManager.deleteImagesOnRollback(ImageType.STORE, storeId, uploadedImageUrls);
+        s3TransactionManager.deleteImagesOnRollback(DomainType.STORE, storeId, uploadedImageUrls);
 
         List<StoreImage> storeImages = files.stream()
                 .map(file -> {
@@ -66,7 +66,7 @@ public class StoreImageService {
         String newImageUrl = imageUploader.upload(file, imagePath());
 
         storeImage.changeImageUrl(newImageUrl);
-        s3TransactionManager.cleanupAfterImageReplaced(ImageType.STORE, storeId, oldImageUrl, newImageUrl);
+        s3TransactionManager.cleanupAfterImageReplaced(DomainType.STORE, storeId, oldImageUrl, newImageUrl);
 
         return StoreImageInfo.from(storeImage);
     }
@@ -76,12 +76,12 @@ public class StoreImageService {
         StoreImage storeImage = storeImageRepository.getByIdAndStoreId(imageId, storeId);
 
         storeImageRepository.delete(storeImage);
-        s3TransactionManager.trashImagesAfterRemoved(ImageType.STORE, storeId, List.of(storeImage.getImageUrl()));
+        s3TransactionManager.trashImagesAfterRemoved(DomainType.STORE, storeId, List.of(storeImage.getImageUrl()));
 
         return storeImage.getId();
     }
 
     private String imagePath() {
-        return "%s/%s".formatted(s3RootFolder, ImageType.STORE.getFolderName());
+        return "%s/%s".formatted(s3RootFolder, DomainType.STORE.getFolderName());
     }
 }
