@@ -4,8 +4,8 @@ import com.gachi.gacha.backend.collection.domain.CollectionSource;
 import com.gachi.gacha.backend.collection.domain.GachaKeyword;
 import com.gachi.gacha.backend.collection.infra.platform.PlatformClient;
 import com.gachi.gacha.backend.collection.infra.platform.dto.PlatformPostDto;
-import com.gachi.gacha.backend.common.infra.application.ImageUploader;
-import com.gachi.gacha.backend.common.infra.domain.ImageType;
+import com.gachi.gacha.backend.common.infra.application.MultipartUploader;
+import com.gachi.gacha.backend.common.infra.domain.DomainType;
 import com.gachi.gacha.backend.common.infra.exception.ImageInvalidValueException;
 import com.gachi.gacha.backend.common.infra.exception.S3Exception;
 import com.gachi.gacha.backend.gacha.domain.Gacha;
@@ -19,7 +19,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Service;
@@ -34,22 +33,19 @@ public class InstagramGachaCollectionService {
 
     private final List<PlatformClient> platformClients;
     private final GachaJpaRepository gachaRepository;
-    private final ImageUploader imageUploader;
+    private final MultipartUploader multipartUploader;
     private final ExecutorService imageUploadExecutor;
-    private final String s3RootFolder;
 
     public InstagramGachaCollectionService(
             final List<PlatformClient> platformClients,
             final GachaJpaRepository gachaRepository,
-            final ImageUploader imageUploader,
-            @Qualifier("instagramImageUploadExecutor") final ExecutorService imageUploadExecutor,
-            @Value("${cloud.aws.s3.folder}") final String s3RootFolder
+            final MultipartUploader multipartUploader,
+            @Qualifier("instagramImageUploadExecutor") final ExecutorService imageUploadExecutor
     ) {
         this.platformClients = platformClients;
         this.gachaRepository = gachaRepository;
-        this.imageUploader = imageUploader;
+        this.multipartUploader = multipartUploader;
         this.imageUploadExecutor = imageUploadExecutor;
-        this.s3RootFolder = s3RootFolder;
     }
 
     public List<Gacha> collectPostsForShop(final String shopInstagramId) {
@@ -125,9 +121,9 @@ public class InstagramGachaCollectionService {
     private AttemptResult attemptUploadAndSave(final PlatformPostDto post, final int attempt) {
         String uploadedImageUrl = null;
         try {
-            uploadedImageUrl = imageUploader.uploadFromUrl(
+            uploadedImageUrl = multipartUploader.uploadFromUrl(
                     post.imageUrl(),
-                    ImageType.GACHA.buildPath(s3RootFolder)
+                    DomainType.GACHA
             );
             return new AttemptResult(Optional.of(saveGacha(post, uploadedImageUrl)), false);
         } catch (ImageInvalidValueException exception) {
@@ -167,7 +163,7 @@ public class InstagramGachaCollectionService {
             return;
         }
         try {
-            imageUploader.delete(imageUrl);
+            multipartUploader.delete(imageUrl);
         } catch (RuntimeException exception) {
             log.error("Instagram 수집 실패 이미지 정리에 실패했습니다. imageUrl={}", imageUrl, exception);
         }

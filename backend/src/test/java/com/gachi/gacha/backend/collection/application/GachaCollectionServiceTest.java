@@ -15,8 +15,8 @@ import static org.mockito.Mockito.verify;
 import com.gachi.gacha.backend.collection.domain.CollectedGacha;
 import com.gachi.gacha.backend.collection.domain.CollectionSource;
 import com.gachi.gacha.backend.collection.domain.GachaCollectionException;
-import com.gachi.gacha.backend.common.infra.application.ImageUploader;
-import com.gachi.gacha.backend.common.infra.domain.ImageType;
+import com.gachi.gacha.backend.common.infra.application.MultipartUploader;
+import com.gachi.gacha.backend.common.infra.domain.DomainType;
 import com.gachi.gacha.backend.common.util.S3TransactionManager;
 import com.gachi.gacha.backend.gacha.application.CategoryService;
 import com.gachi.gacha.backend.gacha.domain.Category;
@@ -29,7 +29,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
 class GachaCollectionServiceTest {
@@ -38,7 +37,7 @@ class GachaCollectionServiceTest {
     private GachaJpaRepository gachaRepository;
 
     @Mock
-    private ImageUploader imageUploader;
+    private MultipartUploader multipartUploader;
 
     @Mock
     private S3TransactionManager s3TransactionManager;
@@ -57,9 +56,9 @@ class GachaCollectionServiceTest {
         );
         given(gachaRepository.findExistingProductCodes(eq(CollectionSource.BANDAI), anyCollection()))
                 .willReturn(Set.of("existing"));
-        given(imageUploader.uploadFromUrl(
+        given(multipartUploader.uploadFromUrl(
                 "https://example.com/image.jpg",
-                ImageType.GACHA.buildPath("root")
+                DomainType.GACHA
         )).willReturn("https://bucket.s3.amazonaws.com/root/gacha/new.jpg");
         given(categoryService.resolve(List.of("category")))
                 .willReturn(List.of(new Category("category")));
@@ -81,12 +80,12 @@ class GachaCollectionServiceTest {
                             .extracting(gachaCategory -> gachaCategory.getCategory().getName())
                             .containsExactly("category");
                 });
-        verify(imageUploader, times(1)).uploadFromUrl(
+        verify(multipartUploader, times(1)).uploadFromUrl(
                 "https://example.com/image.jpg",
-                "root/gacha"
+                DomainType.GACHA
         );
         verify(s3TransactionManager).deleteImagesOnRollback(
-                eq(ImageType.GACHA),
+                eq(DomainType.GACHA),
                 isNull(),
                 anyList()
         );
@@ -119,9 +118,9 @@ class GachaCollectionServiceTest {
         int insertedCount = service.saveNewGachas(CollectionSource.IP4, collectedGachas);
 
         assertThat(insertedCount).isZero();
-        verify(imageUploader, never()).uploadFromUrl(
+        verify(multipartUploader, never()).uploadFromUrl(
                 org.mockito.ArgumentMatchers.anyString(),
-                org.mockito.ArgumentMatchers.anyString()
+                org.mockito.ArgumentMatchers.any(DomainType.class)
         );
         verify(s3TransactionManager, never()).deleteImagesOnRollback(
                 org.mockito.ArgumentMatchers.any(),
@@ -133,11 +132,10 @@ class GachaCollectionServiceTest {
     private GachaCollectionService service() {
         GachaCollectionService service = new GachaCollectionService(
                 gachaRepository,
-                imageUploader,
+                multipartUploader,
                 s3TransactionManager,
                 categoryService
         );
-        ReflectionTestUtils.setField(service, "s3RootFolder", "root");
         return service;
     }
 

@@ -2,13 +2,12 @@ package com.gachi.gacha.backend.gacha.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.gachi.gacha.backend.collection.domain.CollectionSource;
-import com.gachi.gacha.backend.common.infra.application.ImageUploader;
-import com.gachi.gacha.backend.common.infra.domain.ImageType;
+import com.gachi.gacha.backend.common.infra.application.MultipartUploader;
+import com.gachi.gacha.backend.common.infra.domain.DomainType;
 import com.gachi.gacha.backend.common.util.S3TransactionManager;
 import com.gachi.gacha.backend.gacha.application.dto.GachaUpdateCommand;
 import com.gachi.gacha.backend.gacha.domain.Category;
@@ -21,7 +20,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
-import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
 class GachaServiceTest {
@@ -33,7 +31,7 @@ class GachaServiceTest {
     private S3TransactionManager s3TransactionManager;
 
     @Mock
-    private ImageUploader imageUploader;
+    private MultipartUploader multipartUploader;
 
     @Mock
     private CategoryService categoryService;
@@ -42,10 +40,9 @@ class GachaServiceTest {
         GachaService service = new GachaService(
                 gachaRepository,
                 s3TransactionManager,
-                imageUploader,
+                multipartUploader,
                 categoryService
         );
-        ReflectionTestUtils.setField(service, "s3RootFolder", "test");
         return service;
     }
 
@@ -158,7 +155,7 @@ class GachaServiceTest {
         // then
         verify(gachaRepository).deleteById(1L);
         verify(s3TransactionManager).trashImagesAfterRemoved(
-                ImageType.GACHA,
+                DomainType.GACHA,
                 1L,
                 List.of("https://example.com/gacha/thumbnail.jpg")
         );
@@ -181,7 +178,7 @@ class GachaServiceTest {
         );
         when(gachaRepository.getById(1L)).thenReturn(gacha);
         when(gachaRepository.save(gacha)).thenReturn(gacha);
-        when(imageUploader.upload(any(), anyString()))
+        when(multipartUploader.upload(any(), any(DomainType.class)))
                 .thenReturn("https://test-bucket.s3.amazonaws.com/test/gacha/new.png");
 
         // when
@@ -192,7 +189,7 @@ class GachaServiceTest {
                 .isEqualTo("https://test-bucket.s3.amazonaws.com/test/gacha/new.png");
         verify(gachaRepository).save(gacha);
         verify(s3TransactionManager).cleanupAfterImageReplaced(
-                ImageType.GACHA,
+                DomainType.GACHA,
                 1L,
                 "https://test-bucket.s3.amazonaws.com/test/gacha/old.png",
                 "https://test-bucket.s3.amazonaws.com/test/gacha/new.png"
@@ -219,7 +216,7 @@ class GachaServiceTest {
         assertThat(gacha.getThumbnailUrl()).isNull();
         verify(gachaRepository).save(gacha);
         verify(s3TransactionManager).trashImagesAfterRemoved(
-                ImageType.GACHA,
+                DomainType.GACHA,
                 1L,
                 List.of(oldImageUrl)
         );
