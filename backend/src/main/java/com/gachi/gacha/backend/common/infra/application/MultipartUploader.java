@@ -2,6 +2,7 @@ package com.gachi.gacha.backend.common.infra.application;
 
 import com.gachi.gacha.backend.common.domain.ImageFormat;
 import com.gachi.gacha.backend.common.exception.ErrorCode;
+import com.gachi.gacha.backend.common.infra.domain.DomainType;
 import com.gachi.gacha.backend.common.infra.exception.ImageInvalidValueException;
 import com.gachi.gacha.backend.common.infra.exception.S3Exception;
 import java.io.IOException;
@@ -22,7 +23,7 @@ import software.amazon.awssdk.core.sync.RequestBody;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class ImageUploader {
+public class MultipartUploader {
 
     private final S3Uploader s3Uploader;
 
@@ -31,13 +32,13 @@ public class ImageUploader {
     @Value("${collection.http.user-agent:Mozilla/5.0}")
     private String externalImageUserAgent;
 
-    public String upload(final MultipartFile file, final String path) {
+    public String upload(final MultipartFile file, final DomainType domainType) {
         String contentType = validateContentType(file.getContentType());
         String extension = validateExtension(file.getOriginalFilename());
 
         try {
             RequestBody body = RequestBody.fromInputStream(file.getInputStream(), file.getSize());
-            return s3Uploader.upload(body, path, extension, contentType, null);
+            return s3Uploader.upload(body, domainType, extension, contentType, null);
         } catch (IOException e) {
             log.error("이미지 파일을 읽는 중 오류가 발생했습니다.", e);
             throw new S3Exception(ErrorCode.S3_IMAGE_READ_ERROR);
@@ -48,13 +49,13 @@ public class ImageUploader {
      * 외부 URL(인스타그램 CDN 등)에서 이미지를 내려받아 그대로 S3에 업로드한다.
      * MultipartFile이 없는 소스(서버가 직접 다운로드한 이미지)를 위한 진입점.
      */
-    public String uploadFromUrl(final String sourceUrl, final String path) {
+    public String uploadFromUrl(final String sourceUrl, final DomainType domainType) {
         ResponseEntity<byte[]> response = downloadImage(sourceUrl);
         String contentType = validateContentType(resolveContentType(response));
         String extension = ImageFormat.fromContentType(contentType).getExtension();
 
         RequestBody body = RequestBody.fromBytes(response.getBody());
-        return s3Uploader.upload(body, path, extension, contentType, null);
+        return s3Uploader.upload(body, domainType, extension, contentType, null);
     }
 
     public void delete(final String imageUrl) {

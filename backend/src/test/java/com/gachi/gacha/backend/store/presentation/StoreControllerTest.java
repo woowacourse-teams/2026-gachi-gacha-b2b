@@ -2,11 +2,11 @@ package com.gachi.gacha.backend.store.presentation;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.gachi.gacha.backend.common.infra.application.ImageUploader;
+import com.gachi.gacha.backend.common.infra.domain.DomainType;
+import com.gachi.gacha.backend.common.infra.application.MultipartUploader;
 import com.gachi.gacha.backend.store.domain.StoreJpaRepository;
 import com.gachi.gacha.backend.usecase.domain.StoreGachaJpaRepository;
 import io.restassured.RestAssured;
@@ -42,7 +42,7 @@ class StoreControllerTest {
     private int port;
 
     @MockitoBean
-    private ImageUploader imageUploader;
+    private MultipartUploader multipartUploader;
 
     @MockitoBean
     private RestTemplate restTemplate;
@@ -53,7 +53,7 @@ class StoreControllerTest {
     @BeforeEach
     void setUp() {
         RestAssured.port = port;
-        when(imageUploader.upload(any(), anyString()))
+        when(multipartUploader.upload(any(), any(DomainType.class)))
                 .thenReturn("https://example.com/stores/test-image.jpg");
     }
 

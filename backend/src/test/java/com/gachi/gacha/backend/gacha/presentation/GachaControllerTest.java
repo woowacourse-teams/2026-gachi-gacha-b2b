@@ -2,10 +2,10 @@ package com.gachi.gacha.backend.gacha.presentation;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
-import com.gachi.gacha.backend.common.infra.application.ImageUploader;
+import com.gachi.gacha.backend.common.infra.domain.DomainType;
+import com.gachi.gacha.backend.common.infra.application.MultipartUploader;
 import com.gachi.gacha.backend.gacha.domain.Gacha;
 import com.gachi.gacha.backend.gacha.domain.GachaJpaRepository;
 import com.gachi.gacha.backend.store.domain.Store;
@@ -41,7 +41,7 @@ class GachaControllerTest {
     private RestTemplate restTemplate;
 
     @MockitoBean
-    private ImageUploader imageUploader;
+    private MultipartUploader multipartUploader;
 
     @Autowired
     private GachaJpaRepository gachaRepository;
@@ -55,7 +55,7 @@ class GachaControllerTest {
     @BeforeEach
     void setUp() {
         RestAssured.port = port;
-        when(imageUploader.upload(any(), anyString()))
+        when(multipartUploader.upload(any(), any(DomainType.class)))
                 .thenReturn("https://test-bucket.s3.amazonaws.com/test/gacha/uploaded.png");
     }
 

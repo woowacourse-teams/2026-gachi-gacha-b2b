@@ -7,7 +7,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import com.gachi.gacha.backend.common.infra.domain.DomainType;
-import com.gachi.gacha.backend.common.infra.application.ImageUploader;
+import com.gachi.gacha.backend.common.infra.application.MultipartUploader;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;
@@ -25,13 +25,13 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 class S3TransactionManagerTest {
 
     @Mock
-    private ImageUploader imageUploader;
+    private MultipartUploader multipartUploader;
 
     private S3TransactionManager s3TransactionManager;
 
     @BeforeEach
     void setUp() {
-        s3TransactionManager = new S3TransactionManager(imageUploader);
+        s3TransactionManager = new S3TransactionManager(multipartUploader);
         TransactionSynchronizationManager.initSynchronization();
     }
 
@@ -54,8 +54,8 @@ class S3TransactionManagerTest {
             triggerAfterCompletion(TransactionSynchronization.STATUS_COMMITTED);
 
             // then
-            verify(imageUploader).moveToTrash("old-url");
-            verify(imageUploader, never()).delete("new-url");
+            verify(multipartUploader).moveToTrash("old-url");
+            verify(multipartUploader, never()).delete("new-url");
         }
 
         @Test
@@ -68,15 +68,15 @@ class S3TransactionManagerTest {
             triggerAfterCompletion(TransactionSynchronization.STATUS_ROLLED_BACK);
 
             // then
-            verify(imageUploader).delete("new-url");
-            verify(imageUploader, never()).moveToTrash("old-url");
+            verify(multipartUploader).delete("new-url");
+            verify(multipartUploader, never()).moveToTrash("old-url");
         }
 
         @Test
         @DisplayName("S3 작업이 실패해도 예외가 밖으로 전파되지 않는다.")
         void failure_doesNotPropagate() {
             // given
-            doThrow(new RuntimeException("boom")).when(imageUploader).moveToTrash("old-url");
+            doThrow(new RuntimeException("boom")).when(multipartUploader).moveToTrash("old-url");
             s3TransactionManager.cleanupAfterImageReplaced(DomainType.STORE, 1L, "old-url", "new-url");
 
             // when & then
@@ -99,8 +99,8 @@ class S3TransactionManagerTest {
             triggerAfterCommit();
 
             // then
-            verify(imageUploader).moveToTrash("url-1");
-            verify(imageUploader).moveToTrash("url-2");
+            verify(multipartUploader).moveToTrash("url-1");
+            verify(multipartUploader).moveToTrash("url-2");
         }
 
         @Test
@@ -113,7 +113,7 @@ class S3TransactionManagerTest {
             triggerAfterCompletion(TransactionSynchronization.STATUS_ROLLED_BACK);
 
             // then
-            verify(imageUploader, never()).moveToTrash(anyString());
+            verify(multipartUploader, never()).moveToTrash(anyString());
         }
     }
 
@@ -131,9 +131,9 @@ class S3TransactionManagerTest {
             triggerAfterCommit();
 
             // then
-            verify(imageUploader).delete("url-1");
-            verify(imageUploader).delete("url-2");
-            verify(imageUploader, never()).moveToTrash(anyString());
+            verify(multipartUploader).delete("url-1");
+            verify(multipartUploader).delete("url-2");
+            verify(multipartUploader, never()).moveToTrash(anyString());
         }
 
         @Test
@@ -146,7 +146,7 @@ class S3TransactionManagerTest {
             triggerAfterCompletion(TransactionSynchronization.STATUS_ROLLED_BACK);
 
             // then
-            verify(imageUploader, never()).delete(anyString());
+            verify(multipartUploader, never()).delete(anyString());
         }
     }
 
@@ -164,7 +164,7 @@ class S3TransactionManagerTest {
             triggerAfterCompletion(TransactionSynchronization.STATUS_COMMITTED);
 
             // then
-            verify(imageUploader, never()).delete(anyString());
+            verify(multipartUploader, never()).delete(anyString());
         }
 
         @Test
@@ -180,15 +180,15 @@ class S3TransactionManagerTest {
             triggerAfterCompletion(TransactionSynchronization.STATUS_ROLLED_BACK);
 
             // then
-            verify(imageUploader).delete("url-1");
-            verify(imageUploader).delete("url-2");
+            verify(multipartUploader).delete("url-1");
+            verify(multipartUploader).delete("url-2");
         }
 
         @Test
         @DisplayName("S3 삭제가 실패해도 예외가 밖으로 전파되지 않는다.")
         void failure_doesNotPropagate() {
             // given
-            doThrow(new RuntimeException("boom")).when(imageUploader).delete("url-1");
+            doThrow(new RuntimeException("boom")).when(multipartUploader).delete("url-1");
             s3TransactionManager.deleteImagesOnRollback(DomainType.STORE, 1L, List.of("url-1"));
 
             // when & then

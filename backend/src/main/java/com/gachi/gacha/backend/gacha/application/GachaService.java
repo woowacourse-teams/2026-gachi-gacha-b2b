@@ -1,6 +1,6 @@
 package com.gachi.gacha.backend.gacha.application;
 
-import com.gachi.gacha.backend.common.infra.application.ImageUploader;
+import com.gachi.gacha.backend.common.infra.application.MultipartUploader;
 import com.gachi.gacha.backend.common.infra.domain.DomainType;
 import com.gachi.gacha.backend.common.util.S3TransactionManager;
 import com.gachi.gacha.backend.gacha.application.dto.GachaCreateCommand;
@@ -17,7 +17,6 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.Nullable;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -32,10 +31,8 @@ public class GachaService {
 
     private final GachaJpaRepository gachaRepository;
     private final S3TransactionManager s3TransactionManager;
-    private final ImageUploader imageUploader;
+    private final MultipartUploader multipartUploader;
     private final CategoryService categoryService;
-    @Value("${cloud.aws.s3.folder}")
-    private String s3RootFolder;
 
     @Transactional
     public GachaInfo addGacha(final GachaCreateCommand command) {
@@ -68,7 +65,7 @@ public class GachaService {
     public GachaInfo updateThumbnail(final Long gachaId, final MultipartFile image) {
         Gacha gacha = gachaRepository.getById(gachaId);
         String oldImageUrl = gacha.getThumbnailUrl();
-        String newImageUrl = imageUploader.upload(image, DomainType.GACHA.buildPath(s3RootFolder));
+        String newImageUrl = multipartUploader.upload(image, DomainType.GACHA);
 
         gacha.updateThumbnailUrl(newImageUrl);
         Gacha savedGacha = gachaRepository.save(gacha);

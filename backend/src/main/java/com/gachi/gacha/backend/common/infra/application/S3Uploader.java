@@ -1,6 +1,7 @@
 package com.gachi.gacha.backend.common.infra.application;
 
 import com.gachi.gacha.backend.common.exception.ErrorCode;
+import com.gachi.gacha.backend.common.infra.domain.DomainType;
 import com.gachi.gacha.backend.common.infra.exception.S3Exception;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -16,7 +17,7 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 /**
  * S3 조작만 담당한다. 파일이 이미지인지 아닌지, 검증 정책이 무엇인지는 모른다 — 그건 이 클래스를
- * 호출하는 쪽(ImageUploader)의 책임이다.
+ * 호출하는 쪽(MultipartUploader)의 책임이다.
  */
 @Slf4j
 @Component
@@ -28,32 +29,27 @@ public class S3Uploader {
     @Value("${cloud.aws.s3.bucket}")
     private String bucket;
 
-    /**
-     * 준비된 바이트({@code body})를 S3에 업로드한다. 파일을 읽다가 나는 오류는 이 메서드를 호출하기 전에
-     * 호출자가 처리해야 한다 — 여기서는 이미 만들어진 RequestBody만 다룬다.
-     *
-     * @param contentDisposition 브라우저가 이 파일을 인라인으로 열지, 다운로드로 취급할지 결정하는 값.
-     *                           {@code null}이면 헤더 자체를 붙이지 않는다(인라인 허용).
-     */
+    @Value("${cloud.aws.s3.folder}")
+    private String rootFolder;
+
     public String upload(
             final RequestBody body,
-            final String path,
+            final DomainType domainType,
             final String extension,
             final String contentType,
             final String contentDisposition
     ) {
-        String key = generateUniqueKey(path, extension);
+        String key = generateUniqueKey(domainType.buildPath(rootFolder), extension);
 
-        PutObjectRequest.Builder requestBuilder = PutObjectRequest.builder()
+        PutObjectRequest request = PutObjectRequest.builder()
                 .bucket(bucket)
                 .key(key)
-                .contentType(contentType);
-        if (contentDisposition != null) {
-            requestBuilder.contentDisposition(contentDisposition);
-        }
+                .contentType(contentType)
+                .contentDisposition(contentDisposition)
+                .build();
 
         try {
-            s3Client.putObject(requestBuilder.build(), body);
+            s3Client.putObject(request, body);
         } catch (SdkException e) {
             log.error("이미지 업로드 중 오류가 발생했습니다. key={}", key, e);
             throw new S3Exception(ErrorCode.S3_UPLOAD_ERROR);
@@ -121,10 +117,10 @@ public class S3Uploader {
      */
     private String generateTrashKey(final String key) {
         int rootFolderEndIndex = key.indexOf('/');
-        String rootFolder = key.substring(0, rootFolderEndIndex);
+        String keyRootFolder = key.substring(0, rootFolderEndIndex);
         String pathAfterRootFolder = key.substring(rootFolderEndIndex + 1);
 
-        return "%s/trash/%s".formatted(rootFolder, pathAfterRootFolder);
+        return "%s/trash/%s".formatted(keyRootFolder, pathAfterRootFolder);
     }
 
     /**

@@ -7,9 +7,10 @@ import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.when;
 
+import com.gachi.gacha.backend.common.infra.domain.DomainType;
 import com.gachi.gacha.backend.common.exception.ErrorCode;
 import com.gachi.gacha.backend.common.exception.InvalidValueException;
-import com.gachi.gacha.backend.common.infra.application.ImageUploader;
+import com.gachi.gacha.backend.common.infra.application.MultipartUploader;
 import com.gachi.gacha.backend.store.domain.Store;
 import com.gachi.gacha.backend.store.domain.StoreDetail;
 import com.gachi.gacha.backend.store.domain.StoreDetailJpaRepository;
@@ -53,7 +54,7 @@ class StoreImageControllerTest {
     private final List<Long> createdStoreIds = new ArrayList<>();
 
     @MockitoBean
-    private ImageUploader imageUploader;
+    private MultipartUploader multipartUploader;
 
     @MockitoBean
     private RestTemplate restTemplate;
@@ -61,10 +62,10 @@ class StoreImageControllerTest {
     @BeforeEach
     void setUp() {
         RestAssured.port = port;
-        when(imageUploader.upload(any(), anyString()))
+        when(multipartUploader.upload(any(), any(DomainType.class)))
                 .thenReturn("https://example.com/stores/test-image.jpg");
-        doNothing().when(imageUploader).delete(anyString());
-        doNothing().when(imageUploader).moveToTrash(anyString());
+        doNothing().when(multipartUploader).delete(anyString());
+        doNothing().when(multipartUploader).moveToTrash(anyString());
     }
 
     @AfterEach
@@ -172,9 +173,9 @@ class StoreImageControllerTest {
             Long storeId = createTargetStore();
 
             // 두 번째 파일 업로드에서만 실패하도록 스텁 (첫 번째는 기본 스텁대로 성공)
-            when(imageUploader.upload(
+            when(multipartUploader.upload(
                     argThat((MultipartFile file) -> file != null && "invalid.png".equals(file.getOriginalFilename())),
-                    anyString()
+                    any(DomainType.class)
             )).thenThrow(new InvalidValueException(ErrorCode.INVALID_STORE_IMAGE_POLICY));
 
             // when

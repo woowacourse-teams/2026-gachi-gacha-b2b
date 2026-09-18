@@ -9,6 +9,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.gachi.gacha.backend.common.infra.domain.DomainType;
 import com.gachi.gacha.backend.common.infra.exception.ImageInvalidValueException;
 import com.gachi.gacha.backend.common.infra.exception.S3Exception;
 import org.junit.jupiter.api.DisplayName;
@@ -29,7 +30,7 @@ import org.springframework.web.multipart.MultipartFile;
 import software.amazon.awssdk.core.sync.RequestBody;
 
 @ExtendWith(MockitoExtension.class)
-class ImageUploaderTest {
+class MultipartUploaderTest {
 
     @Mock
     private S3Uploader s3Uploader;
@@ -37,23 +38,23 @@ class ImageUploaderTest {
     @Mock
     private RestTemplate restTemplate;
 
-    private ImageUploader imageUploader() {
-        ImageUploader imageUploader = new ImageUploader(s3Uploader, restTemplate);
-        ReflectionTestUtils.setField(imageUploader, "externalImageUserAgent", "test-browser");
-        return imageUploader;
+    private MultipartUploader multipartUploader() {
+        MultipartUploader multipartUploader = new MultipartUploader(s3Uploader, restTemplate);
+        ReflectionTestUtils.setField(multipartUploader, "externalImageUserAgent", "test-browser");
+        return multipartUploader;
     }
 
     @Test
     @DisplayName("upload는 검증 후 path/확장자/contentType과 함께 S3Uploader에 위임하고, contentDisposition은 null(인라인)로 넘긴다.")
     void upload_delegatesToS3Uploader() {
         // given
-        ImageUploader imageUploader = imageUploader();
+        MultipartUploader multipartUploader = multipartUploader();
         MultipartFile file = new MockMultipartFile("image", "photo.png", "image/png", new byte[]{1, 2, 3});
-        when(s3Uploader.upload(any(RequestBody.class), eq("gachigacha/store"), eq("png"), eq("image/png"), isNull()))
+        when(s3Uploader.upload(any(RequestBody.class), eq(DomainType.STORE), eq("png"), eq("image/png"), isNull()))
                 .thenReturn("https://test-bucket.s3.amazonaws.com/gachigacha/store/uuid.png");
 
         // when
-        String result = imageUploader.upload(file, "gachigacha/store");
+        String result = multipartUploader.upload(file, DomainType.STORE);
 
         // then
         assertThat(result).isEqualTo("https://test-bucket.s3.amazonaws.com/gachigacha/store/uuid.png");
@@ -63,11 +64,11 @@ class ImageUploaderTest {
     @DisplayName("허용되지 않은 확장자면 S3Uploader를 호출하지 않고 예외를 던진다.")
     void upload_invalidExtension_throws() {
         // given
-        ImageUploader imageUploader = imageUploader();
+        MultipartUploader multipartUploader = multipartUploader();
         MultipartFile file = new MockMultipartFile("image", "malware.exe", "image/png", new byte[]{1, 2, 3});
 
         // when & then
-        assertThatThrownBy(() -> imageUploader.upload(file, "gachigacha/store"))
+        assertThatThrownBy(() -> multipartUploader.upload(file, DomainType.STORE))
                 .isInstanceOf(ImageInvalidValueException.class);
         verify(s3Uploader, never()).upload(any(), any(), any(), any(), any());
     }
@@ -76,11 +77,11 @@ class ImageUploaderTest {
     @DisplayName("허용되지 않은 content-type이면 S3Uploader를 호출하지 않고 예외를 던진다.")
     void upload_invalidContentType_throws() {
         // given
-        ImageUploader imageUploader = imageUploader();
+        MultipartUploader multipartUploader = multipartUploader();
         MultipartFile file = new MockMultipartFile("image", "photo.png", "text/html", new byte[]{1, 2, 3});
 
         // when & then
-        assertThatThrownBy(() -> imageUploader.upload(file, "gachigacha/store"))
+        assertThatThrownBy(() -> multipartUploader.upload(file, DomainType.STORE))
                 .isInstanceOf(ImageInvalidValueException.class);
         verify(s3Uploader, never()).upload(any(), any(), any(), any(), any());
     }
@@ -89,10 +90,10 @@ class ImageUploaderTest {
     @DisplayName("delete는 그대로 S3Uploader.delete로 위임한다.")
     void delete_delegatesToS3Uploader() {
         // given
-        ImageUploader imageUploader = imageUploader();
+        MultipartUploader multipartUploader = multipartUploader();
 
         // when
-        imageUploader.delete("https://test-bucket.s3.amazonaws.com/gachigacha/store/abc.png");
+        multipartUploader.delete("https://test-bucket.s3.amazonaws.com/gachigacha/store/abc.png");
 
         // then
         verify(s3Uploader).delete("https://test-bucket.s3.amazonaws.com/gachigacha/store/abc.png");
@@ -102,10 +103,10 @@ class ImageUploaderTest {
     @DisplayName("moveToTrash는 그대로 S3Uploader.moveToTrash로 위임한다.")
     void moveToTrash_delegatesToS3Uploader() {
         // given
-        ImageUploader imageUploader = imageUploader();
+        MultipartUploader multipartUploader = multipartUploader();
 
         // when
-        imageUploader.moveToTrash("https://test-bucket.s3.amazonaws.com/gachigacha/store/abc.png");
+        multipartUploader.moveToTrash("https://test-bucket.s3.amazonaws.com/gachigacha/store/abc.png");
 
         // then
         verify(s3Uploader).moveToTrash("https://test-bucket.s3.amazonaws.com/gachigacha/store/abc.png");
@@ -125,12 +126,12 @@ class ImageUploaderTest {
                 any(HttpEntity.class),
                 eq(byte[].class)
         )).thenReturn(response);
-        when(s3Uploader.upload(any(RequestBody.class), eq("gachigacha/gacha"), eq("jpg"), eq("image/jpeg"), isNull()))
+        when(s3Uploader.upload(any(RequestBody.class), eq(DomainType.GACHA), eq("jpg"), eq("image/jpeg"), isNull()))
                 .thenReturn("https://test-bucket.s3.amazonaws.com/gachigacha/gacha/uuid.jpg");
-        ImageUploader imageUploader = imageUploader();
+        MultipartUploader multipartUploader = multipartUploader();
 
         // when
-        String result = imageUploader.uploadFromUrl("https://cdn.instagram.com/photo", "gachigacha/gacha");
+        String result = multipartUploader.uploadFromUrl("https://cdn.instagram.com/photo", DomainType.GACHA);
 
         // then
         assertThat(result).isEqualTo("https://test-bucket.s3.amazonaws.com/gachigacha/gacha/uuid.jpg");
@@ -149,10 +150,10 @@ class ImageUploaderTest {
                 any(HttpEntity.class),
                 eq(byte[].class)
         )).thenReturn(response);
-        ImageUploader imageUploader = imageUploader();
+        MultipartUploader multipartUploader = multipartUploader();
 
         // when & then
-        assertThatThrownBy(() -> imageUploader.uploadFromUrl("https://cdn.instagram.com/photo", "gachigacha/gacha"))
+        assertThatThrownBy(() -> multipartUploader.uploadFromUrl("https://cdn.instagram.com/photo", DomainType.GACHA))
                 .isInstanceOf(ImageInvalidValueException.class);
         verify(s3Uploader, never()).upload(any(), any(), any(), any(), any());
     }
@@ -170,10 +171,10 @@ class ImageUploaderTest {
                 any(HttpEntity.class),
                 eq(byte[].class)
         )).thenReturn(response);
-        ImageUploader imageUploader = imageUploader();
+        MultipartUploader multipartUploader = multipartUploader();
 
         // when & then
-        assertThatThrownBy(() -> imageUploader.uploadFromUrl("https://cdn.instagram.com/photo", "gachigacha/gacha"))
+        assertThatThrownBy(() -> multipartUploader.uploadFromUrl("https://cdn.instagram.com/photo", DomainType.GACHA))
                 .isInstanceOf(S3Exception.class);
         verify(s3Uploader, never()).upload(any(), any(), any(), any(), any());
     }
@@ -189,10 +190,10 @@ class ImageUploaderTest {
                 eq(byte[].class)
         ))
                 .thenThrow(HttpClientErrorException.create(HttpStatus.NOT_FOUND, "Not Found", null, null, null));
-        ImageUploader imageUploader = imageUploader();
+        MultipartUploader multipartUploader = multipartUploader();
 
         // when & then
-        assertThatThrownBy(() -> imageUploader.uploadFromUrl("https://cdn.instagram.com/dead-link", "gachigacha/gacha"))
+        assertThatThrownBy(() -> multipartUploader.uploadFromUrl("https://cdn.instagram.com/dead-link", DomainType.GACHA))
                 .isInstanceOf(S3Exception.class);
         verify(s3Uploader, never()).upload(any(), any(), any(), any(), any());
     }

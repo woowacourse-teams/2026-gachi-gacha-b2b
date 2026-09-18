@@ -6,11 +6,12 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 
+import com.gachi.gacha.backend.common.infra.domain.DomainType;
 import com.gachi.gacha.backend.collection.domain.CollectionSource;
 import com.gachi.gacha.backend.collection.infra.platform.PlatformClient;
 import com.gachi.gacha.backend.collection.infra.platform.PlatformType;
 import com.gachi.gacha.backend.collection.infra.platform.dto.PlatformPostDto;
-import com.gachi.gacha.backend.common.infra.application.ImageUploader;
+import com.gachi.gacha.backend.common.infra.application.MultipartUploader;
 import com.gachi.gacha.backend.gacha.domain.Gacha;
 import com.gachi.gacha.backend.gacha.domain.GachaJpaRepository;
 import java.util.List;
@@ -32,7 +33,7 @@ class InstagramGachaCollectionServiceTest {
     private GachaJpaRepository gachaRepository;
 
     @Mock
-    private ImageUploader imageUploader;
+    private MultipartUploader multipartUploader;
 
     private ExecutorService executorService;
 
@@ -56,7 +57,7 @@ class InstagramGachaCollectionServiceTest {
         );
         InstagramGachaCollectionService service = service(new StubPlatformClient(post));
         given(gachaRepository.findInstagramMediaIdByInstagramMediaIdIn(anyList())).willReturn(List.of());
-        given(imageUploader.uploadFromUrl(post.imageUrl(), "root/gacha"))
+        given(multipartUploader.uploadFromUrl(post.imageUrl(), DomainType.GACHA))
                 .willReturn("https://bucket.s3.amazonaws.com/root/gacha/image.jpg");
         given(gachaRepository.save(any(Gacha.class))).willAnswer(invocation -> invocation.getArgument(0));
 
@@ -78,9 +79,8 @@ class InstagramGachaCollectionServiceTest {
         return new InstagramGachaCollectionService(
                 List.of(platformClient),
                 gachaRepository,
-                imageUploader,
-                executorService,
-                "root"
+                multipartUploader,
+                executorService
         );
     }
 
