@@ -15,7 +15,7 @@ import software.amazon.awssdk.services.s3.S3Client;
  * (socketTimeout, apiCallTimeout) 금방 실패하는 일시 오류만 재시도로 살린다.
  */
 @Configuration
-public class ImageConfig {
+public class S3Config {
 
     private static final Duration SOCKET_TIMEOUT = Duration.ofSeconds(10);
     private static final Duration API_CALL_TIMEOUT = Duration.ofSeconds(30);
