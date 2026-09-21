@@ -5,7 +5,7 @@ import lombok.RequiredArgsConstructor;
 
 @Getter
 @RequiredArgsConstructor
-public enum ImageType {
+public enum DomainType {
     STORE("매장", "store"),
     GACHA("가챠", "gacha");
 

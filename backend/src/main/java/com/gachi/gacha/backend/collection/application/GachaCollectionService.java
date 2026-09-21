@@ -6,8 +6,8 @@ import static java.util.stream.Collectors.toMap;
 import com.gachi.gacha.backend.collection.domain.CollectedGacha;
 import com.gachi.gacha.backend.collection.domain.CollectionSource;
 import com.gachi.gacha.backend.collection.domain.GachaCollectionException;
-import com.gachi.gacha.backend.common.infra.application.ImageUploader;
-import com.gachi.gacha.backend.common.infra.domain.ImageType;
+import com.gachi.gacha.backend.common.infra.application.MultipartUploader;
+import com.gachi.gacha.backend.common.infra.domain.DomainType;
 import com.gachi.gacha.backend.common.util.S3TransactionManager;
 import com.gachi.gacha.backend.gacha.application.CategoryService;
 import com.gachi.gacha.backend.gacha.domain.Category;
@@ -19,7 +19,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,11 +27,9 @@ import org.springframework.transaction.annotation.Transactional;
 public class GachaCollectionService {
 
     private final GachaJpaRepository gachaRepository;
-    private final ImageUploader imageUploader;
+    private final MultipartUploader multipartUploader;
     private final S3TransactionManager s3TransactionManager;
     private final CategoryService categoryService;
-    @Value("${cloud.aws.s3.folder}")
-    private String s3RootFolder;
 
     @Transactional
     public int saveNewGachas(
@@ -69,7 +66,7 @@ public class GachaCollectionService {
 
     private List<Gacha> createGachas(final List<CollectedGacha> collectedGachas) {
         List<String> uploadedImageUrls = new ArrayList<>();
-        s3TransactionManager.deleteImagesOnRollback(ImageType.GACHA, null, uploadedImageUrls);
+        s3TransactionManager.deleteImagesOnRollback(DomainType.GACHA, null, uploadedImageUrls);
         Map<String, Category> categoriesByName = resolveCategories(collectedGachas);
         return collectedGachas.stream()
                 .map(gacha -> uploadImageAndConvert(gacha, uploadedImageUrls, categoriesByName))
@@ -103,9 +100,9 @@ public class GachaCollectionService {
             final List<String> uploadedImageUrls,
             final Map<String, Category> categoriesByName
     ) {
-        String s3ImageUrl = imageUploader.uploadFromUrl(
+        String s3ImageUrl = multipartUploader.uploadFromUrl(
                 collectedGacha.imageUrl(),
-                ImageType.GACHA.buildPath(s3RootFolder)
+                DomainType.GACHA
         );
         uploadedImageUrls.add(s3ImageUrl);
 

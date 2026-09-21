@@ -2,7 +2,7 @@ package com.gachi.gacha.backend.store.application;
 
 import com.gachi.gacha.backend.common.exception.ErrorCode;
 import com.gachi.gacha.backend.common.exception.InvalidPageRequestException;
-import com.gachi.gacha.backend.common.infra.domain.ImageType;
+import com.gachi.gacha.backend.common.infra.domain.DomainType;
 import com.gachi.gacha.backend.common.util.S3TransactionManager;
 import com.gachi.gacha.backend.store.application.dto.StoreCreateCommand;
 import com.gachi.gacha.backend.store.application.dto.StoreCreateResult;
@@ -130,7 +130,7 @@ public class StoreService {
         storeJpaRepository.delete(store);
 
         List<String> imageUrls = storeImages.stream().map(StoreImage::getImageUrl).toList();
-        s3TransactionManager.deleteImagesAfterRemoved(ImageType.STORE, storeId, imageUrls);
+        s3TransactionManager.deleteImagesAfterRemoved(DomainType.STORE, storeId, imageUrls);
 
         return StoreDeleteResult.from(store);
     }

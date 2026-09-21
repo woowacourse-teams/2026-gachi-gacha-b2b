@@ -2,7 +2,7 @@ package com.gachi.gacha.backend.gacha.presentation;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.gachi.gacha.backend.common.infra.application.ImageUploader;
+import com.gachi.gacha.backend.common.infra.application.MultipartUploader;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import io.restassured.response.ExtractableResponse;
@@ -27,7 +27,7 @@ class CategoryControllerTest {
     private int port;
 
     @MockitoBean
-    private ImageUploader imageUploader;
+    private MultipartUploader multipartUploader;
 
     @MockitoBean
     private RestTemplate restTemplate;
