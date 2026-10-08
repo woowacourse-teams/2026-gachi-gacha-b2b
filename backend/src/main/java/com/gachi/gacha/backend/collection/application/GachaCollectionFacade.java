@@ -22,7 +22,8 @@ public class GachaCollectionFacade {
     private static final List<CollectionSource> COLLECTION_ORDER = List.of(
             CollectionSource.BANDAI,
             CollectionSource.IP4,
-            CollectionSource.A_MUZU
+            CollectionSource.A_MUZU,
+            CollectionSource.MINIMIYA
     );
 
     private final Map<CollectionSource, GachaCollector> collectors;

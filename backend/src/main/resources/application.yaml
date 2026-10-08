@@ -67,3 +67,7 @@ collection:
       list-url: "${AMUZU_COLLECTION_LIST_URL:https://www.a-muzu.com/category/CAPSULE_TOY_006/}"
       category: CAPSULE_TOY_006
       max-pages: ${AMUZU_COLLECTION_MAX_PAGES:100}
+    minimiya:
+      search-url: "${MINIMIYA_COLLECTION_SEARCH_URL:https://minimiya.co.kr/product/search.html?keyword=%EC%B9%98%EC%9D%B4%EC%B9%B4%EC%99%80}"
+      max-pages: ${MINIMIYA_COLLECTION_MAX_PAGES:30}
+      gacha-keywords: ${MINIMIYA_COLLECTION_GACHA_KEYWORDS:가챠,캡슐}

@@ -6,9 +6,10 @@ public enum CollectionSource {
     INSTAGRAM,
     BANDAI,
     IP4,
-    A_MUZU;
+    A_MUZU,
+    MINIMIYA;
 
     public boolean isCollectable() {
-        return this == BANDAI || this == IP4 || this == A_MUZU;
+        return this == BANDAI || this == IP4 || this == A_MUZU || this == MINIMIYA;
     }
 }
