@@ -1,10 +1,13 @@
 package com.gachi.gacha.backend.gacha.presentation;
 
 import com.gachi.gacha.backend.common.domain.dto.BaseResponse;
+import com.gachi.gacha.backend.gacha.application.GachaSearchService;
 import com.gachi.gacha.backend.gacha.application.GachaService;
 import com.gachi.gacha.backend.gacha.application.dto.GachaDeleteResult;
+import com.gachi.gacha.backend.gacha.application.dto.GachaDocument;
 import com.gachi.gacha.backend.gacha.application.dto.GachaInfo;
 import com.gachi.gacha.backend.gacha.application.dto.GachaResult;
+import com.gachi.gacha.backend.gacha.application.dto.GachaSearchCondition;
 import com.gachi.gacha.backend.gacha.presentation.dto.GachaCreateRequest;
 import com.gachi.gacha.backend.gacha.presentation.dto.GachaDeleteResponse;
 import com.gachi.gacha.backend.gacha.presentation.dto.GachaResponse;
@@ -12,7 +15,9 @@ import com.gachi.gacha.backend.gacha.presentation.dto.GachaUpdateRequest;
 import com.gachi.gacha.backend.gacha.presentation.dto.GachaUpdateResponse;
 import com.gachi.gacha.backend.usecase.application.StoreGachaFacade;
 import jakarta.validation.Valid;
+import java.io.IOException;
 import java.net.URI;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.Nullable;
 import org.springframework.data.domain.Page;
@@ -29,6 +34,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
@@ -39,6 +45,7 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 @RequiredArgsConstructor
 public class GachaController {
 
+    private final GachaSearchService gachaSearchService;
     private final GachaService gachaService;
     private final StoreGachaFacade storeGachaFacade;
 
@@ -106,5 +113,17 @@ public class GachaController {
     public BaseResponse<GachaResponse> readGacha(@PathVariable final Long gachaId) {
         GachaInfo gachaInfo = gachaService.findGachaById(gachaId);
         return BaseResponse.ok(GachaResponse.from(gachaInfo));
+    }
+
+    @GetMapping
+    public List<GachaDocument> search(
+            @RequestParam(required = false) final String keyword,
+            @RequestParam(required = false) final List<Long> categoryIds,
+            @RequestParam(required = false) final Double lat,
+            @RequestParam(required = false) final Double lon,
+            @RequestParam(required = false) final Double distanceKm,
+            @RequestParam(defaultValue = "0") final int page,
+            @RequestParam(defaultValue = "20") final int size) throws IOException {
+        return gachaSearchService.search(new GachaSearchCondition(keyword, categoryIds, lat, lon, distanceKm, page, Math.min(size, 50)));
     }
 }

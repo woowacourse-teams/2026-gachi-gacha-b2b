@@ -19,6 +19,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.mock.web.MockMultipartFile;
 
 @ExtendWith(MockitoExtension.class)
@@ -36,11 +37,15 @@ class GachaServiceTest {
     @Mock
     private CategoryService categoryService;
 
+    @Mock
+    private ApplicationEventPublisher publisher;
+
     private GachaService service() {
         GachaService service = new GachaService(
                 gachaRepository,
                 s3TransactionManager,
                 multipartUploader,
+                publisher,
                 categoryService
         );
         return service;
