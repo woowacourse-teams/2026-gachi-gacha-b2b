@@ -57,7 +57,7 @@ class ManualGachaCollectionRunnerTest {
                         GachaCollectionException.class,
                         exception -> assertThat(exception.getErrorCode()).isEqualTo(INVALID_COLLECTION_SOURCE)
                 )
-                .hasMessageContaining("BANDAI, IP4, A_MUZU, ALL");
+                .hasMessageContaining("BANDAI, IP4, A_MUZU, MINIMIYA, ALL");
     }
 
     @Test

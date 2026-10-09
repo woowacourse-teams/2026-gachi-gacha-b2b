@@ -74,7 +74,7 @@ public class ManualGachaCollectionRunner implements ApplicationRunner {
         } catch (IllegalArgumentException exception) {
             throw new GachaCollectionException(
                     INVALID_COLLECTION_SOURCE,
-                    "지원하는 수동 수집 출처는 BANDAI, IP4, A_MUZU, ALL입니다. source=" + value,
+                    "지원하는 수동 수집 출처는 BANDAI, IP4, A_MUZU, MINIMIYA, ALL입니다. source=" + value,
                     exception
             );
         }

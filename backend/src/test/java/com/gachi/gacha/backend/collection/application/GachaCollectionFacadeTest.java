@@ -20,31 +20,42 @@ class GachaCollectionFacadeTest {
         GachaCollector bandaiCollector = collector(CollectionSource.BANDAI);
         GachaCollector ip4Collector = collector(CollectionSource.IP4);
         GachaCollector amuzuCollector = collector(CollectionSource.A_MUZU);
+        GachaCollector minimiyaCollector = collector(CollectionSource.MINIMIYA);
         GachaCollectionService service = mock(GachaCollectionService.class);
         CollectedGacha ip4Gacha = gacha(CollectionSource.IP4, "414");
         CollectedGacha amuzuGacha = gacha(CollectionSource.A_MUZU, "C69710");
+        CollectedGacha minimiyaGacha = gacha(CollectionSource.MINIMIYA, "1846");
 
         given(bandaiCollector.collect()).willThrow(
                 new GachaCollectionException(GACHA_COLLECTION_FAILED, "수집 실패")
         );
         given(ip4Collector.collect()).willReturn(List.of(ip4Gacha));
         given(amuzuCollector.collect()).willReturn(List.of(amuzuGacha));
+        given(minimiyaCollector.collect()).willReturn(List.of(minimiyaGacha));
         given(service.saveNewGachas(CollectionSource.IP4, List.of(ip4Gacha))).willReturn(1);
         given(service.saveNewGachas(CollectionSource.A_MUZU, List.of(amuzuGacha))).willReturn(0);
+        given(service.saveNewGachas(CollectionSource.MINIMIYA, List.of(minimiyaGacha))).willReturn(1);
 
         GachaCollectionFacade facade = new GachaCollectionFacade(
-                List.of(bandaiCollector, ip4Collector, amuzuCollector),
+                List.of(bandaiCollector, ip4Collector, amuzuCollector, minimiyaCollector),
                 service
         );
         List<CollectionResult> results = facade.collectAll();
 
         assertThat(results).extracting(CollectionResult::source)
-                .containsExactly(CollectionSource.BANDAI, CollectionSource.IP4, CollectionSource.A_MUZU);
+                .containsExactly(
+                        CollectionSource.BANDAI,
+                        CollectionSource.IP4,
+                        CollectionSource.A_MUZU,
+                        CollectionSource.MINIMIYA
+                );
         assertThat(results.get(0).succeeded()).isFalse();
         assertThat(results.get(1).insertedCount()).isEqualTo(1);
         assertThat(results.get(2).skippedCount()).isEqualTo(1);
+        assertThat(results.get(3).insertedCount()).isEqualTo(1);
         verify(ip4Collector).collect();
         verify(amuzuCollector).collect();
+        verify(minimiyaCollector).collect();
     }
 
     private GachaCollector collector(final CollectionSource source) {
