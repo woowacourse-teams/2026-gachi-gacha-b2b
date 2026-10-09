@@ -22,3 +22,10 @@ cloud:
     s3:
       bucket: test-bucket
       folder: test
+
+elasticsearch:
+  url: localhost:8080
+  api-key: elastic-key
+  index: index
+  init:
+    enabled: false
