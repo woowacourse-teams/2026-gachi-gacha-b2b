@@ -1,0 +1,65 @@
+services:
+  elasticsearch:
+    build:
+      context: .
+      dockerfile_inline: |
+        FROM docker.elastic.co/elasticsearch/elasticsearch:9.5.4
+        RUN elasticsearch-plugin install --batch analysis-nori
+    image: gachi-gacha-es-nori:9.5.4
+    container_name: gachi-gacha-elasticsearch
+    restart: unless-stopped
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=true
+      - xpack.security.http.ssl.enabled=false
+      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    ports:
+      - "${ELASTIC_PORT:-9200}:9200"
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -s -u elastic:$$ELASTIC_PASSWORD http://localhost:9200/_cluster/health | grep -qE '\"status\":\"(green|yellow)\"'" ]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+
+  kibana_settings:
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.5.4
+    container_name: gachi-gacha-kibana-settings
+    restart: "no"
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    command: >
+      bash -c '
+      until curl -s -u "elastic:${ELASTIC_PASSWORD}" -X POST
+      http://elasticsearch:9200/_security/user/kibana_system/_password
+      -H "Content-Type: application/json"
+      -d "{\"password\":\"${KIBANA_PASSWORD}\"}" | grep -q "^{}"; do
+        sleep 2;
+      done'
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:9.5.4
+    container_name: gachi-gacha-kibana
+    restart: unless-stopped
+    depends_on:
+      kibana_settings:
+        condition: service_completed_successfully
+    environment:
+      - SERVER_NAME=kibana
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - ELASTICSEARCH_USERNAME=kibana_system
+      - ELASTICSEARCH_PASSWORD=${KIBANA_PASSWORD}
+    ports:
+      - "127.0.0.1:${KIBANA_PORT:-5601}:5601"
+    volumes:
+      - kibana-data:/usr/share/kibana/data
+volumes:
+  elasticsearch-data:
+  kibana-data:
