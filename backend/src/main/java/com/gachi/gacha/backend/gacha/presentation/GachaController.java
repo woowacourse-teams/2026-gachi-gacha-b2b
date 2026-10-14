@@ -116,7 +116,7 @@ public class GachaController {
         return BaseResponse.ok(GachaResponse.from(gachaInfo));
     }
 
-    @GetMapping
+    @GetMapping("/search")
     public SearchResult<GachaDocument> search(
             @RequestParam(required = false) final String keyword,
             @RequestParam(required = false) final List<Long> categoryIds,
