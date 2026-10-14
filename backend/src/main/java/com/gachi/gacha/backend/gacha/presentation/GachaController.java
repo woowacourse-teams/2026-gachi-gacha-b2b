@@ -13,6 +13,7 @@ import com.gachi.gacha.backend.gacha.presentation.dto.GachaDeleteResponse;
 import com.gachi.gacha.backend.gacha.presentation.dto.GachaResponse;
 import com.gachi.gacha.backend.gacha.presentation.dto.GachaUpdateRequest;
 import com.gachi.gacha.backend.gacha.presentation.dto.GachaUpdateResponse;
+import com.gachi.gacha.backend.gacha.presentation.dto.SearchResult;
 import com.gachi.gacha.backend.usecase.application.StoreGachaFacade;
 import jakarta.validation.Valid;
 import java.io.IOException;
@@ -116,7 +117,7 @@ public class GachaController {
     }
 
     @GetMapping
-    public List<GachaDocument> search(
+    public SearchResult<GachaDocument> search(
             @RequestParam(required = false) final String keyword,
             @RequestParam(required = false) final List<Long> categoryIds,
             @RequestParam(required = false) final Double lat,
