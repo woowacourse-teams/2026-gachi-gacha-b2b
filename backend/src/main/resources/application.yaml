@@ -71,3 +71,8 @@ collection:
       search-url: "${MINIMIYA_COLLECTION_SEARCH_URL:https://minimiya.co.kr/product/search.html?keyword=%EC%B9%98%EC%9D%B4%EC%B9%B4%EC%99%80}"
       max-pages: ${MINIMIYA_COLLECTION_MAX_PAGES:30}
       gacha-keywords: ${MINIMIYA_COLLECTION_GACHA_KEYWORDS:가챠,캡슐}
+
+elasticsearch:
+  url: ${ELASTIC_SEARCH_URL}
+  api-key: ${ELASTIC_SEARCH_API_KEY}
+  index: ${ELASTIC_INDEX}

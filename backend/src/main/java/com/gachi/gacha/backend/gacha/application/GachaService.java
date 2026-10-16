@@ -8,6 +8,7 @@ import com.gachi.gacha.backend.gacha.application.dto.GachaDeleteResult;
 import com.gachi.gacha.backend.gacha.application.dto.GachaInfo;
 import com.gachi.gacha.backend.gacha.application.dto.GachaResult;
 import com.gachi.gacha.backend.gacha.application.dto.GachaUpdateCommand;
+import com.gachi.gacha.backend.gacha.application.event.GachaChangedEvent;
 import com.gachi.gacha.backend.gacha.domain.Category;
 import com.gachi.gacha.backend.gacha.domain.Gacha;
 import com.gachi.gacha.backend.gacha.domain.GachaJpaRepository;
@@ -17,6 +18,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.Nullable;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -32,6 +34,7 @@ public class GachaService {
     private final GachaJpaRepository gachaRepository;
     private final S3TransactionManager s3TransactionManager;
     private final MultipartUploader multipartUploader;
+    private final ApplicationEventPublisher publisher;
     private final CategoryService categoryService;
 
     @Transactional
@@ -39,6 +42,7 @@ public class GachaService {
         List<Category> categories = categoryService.resolve(command.categories());
         Gacha gacha = command.toEntity(categories);
         Gacha savedGacha = gachaRepository.save(gacha);
+        publisher.publishEvent(GachaChangedEvent.change(List.of(savedGacha.getId())));
         return GachaInfo.from(savedGacha);
     }
 
@@ -50,6 +54,7 @@ public class GachaService {
                 : categoryService.resolveByIds(command.categories());
         gacha.patch(command.name(), command.caption(), command.thumbnailUrl(), categories);
         Gacha saved = gachaRepository.save(gacha);
+        publisher.publishEvent(GachaChangedEvent.change(List.of(saved.getId())));
         return GachaResult.from(saved);
     }
 
@@ -58,7 +63,9 @@ public class GachaService {
         Gacha gacha = gachaRepository.getById(gachaId);
         Category category = categoryService.resolveByIds(List.of(categoryId)).getFirst();
         gacha.addCategory(category);
-        return GachaInfo.from(gachaRepository.save(gacha));
+        Gacha saved = gachaRepository.save(gacha);
+        publisher.publishEvent(GachaChangedEvent.change(List.of(saved.getId())));
+        return GachaInfo.from(saved);
     }
 
     @Transactional
@@ -107,7 +114,7 @@ public class GachaService {
                 ? List.of()
                 : List.of(gacha.getThumbnailUrl());
         s3TransactionManager.trashImagesAfterRemoved(DomainType.GACHA, gachaId, imageUrls);
-
+        publisher.publishEvent(GachaChangedEvent.change(List.of(gacha.getId())));
         return GachaDeleteResult.from(gacha);
     }
 
