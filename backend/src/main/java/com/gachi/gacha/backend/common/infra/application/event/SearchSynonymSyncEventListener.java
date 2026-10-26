@@ -17,7 +17,7 @@ public class SearchSynonymSyncEventListener {
 
     @Async
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-    public void handel(SearchSynonymChangedEvent event) {
+    public void handle(SearchSynonymChangedEvent event) {
         try {
             syncService.syncAll(event.synonymSet());
         } catch (Exception ex) {
