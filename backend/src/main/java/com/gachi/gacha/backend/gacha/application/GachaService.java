@@ -87,6 +87,7 @@ public class GachaService {
                     newImageUrl
             );
         }
+        publisher.publishEvent(GachaChangedEvent.change(List.of(gacha.getId())));
         return GachaInfo.from(savedGacha);
     }
 
@@ -101,6 +102,7 @@ public class GachaService {
         if (oldImageUrl != null && !oldImageUrl.isBlank()) {
             s3TransactionManager.trashImagesAfterRemoved(DomainType.GACHA, gachaId, List.of(oldImageUrl));
         }
+        publisher.publishEvent(GachaChangedEvent.change(List.of(gacha.getId())));
         return GachaInfo.from(savedGacha);
     }
 
