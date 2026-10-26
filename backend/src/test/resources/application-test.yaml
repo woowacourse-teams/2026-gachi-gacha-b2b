@@ -26,6 +26,5 @@ cloud:
 elasticsearch:
   url: localhost:8080
   api-key: elastic-key
-  index: index
-  init:
-    enabled: false
+  index:
+    gacha: index
