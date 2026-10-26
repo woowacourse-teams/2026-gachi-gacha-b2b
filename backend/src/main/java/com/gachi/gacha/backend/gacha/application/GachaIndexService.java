@@ -35,7 +35,7 @@ public class GachaIndexService {
     private final GachaJpaRepository gachaJpaRepository;
     private final StoreGachaJpaRepository storeGachaJpaRepository;
 
-    @Value("${elasticsearch.index}")
+    @Value("${elasticsearch.index.gacha}")
     private String INDEX;
 
     @Transactional(readOnly = true)
@@ -53,10 +53,10 @@ public class GachaIndexService {
         BulkRequest.Builder br = new BulkRequest.Builder();
         Set<Long> found = new HashSet<>();
 
-        for (Gacha g : gachas) {
-            found.add(g.getId());
-            GachaDocument doc = GachaDocument.of(g, storesByGacha.getOrDefault(g.getId(), List.of()));
-            br.operations(op -> op.index(i -> i.index(INDEX).id(String.valueOf(g.getId())).document(doc)));
+        for (Gacha gacha : gachas) {
+            found.add(gacha.getId());
+            GachaDocument doc = GachaDocument.of(gacha, storesByGacha.getOrDefault(gacha.getId(), List.of()));
+            br.operations(op -> op.index(i -> i.index(INDEX).id(String.valueOf(gacha.getId())).document(doc)));
         }
         for (Long id : gachaIds) {
             if (!found.contains(id)) {
@@ -64,9 +64,9 @@ public class GachaIndexService {
             }
         }
 
-        BulkResponse res = esClient.bulk(br.build());
-        if (res.errors()) {
-            List<String> failed = res.items().stream()
+        BulkResponse response = esClient.bulk(br.build());
+        if (response.errors()) {
+            List<String> failed = response.items().stream()
                     .filter(i -> i.error() != null)
                     .map(i -> i.id() + ":" + i.error().reason())
                     .toList();

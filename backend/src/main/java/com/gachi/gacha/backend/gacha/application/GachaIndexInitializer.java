@@ -17,8 +17,8 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class GachaIndexInitializer {
 
-    @Value("${elasticsearch.index}")
-    public String INDEX;
+    @Value("${elasticsearch.index.gacha}")
+    private String INDEX;
 
     private final GachaIndexService indexService;
     private final ElasticsearchClient esClient;

@@ -24,86 +24,86 @@ public class GachaSearchService {
 
     private final ElasticsearchClient esClient;
 
-    @Value("${elasticsearch.index}")
+    @Value("${elasticsearch.index.gacha}")
     private String INDEX;
 
-    public SearchResult<GachaDocument> search(final GachaSearchCondition c) throws IOException {
-        SearchResponse<GachaDocument> res = esClient.search(s -> s
+    public SearchResult<GachaDocument> search(final GachaSearchCondition condition) throws IOException {
+        SearchResponse<GachaDocument> response = esClient.search(s -> s
                 .index(INDEX)
-                .from(c.page() * c.size())
-                .size(c.size() + 1)
-                .query(buildQuery(c))
-                .sort(so -> so.score(sc -> sc.order(SortOrder.Desc)))
-                .sort(so -> so.field(f -> f.field("id").order(SortOrder.Desc))), // tie-breaker
+                .from(condition.page() * condition.size())
+                .size(condition.size() + 1)
+                .query(buildQuery(condition))
+                .sort(so -> so.score(ss -> ss.order(SortOrder.Desc)))
+                .sort(so -> so.field(fs -> fs.field("id").order(SortOrder.Desc))), // tie-breaker
                 GachaDocument.class);
-        return toSearchResult(c, res);
+        return toSearchResult(condition, response);
     }
 
-    private Query buildQuery(final GachaSearchCondition c) {
+    private Query buildQuery(final GachaSearchCondition condition) {
         return Query.of(q -> q.bool(b -> {
-            applyKeyword(c, b);
-            applyCategoryFilter(c, b);
-            applyGeoFilter(c, b);
+            applyKeyword(condition, b);
+            applyCategoryFilter(condition, b);
+            applyGeoFilter(condition, b);
             return b;
         }));
     }
 
-    private void applyKeyword(final GachaSearchCondition c, final BoolQuery.Builder b) {
-        if (!StringUtils.hasText(c.keyword())) {
-            b.must(m -> m.matchAll(ma -> ma));
+    private void applyKeyword(final GachaSearchCondition condition, final BoolQuery.Builder boolQueryBuilder) {
+        if (!StringUtils.hasText(condition.keyword())) {
+            boolQueryBuilder.must(m -> m.matchAll(ma -> ma));
             return;
         }
-        b.should(m -> m.multiMatch(mm -> mm
-                .query(c.keyword())
+        boolQueryBuilder.should(s -> s.multiMatch(mm -> mm
+                .query(condition.keyword())
                 .fields("name^3", "categoryNames^2", "caption")
                 .fuzziness("AUTO")));
 
-        b.should(m -> m.multiMatch(mm -> mm
-                .query(c.keyword())
+        boolQueryBuilder.should(s -> s.multiMatch(mm -> mm
+                .query(condition.keyword())
                 .fields("categoryNames^2")
                 .analyzer("korean")
                 .boost(0.5f)));
 
-        b.should(m -> m.match(mt -> mt          // 부분 일치 (ngram)
+        boolQueryBuilder.should(s -> s.match(mt -> mt          // 부분 일치 (ngram)
                 .field("name.ngram")
-                .query(c.keyword())
+                .query(condition.keyword())
                 .operator(Operator.And)
                 .boost(1.0f))
         );
-        b.minimumShouldMatch("1");
+        boolQueryBuilder.minimumShouldMatch("1");
     }
 
-    private void applyCategoryFilter(final GachaSearchCondition c, final BoolQuery.Builder b) {
-        if (c.categoryIds() == null || c.categoryIds().isEmpty()) {
+    private void applyCategoryFilter(final GachaSearchCondition condition, final BoolQuery.Builder boolQueryBuilder) {
+        if (condition.categoryIds() == null || condition.categoryIds().isEmpty()) {
             return;
         }
-        b.filter(f -> f.terms(t -> t
+        boolQueryBuilder.filter(f -> f.terms(t -> t
                 .field("categoryIds")
-                .terms(tv -> tv.value(c.categoryIds().stream()
+                .terms(tv -> tv.value(condition.categoryIds().stream()
                         .map(FieldValue::of).toList()))));
     }
 
-    private void applyGeoFilter(final GachaSearchCondition c, final BoolQuery.Builder b) {
-        if (c.lat() == null || c.lon() == null) {
+    private void applyGeoFilter(final GachaSearchCondition condition, final BoolQuery.Builder boolQueryBuilder) {
+        if (condition.lat() == null || condition.lon() == null) {
             return;
         }
-        double km = c.distanceKm() != null ? c.distanceKm() : 3.0;
-        b.filter(f -> f.geoDistance(g -> g
+        double km = condition.distanceKm() != null ? condition.distanceKm() : 3.0;
+        boolQueryBuilder.filter(f -> f.geoDistance(g -> g
                 .field("locations")
                 .distance(km + "km")
-                .location(l -> l.latlon(ll -> ll.lat(c.lat()).lon(c.lon())))));
+                .location(l -> l.latlon(ll -> ll.lat(condition.lat()).lon(condition.lon())))));
     }
 
     private SearchResult<GachaDocument> toSearchResult(
-            final GachaSearchCondition c,
-            final SearchResponse<GachaDocument> res
+            final GachaSearchCondition condition,
+            final SearchResponse<GachaDocument> response
     ) {
-        List<GachaDocument> hits = res.hits().hits()
+        List<GachaDocument> hits = response.hits().hits()
                 .stream()
                 .map(Hit::source)
                 .toList();
-        boolean hasNext = hits.size() > c.size();
-        List<GachaDocument> content = hasNext ? hits.subList(0, c.size()) : hits;
-        return new SearchResult<>(content, c.page(), c.size(), hasNext);
+        boolean hasNext = hits.size() > condition.size();
+        List<GachaDocument> content = hasNext ? hits.subList(0, condition.size()) : hits;
+        return new SearchResult<>(content, condition.page(), condition.size(), hasNext);
     }
 }
