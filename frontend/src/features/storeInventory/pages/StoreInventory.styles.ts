@@ -264,6 +264,11 @@ export const SectionHeader = styled.div`
   gap: 18px;
   margin-bottom: 16px;
 
+  @media (max-width: 720px) {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
   h2 {
     margin: 0;
     font-size: 20px;
@@ -280,9 +285,76 @@ export const SectionHeader = styled.div`
   }
 `;
 
+export const SectionActions = styled.div`
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 12px;
+
+  small {
+    color: ${colors.textMuted};
+    font-size: 11px;
+  }
+
+  @media (max-width: 720px) {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+`;
+
+export const ExportButton = styled.button`
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid ${colors.borderStrong};
+  border-radius: ${radii.small};
+  color: ${colors.text};
+  background: ${colors.surface};
+  font-size: 12px;
+  font-weight: 800;
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+`;
+
+export const AssignedToolbar = styled.div`
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(140px, 200px) minmax(
+      140px,
+      180px
+    );
+  gap: 10px;
+  margin-bottom: 16px;
+
+  label {
+    display: grid;
+    gap: 5px;
+    min-width: 0;
+    color: ${colors.textMuted};
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  input,
+  select {
+    width: 100%;
+    min-height: 38px;
+    padding: 0 10px;
+    border: 1px solid ${colors.border};
+    border-radius: ${radii.small};
+    color: ${colors.text};
+    background: ${colors.surface};
+  }
+
+  @media (max-width: 720px) {
+    grid-template-columns: 1fr;
+  }
+`;
+
 export const AssignedList = styled.ul`
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
   gap: 10px;
   margin: 0;
   padding: 0;
@@ -300,8 +372,8 @@ export const AssignedCard = styled.li`
   border-radius: ${radii.medium};
   background: ${colors.surfaceMuted};
 
-  img,
-  > span:first-of-type {
+  > img,
+  > .assigned-placeholder {
     display: grid;
     width: 48px;
     height: 48px;
@@ -309,6 +381,10 @@ export const AssignedCard = styled.li`
     border-radius: ${radii.small};
     background: ${colors.surface};
     object-fit: cover;
+  }
+
+  > .assigned-detail {
+    min-width: 0;
   }
 
   strong {
@@ -320,7 +396,11 @@ export const AssignedCard = styled.li`
   }
 
   small {
+    display: block;
+    overflow: hidden;
     color: ${colors.textMuted};
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   button {
@@ -347,6 +427,11 @@ export const CategoryToolbar = styled.div`
   display: flex;
   align-items: center;
   gap: 10px;
+
+  @media (max-width: 720px) {
+    align-items: stretch;
+    flex-direction: column;
+  }
 
   strong {
     flex: 0 0 auto;
@@ -420,11 +505,32 @@ export const CatalogRow = styled.li`
   }
 
   @media (max-width: 920px) {
-    grid-template-columns: 48px minmax(150px, 1fr) auto;
+    grid-template-columns: 56px minmax(0, 1fr) auto;
 
-    > strong:first-of-type,
-    > div:nth-of-type(2) {
+    > strong:first-of-type {
       display: none;
+    }
+
+    > div:nth-of-type(2) {
+      grid-column: 2;
+      grid-row: 2;
+    }
+
+    > button:last-child {
+      grid-column: 3;
+      grid-row: 1 / span 2;
+    }
+  }
+
+  @media (max-width: 720px) {
+    grid-template-columns: 56px minmax(0, 1fr);
+    gap: 10px;
+    padding: 12px;
+
+    > button:last-child {
+      width: 100%;
+      grid-column: 1 / -1;
+      grid-row: 3;
     }
   }
 `;
@@ -526,6 +632,15 @@ export const ImagePreviewImage = styled.img`
   max-height: calc(100dvh - 132px);
   object-fit: contain;
   background: ${colors.surfaceMuted};
+`;
+
+export const ImagePreviewFallback = styled.div`
+  display: grid;
+  min-height: 180px;
+  padding: 20px;
+  place-items: center;
+  color: ${colors.textMuted};
+  text-align: center;
 `;
 
 export const GachaName = styled.div`

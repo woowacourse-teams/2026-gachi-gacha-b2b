@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ApiError } from '@/apis/httpClient';
 import { getCategories } from '@/features/classification/api/classificationApi';
 import type {
+  CatalogMetadataStatus,
   Category,
   ClassificationItem,
 } from '@/features/classification/model/classification';
@@ -11,6 +12,7 @@ import { getErrorMessage } from '@/utils/getErrorMessage';
 import {
   AssignedCard,
   AssignedList,
+  AssignedToolbar,
   BackButton,
   CatalogList,
   CatalogRow,
@@ -18,6 +20,7 @@ import {
   CategoryToolbar,
   CountBadge,
   Description,
+  ExportButton,
   Feedback,
   FilterPanel,
   GachaName,
@@ -29,11 +32,13 @@ import {
   RelationButton,
   SearchForm,
   Section,
+  SectionActions,
   SectionHeader,
   StatePanel,
   StoreMeta,
   Tags,
 } from './StoreInventory.styles';
+import { getCatalogItemsByIds } from '../api/catalogSearchApi';
 import {
   assignGachaToStore,
   getAssignableGachaPage,
@@ -42,10 +47,12 @@ import {
   removeGachaFromStore,
 } from '../api/storeInventoryApi';
 import GachaImagePreviewDialog from '../components/GachaImagePreviewDialog';
+import { createKujiFieldSheetCsv } from '../model/kujiFieldSheetCsv';
 import type {
   AssignedGachaSummary,
   StoreSummary,
 } from '../model/storeInventory';
+import { createStoreCatalogCsv } from '../model/storeInventoryCsv';
 
 interface StoreInventoryPageProps {
   storeId: number;
@@ -53,6 +60,43 @@ interface StoreInventoryPageProps {
 }
 
 const SEARCH_DEBOUNCE_MS = 300;
+const nameCollator = new Intl.Collator('ko-KR', { numeric: true });
+const normalizeInventoryText = (value: string) =>
+  value.normalize('NFKC').toLocaleLowerCase('ko-KR').replace(/\s+/gu, '');
+const displayName = (item: ClassificationItem) =>
+  item.metadata?.nameKo || item.name;
+const metadataSummary = (item: ClassificationItem) =>
+  [
+    item.metadata?.work && `작품 ${item.metadata.work}`,
+    item.metadata?.series && `시리즈 ${item.metadata.series}`,
+    item.metadata?.characters.length &&
+      `캐릭터 ${item.metadata.characters.join(', ')}`,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+
+const metadataNotice = (status: CatalogMetadataStatus, asOf: string | null) => {
+  if (status === 'stale') {
+    return `추가 상품 정보 시트의 최신 상태를 확인 중이거나 갱신에 실패해 이전 정보를 표시합니다.${asOf ? ` 마지막 확인: ${new Date(asOf).toLocaleString('ko-KR')}` : ''}`;
+  }
+  if (status === 'unavailable') {
+    return '추가 상품 정보 시트를 읽지 못했습니다. 기존 카탈로그 정보만 표시합니다.';
+  }
+  return '';
+};
+
+const downloadCsv = (csv: string, filename: string) => {
+  const url = URL.createObjectURL(
+    new Blob([csv], { type: 'text/csv;charset=utf-8' }),
+  );
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 0);
+};
 
 const appendUniqueItems = (
   current: ClassificationItem[],
@@ -71,8 +115,36 @@ export default function StoreInventoryPage({
   const [assignedGachas, setAssignedGachas] = useState<AssignedGachaSummary[]>(
     [],
   );
+  const [assignedDetails, setAssignedDetails] = useState<ClassificationItem[]>(
+    [],
+  );
+  const [isAssignedDetailsLoading, setIsAssignedDetailsLoading] =
+    useState(false);
+  const [assignedDetailsError, setAssignedDetailsError] = useState('');
+  const [assignedMetadataStatus, setAssignedMetadataStatus] =
+    useState<CatalogMetadataStatus>('disabled');
+  const [assignedMetadataAsOf, setAssignedMetadataAsOf] = useState<
+    string | null
+  >(null);
+  const [assignedDetailsRefresh, setAssignedDetailsRefresh] = useState(0);
+  const [assignedQuery, setAssignedQuery] = useState('');
+  const [assignedCategoryFilter, setAssignedCategoryFilter] = useState('');
+  const [assignedSort, setAssignedSort] = useState<'name' | 'id'>('name');
+  const [isAssignmentsRefreshing, setIsAssignmentsRefreshing] = useState(false);
+  const [lastAssignedRefreshAt, setLastAssignedRefreshAt] = useState<
+    string | null
+  >(null);
+  const [assignedRefreshError, setAssignedRefreshError] = useState('');
+  const [failedImageUrls, setFailedImageUrls] = useState<Set<string>>(
+    () => new Set(),
+  );
   const [categories, setCategories] = useState<Category[]>([]);
   const [catalogItems, setCatalogItems] = useState<ClassificationItem[]>([]);
+  const [catalogMetadataStatus, setCatalogMetadataStatus] =
+    useState<CatalogMetadataStatus>('disabled');
+  const [catalogMetadataAsOf, setCatalogMetadataAsOf] = useState<string | null>(
+    null,
+  );
   const [queryInput, setQueryInput] = useState('');
   const [appliedQuery, setAppliedQuery] = useState('');
   const [isQueryDirty, setIsQueryDirty] = useState(false);
@@ -92,6 +164,7 @@ export default function StoreInventoryPage({
   );
   const catalogRequestIdRef = useRef(0);
   const pendingGachaIdsRef = useRef(new Set<number>());
+  const assignmentsRefreshingRef = useRef(false);
 
   useEffect(() => {
     let isCurrent = true;
@@ -107,6 +180,7 @@ export default function StoreInventoryPage({
         if (!isCurrent) return;
         setStore(loadedStore);
         setAssignedGachas(loadedAssignments);
+        setLastAssignedRefreshAt(new Date().toISOString());
         setCategories(loadedCategories);
       })
       .catch((cause) => {
@@ -121,11 +195,52 @@ export default function StoreInventoryPage({
     };
   }, [storeId]);
 
+  useEffect(() => {
+    let isCurrent = true;
+    const ids = assignedGachas.map(({ id }) => id);
+
+    if (ids.length === 0) {
+      setAssignedDetails([]);
+      setIsAssignedDetailsLoading(false);
+      setAssignedDetailsError('');
+      setAssignedMetadataStatus('disabled');
+      setAssignedMetadataAsOf(null);
+      return;
+    }
+
+    setIsAssignedDetailsLoading(true);
+    setAssignedDetailsError('');
+
+    void getCatalogItemsByIds(ids)
+      .then(({ items, metadataStatus, metadataAsOf }) => {
+        if (!isCurrent) return;
+        setAssignedDetails(items);
+        setAssignedMetadataStatus(metadataStatus);
+        setAssignedMetadataAsOf(metadataAsOf);
+      })
+      .catch((cause) => {
+        if (!isCurrent) return;
+        setAssignedDetails([]);
+        setAssignedDetailsError(getErrorMessage(cause));
+        setAssignedMetadataStatus('disabled');
+        setAssignedMetadataAsOf(null);
+      })
+      .finally(() => {
+        if (isCurrent) setIsAssignedDetailsLoading(false);
+      });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [assignedGachas, assignedDetailsRefresh]);
+
   const invalidateCatalog = useCallback(() => {
     catalogRequestIdRef.current += 1;
     setCatalogItems([]);
     setTotalCatalogCount(0);
     setNextCursor(null);
+    setCatalogMetadataStatus('disabled');
+    setCatalogMetadataAsOf(null);
     setIsCatalogLoading(true);
     setFeedback('');
   }, []);
@@ -151,6 +266,8 @@ export default function StoreInventoryPage({
         );
         setTotalCatalogCount(queue.filteredCount);
         setNextCursor(queue.nextCursor);
+        setCatalogMetadataStatus(queue.metadataStatus ?? 'disabled');
+        setCatalogMetadataAsOf(queue.metadataAsOf ?? null);
       } catch (cause) {
         if (requestId !== catalogRequestIdRef.current) return;
         setFeedback(getErrorMessage(cause));
@@ -193,10 +310,63 @@ export default function StoreInventoryPage({
     () => new Map(catalogItems.map((item) => [item.id, item])),
     [catalogItems],
   );
+  const assignedDetailById = useMemo(
+    () => new Map(assignedDetails.map((item) => [item.id, item])),
+    [assignedDetails],
+  );
+  const missingAssignedDetailsCount = assignedGachas.filter(
+    ({ id }) => !assignedDetailById.has(id),
+  ).length;
   const categoryById = useMemo(
     () => new Map(categories.map((category) => [category.id, category.name])),
     [categories],
   );
+  const visibleAssignedGachas = useMemo(() => {
+    const query = normalizeInventoryText(assignedQuery);
+    const categoryId = Number(assignedCategoryFilter);
+
+    return assignedGachas
+      .filter((gacha) => {
+        const detail = assignedDetailById.get(gacha.id);
+        const categoryNames = (detail?.categoryIds ?? []).map(
+          (id) => categoryById.get(id) ?? '',
+        );
+        const searchValues = [
+          String(gacha.id),
+          detail?.name ?? '',
+          detail?.metadata?.nameKo ?? '',
+          detail?.metadata?.nameJa ?? '',
+          ...(detail?.metadata?.aliases ?? []),
+          detail?.metadata?.work ?? '',
+          detail?.metadata?.series ?? '',
+          ...(detail?.metadata?.characters ?? []),
+          ...categoryNames,
+        ];
+        return (
+          (!assignedCategoryFilter ||
+            detail?.categoryIds.includes(categoryId)) &&
+          (!query ||
+            searchValues.some((value) =>
+              normalizeInventoryText(value).includes(query),
+            ))
+        );
+      })
+      .sort((left, right) => {
+        if (assignedSort === 'id') return left.id - right.id;
+        const leftDetail = assignedDetailById.get(left.id);
+        const rightDetail = assignedDetailById.get(right.id);
+        const leftName = leftDetail ? displayName(leftDetail) : '';
+        const rightName = rightDetail ? displayName(rightDetail) : '';
+        return nameCollator.compare(leftName, rightName) || left.id - right.id;
+      });
+  }, [
+    assignedGachas,
+    assignedDetailById,
+    assignedQuery,
+    assignedCategoryFilter,
+    assignedSort,
+    categoryById,
+  ]);
   const visibleCategories = useMemo(() => {
     const query = categoryQuery.trim().toLocaleLowerCase('ko-KR');
     if (!query) return categories;
@@ -218,8 +388,41 @@ export default function StoreInventoryPage({
     );
   };
 
+  const markImageFailed = (imageUrl: string) => {
+    setFailedImageUrls((current) => {
+      if (current.has(imageUrl)) return current;
+      return new Set([...current, imageUrl]);
+    });
+  };
+
+  const refreshAssignedGachas = async () => {
+    if (
+      assignmentsRefreshingRef.current ||
+      pendingGachaIdsRef.current.size > 0
+    ) {
+      return;
+    }
+
+    assignmentsRefreshingRef.current = true;
+    setIsAssignmentsRefreshing(true);
+    setAssignedRefreshError('');
+    try {
+      setAssignedGachas(await getAssignedGachas(storeId));
+      setLastAssignedRefreshAt(new Date().toISOString());
+    } catch (cause) {
+      setAssignedRefreshError(getErrorMessage(cause));
+    } finally {
+      assignmentsRefreshingRef.current = false;
+      setIsAssignmentsRefreshing(false);
+    }
+  };
+
   const handleAssign = async (item: ClassificationItem) => {
-    if (assignedIds.has(item.id) || pendingGachaIdsRef.current.has(item.id)) {
+    if (
+      assignmentsRefreshingRef.current ||
+      assignedIds.has(item.id) ||
+      pendingGachaIdsRef.current.has(item.id)
+    ) {
       return;
     }
 
@@ -247,7 +450,12 @@ export default function StoreInventoryPage({
   };
 
   const handleRemove = async (gachaId: number) => {
-    if (pendingGachaIdsRef.current.has(gachaId)) return;
+    if (
+      assignmentsRefreshingRef.current ||
+      pendingGachaIdsRef.current.has(gachaId)
+    ) {
+      return;
+    }
     if (!window.confirm(`가챠 #${gachaId}을(를) 이 매장에서 제거할까요?`)) {
       return;
     }
@@ -295,6 +503,45 @@ export default function StoreInventoryPage({
     Boolean(queryInput || appliedQuery || categoryQuery) ||
     selectedCategoryIds.length > 0;
 
+  const exportAssignedCatalog = () => {
+    if (!store) return;
+
+    const csv = createStoreCatalogCsv(
+      store.id,
+      store.name,
+      assignedGachas.map((gacha) => {
+        const detail =
+          assignedDetailById.get(gacha.id) ?? catalogById.get(gacha.id);
+        return {
+          gachaId: gacha.id,
+          name: detail?.name || `가챠 #${gacha.id}`,
+          nameKo: detail?.metadata?.nameKo ?? '',
+          nameJa: detail?.metadata?.nameJa ?? '',
+          aliases: detail?.metadata?.aliases ?? [],
+          work: detail?.metadata?.work ?? '',
+          series: detail?.metadata?.series ?? '',
+          characters: detail?.metadata?.characters ?? [],
+          reviewedAt: detail?.metadata?.reviewedAt ?? '',
+          categories: (detail?.categoryIds ?? []).map(
+            (id) => categoryById.get(id) ?? `#${id}`,
+          ),
+          source: detail?.source ?? '',
+          catalogCreatedAt: detail?.createdAt.slice(0, 10) ?? '',
+          catalogStatus: assignedDetailById.has(gacha.id) ? '확인됨' : '미확인',
+        };
+      }),
+    );
+    downloadCsv(csv, `gachi-gacha-store-${store.id}-catalog.csv`);
+  };
+
+  const exportKujiFieldSheet = () => {
+    if (!store) return;
+    downloadCsv(
+      createKujiFieldSheetCsv(store.id, store.name),
+      `gachi-gacha-store-${store.id}-kuji-field-sheet.csv`,
+    );
+  };
+
   if (isLoading) {
     return <StatePanel>매장과 보유 가챠 정보를 준비하고 있습니다.</StatePanel>;
   }
@@ -329,40 +576,196 @@ export default function StoreInventoryPage({
         </div>
         <CountBadge>
           <strong>{assignedGachas.length}</strong>
-          <span>현재 보유 가챠</span>
+          <span>등록 가챠 종류</span>
         </CountBadge>
       </Header>
 
       <Section aria-labelledby="assigned-gacha-title">
         <SectionHeader>
           <div>
-            <h2 id="assigned-gacha-title">현재 매장에 등록된 가챠</h2>
-            <p>백엔드 요약 응답에 이름이 없는 항목은 DB ID로 표시합니다.</p>
+            <h2 id="assigned-gacha-title">매장에 등록된 가챠</h2>
+            <p>등록된 종류를 표시합니다. 수량 정보는 아직 제공되지 않습니다.</p>
           </div>
-          <strong>{assignedGachas.length}개</strong>
+          <SectionActions>
+            <strong>
+              {visibleAssignedGachas.length}/{assignedGachas.length}종류
+            </strong>
+            <ExportButton
+              disabled={isAssignmentsRefreshing || pendingGachaIds.length > 0}
+              type="button"
+              onClick={() => void refreshAssignedGachas()}
+            >
+              {isAssignmentsRefreshing ? '새로고침 중...' : '목록 새로고침'}
+            </ExportButton>
+            <ExportButton
+              disabled={
+                assignedGachas.length === 0 ||
+                isAssignedDetailsLoading ||
+                Boolean(assignedDetailsError)
+              }
+              type="button"
+              onClick={exportAssignedCatalog}
+            >
+              전체 종류 CSV
+            </ExportButton>
+            {lastAssignedRefreshAt && (
+              <small>
+                마지막 목록 조회{' '}
+                {new Date(lastAssignedRefreshAt).toLocaleTimeString('ko-KR', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
+              </small>
+            )}
+          </SectionActions>
         </SectionHeader>
+
+        {assignedRefreshError && (
+          <Feedback error role="alert">
+            목록을 새로고침하지 못했습니다: {assignedRefreshError}
+          </Feedback>
+        )}
+
+        {metadataNotice(assignedMetadataStatus, assignedMetadataAsOf) && (
+          <Feedback role="status">
+            {metadataNotice(assignedMetadataStatus, assignedMetadataAsOf)}
+          </Feedback>
+        )}
+
+        {assignedDetailsError ? (
+          <Feedback error role="alert">
+            등록 가챠의 상세정보를 불러오지 못했습니다: {assignedDetailsError}{' '}
+            <button
+              type="button"
+              onClick={() => setAssignedDetailsRefresh((value) => value + 1)}
+            >
+              다시 시도
+            </button>
+          </Feedback>
+        ) : !isAssignedDetailsLoading && missingAssignedDetailsCount > 0 ? (
+          <Feedback error role="status">
+            카탈로그에서 찾을 수 없는 등록 가챠가 {missingAssignedDetailsCount}
+            종류 있습니다. CSV에는 미확인으로 표시합니다.
+          </Feedback>
+        ) : null}
+
+        {assignedGachas.length > 0 && (
+          <AssignedToolbar>
+            <label>
+              등록 가챠 검색
+              <input
+                placeholder="한·일 이름, 작품, 캐릭터, 카테고리 또는 ID"
+                value={assignedQuery}
+                onChange={(event) => setAssignedQuery(event.target.value)}
+              />
+            </label>
+            <label>
+              카테고리
+              <select
+                value={assignedCategoryFilter}
+                onChange={(event) =>
+                  setAssignedCategoryFilter(event.target.value)
+                }
+              >
+                <option value="">전체 카테고리</option>
+                {categories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              정렬
+              <select
+                value={assignedSort}
+                onChange={(event) =>
+                  setAssignedSort(event.target.value as 'name' | 'id')
+                }
+              >
+                <option value="name">이름순</option>
+                <option value="id">ID순</option>
+              </select>
+            </label>
+          </AssignedToolbar>
+        )}
 
         {assignedGachas.length === 0 ? (
           <StatePanel>
             아직 등록된 가챠가 없습니다. 아래 목록에서 추가해 주세요.
           </StatePanel>
+        ) : isAssignedDetailsLoading && visibleAssignedGachas.length === 0 ? (
+          <StatePanel>
+            등록 가챠의 이름과 카테고리를 불러오고 있습니다.
+          </StatePanel>
+        ) : visibleAssignedGachas.length === 0 ? (
+          <StatePanel>
+            조건에 맞는 등록 가챠가 없습니다. 검색어 또는 카테고리를 바꿔
+            주세요.
+          </StatePanel>
         ) : (
           <AssignedList>
-            {assignedGachas.map((gacha) => {
-              const detail = catalogById.get(gacha.id);
+            {visibleAssignedGachas.map((gacha) => {
+              const detail =
+                assignedDetailById.get(gacha.id) ?? catalogById.get(gacha.id);
+              const imageUrl = [detail?.imageUrl, gacha.imageUrl].find(
+                (url) => url && !failedImageUrls.has(url),
+              );
               return (
                 <AssignedCard key={gacha.id}>
-                  {gacha.imageUrl ? (
-                    <img alt="" src={gacha.imageUrl} />
+                  {imageUrl ? (
+                    <img
+                      alt=""
+                      src={imageUrl}
+                      onError={() => markImageFailed(imageUrl)}
+                    />
                   ) : (
-                    <span aria-hidden>?</span>
+                    <span aria-hidden className="assigned-placeholder">
+                      ?
+                    </span>
                   )}
-                  <span>
-                    <strong>{detail?.name || `가챠 #${gacha.id}`}</strong>
+                  <span className="assigned-detail">
+                    <strong>
+                      {detail ? displayName(detail) : `가챠 #${gacha.id}`}
+                    </strong>
                     <small>DB ID #{gacha.id}</small>
+                    {detail && (
+                      <>
+                        {detail.metadata?.nameJa && (
+                          <small>일본어 {detail.metadata.nameJa}</small>
+                        )}
+                        {detail.metadata?.nameKo &&
+                          detail.metadata.nameKo !== detail.name && (
+                            <small>기존 이름 {detail.name}</small>
+                          )}
+                        {metadataSummary(detail) && (
+                          <small>{metadataSummary(detail)}</small>
+                        )}
+                        {detail.metadata && (
+                          <small>
+                            추가 정보 시트
+                            {detail.metadata.reviewedAt
+                              ? ` · 검수일 ${detail.metadata.reviewedAt}`
+                              : ' · 검수일 미입력'}
+                          </small>
+                        )}
+                        <small>
+                          {detail.categoryIds
+                            .map((id) => categoryById.get(id) ?? `#${id}`)
+                            .join(' · ') || '카테고리 없음'}
+                        </small>
+                        <small>
+                          출처 {detail.source} · 카탈로그 등록일{' '}
+                          {detail.createdAt.slice(0, 10)}
+                        </small>
+                      </>
+                    )}
                   </span>
                   <button
-                    disabled={pendingGachaIds.includes(gacha.id)}
+                    disabled={
+                      isAssignmentsRefreshing ||
+                      pendingGachaIds.includes(gacha.id)
+                    }
                     type="button"
                     onClick={() => void handleRemove(gacha.id)}
                   >
@@ -380,8 +783,8 @@ export default function StoreInventoryPage({
           <div>
             <h2 id="catalog-title">분류 완료 가챠 찾기</h2>
             <p>
-              이름 또는 카테고리명에 포함된 단어로 검색하고, 카테고리 버튼으로
-              결과를 좁힐 수 있습니다.
+              이름·카테고리명과 등록된 추가 정보의 한·일 이름·작품·캐릭터로
+              검색하고, 카테고리 버튼으로 결과를 좁힐 수 있습니다.
             </p>
           </div>
           <strong>
@@ -470,6 +873,12 @@ export default function StoreInventoryPage({
           </Feedback>
         )}
 
+        {metadataNotice(catalogMetadataStatus, catalogMetadataAsOf) && (
+          <Feedback role="status">
+            {metadataNotice(catalogMetadataStatus, catalogMetadataAsOf)}
+          </Feedback>
+        )}
+
         {isQueryDirty ? (
           <StatePanel aria-live="polite">
             입력한 검색어를 적용하고 있습니다.
@@ -486,29 +895,58 @@ export default function StoreInventoryPage({
             {catalogItems.map((item) => {
               const assigned = assignedIds.has(item.id);
               const pending = pendingGachaIds.includes(item.id);
+              const imageUrl = failedImageUrls.has(item.imageUrl)
+                ? ''
+                : item.imageUrl;
               return (
                 <CatalogRow key={item.id}>
                   <strong>#{item.id}</strong>
                   <GachaThumbnail
                     aria-label={
-                      item.imageUrl
-                        ? `가챠 #${item.id} ${item.name} 이미지 확대`
+                      imageUrl
+                        ? `가챠 #${item.id} ${displayName(item)} 이미지 확대`
                         : `가챠 #${item.id} 이미지 없음`
                     }
-                    disabled={!item.imageUrl}
-                    title={item.imageUrl ? '이미지 확대' : undefined}
+                    disabled={!imageUrl}
+                    title={imageUrl ? '이미지 확대' : undefined}
                     type="button"
                     onClick={() => setPreviewItem(item)}
                   >
-                    {item.imageUrl ? (
-                      <img alt="" src={item.imageUrl} />
+                    {imageUrl ? (
+                      <img
+                        alt=""
+                        src={imageUrl}
+                        onError={() => markImageFailed(imageUrl)}
+                      />
                     ) : (
                       <span aria-hidden>?</span>
                     )}
                   </GachaThumbnail>
                   <GachaName>
-                    <strong>{item.name}</strong>
-                    <small>{item.description || item.source}</small>
+                    <strong>{displayName(item)}</strong>
+                    {item.metadata?.nameJa && (
+                      <small>일본어 {item.metadata.nameJa}</small>
+                    )}
+                    {item.metadata?.nameKo &&
+                      item.metadata.nameKo !== item.name && (
+                        <small>기존 이름 {item.name}</small>
+                      )}
+                    {metadataSummary(item) && (
+                      <small>{metadataSummary(item)}</small>
+                    )}
+                    {item.metadata && (
+                      <small>
+                        추가 정보 시트
+                        {item.metadata.reviewedAt
+                          ? ` · 검수일 ${item.metadata.reviewedAt}`
+                          : ' · 검수일 미입력'}
+                      </small>
+                    )}
+                    {item.description && <small>{item.description}</small>}
+                    <small>
+                      출처 {item.source} · 카탈로그 등록일{' '}
+                      {item.createdAt.slice(0, 10)}
+                    </small>
                   </GachaName>
                   <Tags>
                     {item.categoryIds.map((categoryId) => (
@@ -519,7 +957,7 @@ export default function StoreInventoryPage({
                   </Tags>
                   <RelationButton
                     assigned={assigned}
-                    disabled={pending}
+                    disabled={pending || isAssignmentsRefreshing}
                     type="button"
                     onClick={() =>
                       assigned
@@ -549,12 +987,33 @@ export default function StoreInventoryPage({
           </LoadMoreButton>
         )}
       </Section>
+
+      <Section aria-labelledby="kuji-field-sheet-title">
+        <SectionHeader>
+          <div>
+            <h2 id="kuji-field-sheet-title">쿠지 현장 기록 준비</h2>
+            <p>
+              상자별 등급·장수를 기록할 수 있는 빈 CSV 양식입니다. 매장 정보만
+              채워집니다.
+            </p>
+          </div>
+          <ExportButton type="button" onClick={exportKujiFieldSheet}>
+            쿠지 기록 양식 CSV
+          </ExportButton>
+        </SectionHeader>
+        <Description>
+          이 파일은 기기에 내려받기만 합니다. 현재 사이트에 저장·동기화되지 않고
+          소비자용 현황판에도 표시되지 않습니다. 여러 기기에서 공유하는 쿠지
+          잔여량 관리는 별도 저장 API가 필요합니다.
+        </Description>
+      </Section>
       {previewItem?.imageUrl && (
         <GachaImagePreviewDialog
           gachaId={previewItem.id}
           imageUrl={previewItem.imageUrl}
-          name={previewItem.name}
+          name={displayName(previewItem)}
           onClose={() => setPreviewItem(null)}
+          onImageError={() => markImageFailed(previewItem.imageUrl)}
         />
       )}
     </Page>

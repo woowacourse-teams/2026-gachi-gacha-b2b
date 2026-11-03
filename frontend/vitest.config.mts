@@ -5,7 +5,7 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   define: {
     __API_BASE_URL__: JSON.stringify('http://localhost/api/b2b'),
-    __AI_API_BASE_URL__: JSON.stringify('http://localhost/api/b2b-ai'),
+    __BFF_API_BASE_URL__: JSON.stringify('http://localhost/api/b2b-ai'),
     __USE_MOCK_API__: 'true',
   },
   resolve: {

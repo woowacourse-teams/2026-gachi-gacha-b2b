@@ -1,5 +1,4 @@
 import AppShell from '@/components/AppShell';
-import { AiSettingsProvider } from '@/features/ai/context/AiSettingsContext';
 import ClassificationPage from '@/features/classification/pages/ClassificationPage';
 import QueuePage from '@/features/classification/pages/QueuePage';
 import RegistrationPage from '@/features/registration/pages/RegistrationPage';
@@ -31,7 +30,11 @@ function AppContent() {
         ) : route.page === 'storeRegistration' ? (
           <StoreRegistrationPage onNavigate={navigate} />
         ) : route.page === 'storeInventory' ? (
-          <StoreInventoryPage storeId={route.storeId} onNavigate={navigate} />
+          <StoreInventoryPage
+            key={route.storeId}
+            storeId={route.storeId}
+            onNavigate={navigate}
+          />
         ) : route.page === 'classify' ? (
           <ClassificationPage
             itemId={route.itemId}
@@ -54,9 +57,5 @@ function AppContent() {
 }
 
 export default function App() {
-  return (
-    <AiSettingsProvider>
-      <AppContent />
-    </AiSettingsProvider>
-  );
+  return <AppContent />;
 }

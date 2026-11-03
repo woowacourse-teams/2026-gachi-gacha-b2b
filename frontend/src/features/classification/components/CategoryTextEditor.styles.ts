@@ -2,8 +2,6 @@ import styled from '@emotion/styled';
 
 import { colors, radii } from '@/styles/tokens';
 
-import type { AiSuggestionStatus } from '../model/aiSuggestion';
-
 export const Editor = styled.section`
   textarea {
     display: block;
@@ -43,12 +41,6 @@ export const EditorHeader = styled.div`
     font-size: 14px;
     font-weight: 800;
   }
-
-  div {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
 `;
 
 export const TextButton = styled.button`
@@ -64,10 +56,6 @@ export const TextButton = styled.button`
   }
 `;
 
-export const RetryButton = styled(TextButton)`
-  color: ${colors.success};
-`;
-
 export const ManageButton = styled(TextButton)`
   color: ${colors.brand};
 `;
@@ -79,35 +67,11 @@ export const HelperText = styled.p`
   line-height: 1.5;
 `;
 
-export const AiState = styled.p<{ status: AiSuggestionStatus }>`
-  margin: 8px 0 0;
-  color: ${({ status }) =>
-    status === 'FAILED'
-      ? colors.danger
-      : status === 'READY'
-        ? colors.success
-        : colors.textMuted};
-  font-size: 12px;
-  font-weight: 700;
-`;
-
 export const UnknownCategoryMessage = styled.p`
   margin: 8px 0 0;
   color: ${colors.danger};
   font-size: 12px;
   font-weight: 700;
-`;
-
-export const AiEvidence = styled.div`
-  display: grid;
-  gap: 4px;
-  margin-top: 8px;
-  padding: 10px 12px;
-  border-radius: ${radii.small};
-  color: ${colors.textMuted};
-  background: #f3faf6;
-  font-size: 12px;
-  line-height: 1.5;
 `;
 
 export const CategoryCatalog = styled.div`

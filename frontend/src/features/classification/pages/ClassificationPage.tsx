@@ -1,7 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { ApiError } from '@/apis/httpClient';
-import { useAiSettings } from '@/features/ai/context/AiSettingsContext';
 import { getErrorMessage } from '@/utils/getErrorMessage';
 
 import {
@@ -26,8 +25,6 @@ import {
   Workspace,
   ZoomControls,
 } from './ClassificationPage.styles';
-import { getAiCategorySuggestion } from '../api/aiSuggestionApi';
-import { clearCachedAiSuggestion } from '../api/aiSuggestionCache';
 import {
   classifyGacha,
   createCategory,
@@ -41,10 +38,8 @@ import {
 import CategoryDialog from '../components/CategoryDialog';
 import CategoryTextEditor from '../components/CategoryTextEditor';
 import SkipDialog from '../components/SkipDialog';
-import type { AiSuggestionStatus } from '../model/aiSuggestion';
 import {
   appendCategoryText,
-  formatCategoryText,
   formatCategoryTextByIds,
   removeCategoryText,
   resolveCategoryText,
@@ -111,20 +106,10 @@ export default function ClassificationPage({
   onNavigate,
 }: ClassificationPageProps) {
   const isEditMode = mode === 'edit';
-  const {
-    credentials,
-    isEnabled: isAiEnabled,
-    recordRequest: recordAiRequest,
-  } = useAiSettings();
   const [item, setItem] = useState<ClassificationItem | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [name, setName] = useState('');
   const [categoryText, setCategoryText] = useState('');
-  const [aiStatus, setAiStatus] = useState<AiSuggestionStatus>('IDLE');
-  const [aiModel, setAiModel] = useState('');
-  const [aiError, setAiError] = useState('');
-  const [aiWorkNames, setAiWorkNames] = useState<string[]>([]);
-  const [aiCharacterNames, setAiCharacterNames] = useState<string[]>([]);
   const [remainingCount, setRemainingCount] = useState<number | null>(null);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -134,10 +119,6 @@ export default function ClassificationPage({
   const [skipError, setSkipError] = useState('');
   const [zoom, setZoom] = useState(1);
   const [hasImageError, setHasImageError] = useState(false);
-  const hasEditedNameRef = useRef(false);
-  const hasEditedCategoryTextRef = useRef(false);
-  const aiRequestIdRef = useRef(0);
-  const aiAbortControllerRef = useRef<AbortController | null>(null);
   const idRange = useMemo<ClassificationIdRange>(
     () => ({
       ...(minId === undefined ? {} : { minId }),
@@ -158,17 +139,8 @@ export default function ClassificationPage({
       setItem(null);
       setName('');
       setCategoryText('');
-      setAiStatus('IDLE');
-      setAiModel('');
-      setAiError('');
-      setAiWorkNames([]);
-      setAiCharacterNames([]);
       setZoom(1);
       setHasImageError(false);
-      hasEditedNameRef.current = false;
-      hasEditedCategoryTextRef.current = false;
-      aiAbortControllerRef.current?.abort();
-      aiAbortControllerRef.current = null;
 
       try {
         const queuePromise =
@@ -205,9 +177,6 @@ export default function ClassificationPage({
 
     return () => {
       isCurrent = false;
-      aiRequestIdRef.current += 1;
-      aiAbortControllerRef.current?.abort();
-      aiAbortControllerRef.current = null;
     };
   }, [idRange, isEditMode, itemId]);
 
@@ -215,91 +184,6 @@ export default function ClassificationPage({
     () => resolveCategoryText(categoryText, categories),
     [categories, categoryText],
   );
-
-  const loadAiSuggestion = useCallback(
-    async (force = false) => {
-      if (!item || !isAiEnabled || !credentials) return;
-
-      if (!item.imageUrl) {
-        setAiStatus('FAILED');
-        setAiError('분석할 썸네일 이미지가 없습니다.');
-        return;
-      }
-
-      if (force) {
-        clearCachedAiSuggestion(item.id, item.version, credentials.provider);
-      }
-      const requestId = aiRequestIdRef.current + 1;
-      aiRequestIdRef.current = requestId;
-      aiAbortControllerRef.current?.abort();
-      const abortController = new AbortController();
-      aiAbortControllerRef.current = abortController;
-
-      setAiStatus('LOADING');
-      setAiError('');
-      setAiWorkNames([]);
-      setAiCharacterNames([]);
-
-      try {
-        const suggestion = await getAiCategorySuggestion(item, categories, {
-          credentials,
-          force,
-          onRequest: recordAiRequest,
-          signal: abortController.signal,
-        });
-
-        if (requestId !== aiRequestIdRef.current) return;
-
-        if (!hasEditedNameRef.current && suggestion.translatedName) {
-          setName(suggestion.translatedName);
-          hasEditedNameRef.current = false;
-        }
-
-        if (!hasEditedCategoryTextRef.current) {
-          setCategoryText(formatCategoryText(suggestion.categoryNames));
-          hasEditedCategoryTextRef.current = false;
-        }
-
-        setAiWorkNames(suggestion.workNames);
-        setAiCharacterNames(suggestion.characterNames);
-        setAiModel(suggestion.model);
-        setAiStatus('READY');
-      } catch (cause) {
-        if (requestId !== aiRequestIdRef.current) return;
-        if (cause instanceof DOMException && cause.name === 'AbortError') {
-          setAiStatus('IDLE');
-          return;
-        }
-        setAiError(getErrorMessage(cause));
-        setAiStatus('FAILED');
-      } finally {
-        if (aiAbortControllerRef.current === abortController) {
-          aiAbortControllerRef.current = null;
-        }
-      }
-    },
-    [categories, credentials, isAiEnabled, item, recordAiRequest],
-  );
-
-  useEffect(() => {
-    if (!isAiEnabled || !credentials || isEditMode) {
-      aiRequestIdRef.current += 1;
-      aiAbortControllerRef.current?.abort();
-      aiAbortControllerRef.current = null;
-      setAiStatus('IDLE');
-      setAiError('');
-      setAiModel('');
-      setAiWorkNames([]);
-      setAiCharacterNames([]);
-      return;
-    }
-
-    void loadAiSuggestion();
-
-    return () => {
-      aiAbortControllerRef.current?.abort();
-    };
-  }, [credentials, isAiEnabled, isEditMode, loadAiSuggestion]);
 
   const isDirty = useMemo(
     () =>
@@ -485,7 +369,6 @@ export default function ClassificationPage({
 
     setCategories((current) => [...current, category]);
     setCategoryText((current) => appendCategoryText(current, category.name));
-    hasEditedCategoryTextRef.current = true;
   };
 
   const handleDeleteCategory = async (categoryId: number) => {
@@ -498,7 +381,6 @@ export default function ClassificationPage({
       setCategoryText((current) =>
         removeCategoryText(current, deletedCategory.name),
       );
-      hasEditedCategoryTextRef.current = true;
     }
   };
 
@@ -649,7 +531,6 @@ export default function ClassificationPage({
                 placeholder="가챠 이름을 입력해 주세요"
                 value={name}
                 onChange={(event) => {
-                  hasEditedNameRef.current = true;
                   setName(event.target.value);
                   setError('');
                 }}
@@ -659,7 +540,6 @@ export default function ClassificationPage({
                   aria-label="이름 지우기"
                   type="button"
                   onClick={() => {
-                    hasEditedNameRef.current = true;
                     setName('');
                   }}
                 >
@@ -669,34 +549,21 @@ export default function ClassificationPage({
             </NameInputWrap>
 
             <CategoryTextEditor
-              aiError={aiError}
-              aiEnabled={isAiEnabled}
-              aiCharacterNames={aiCharacterNames}
-              aiModel={aiModel}
-              aiStatus={aiStatus}
-              aiWorkNames={aiWorkNames}
               categories={categories}
               disabled={isSubmitting}
               selectedCategoryIds={categoryResolution.categoryIds}
               unknownCategoryNames={categoryResolution.unknownCategoryNames}
               value={categoryText}
               onChange={(value) => {
-                hasEditedCategoryTextRef.current = true;
                 setCategoryText(value);
                 setError('');
               }}
               onManage={() => setIsCategoryDialogOpen(true)}
-              onRetry={() => {
-                hasEditedCategoryTextRef.current = false;
-                setError('');
-                void loadAiSuggestion(true);
-              }}
               onToggle={(category) => {
                 const isSelected = categoryResolution.categoryIds.includes(
                   category.id,
                 );
 
-                hasEditedCategoryTextRef.current = true;
                 setCategoryText((current) =>
                   isSelected
                     ? removeCategoryText(current, category.name)

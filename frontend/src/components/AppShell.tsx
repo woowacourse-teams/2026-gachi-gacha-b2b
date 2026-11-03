@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react';
 
 import logoSymbol from '@/assets/gachi-gacha-logo-symbol.svg';
-import AiControl from '@/features/ai/components/AiControl';
 
 import {
   Brand,
@@ -78,7 +77,6 @@ export default function AppShell({
             <span>매장 가챠 관리</span>
           </NavigationButton>
         </Navigation>
-        <AiControl />
       </Sidebar>
       <Main>{children}</Main>
     </Layout>

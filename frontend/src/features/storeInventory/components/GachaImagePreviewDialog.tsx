@@ -1,7 +1,8 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import {
   ImagePreviewCloseButton,
+  ImagePreviewFallback,
   ImagePreviewHeader,
   ImagePreviewImage,
   ImagePreviewOverlay,
@@ -13,6 +14,7 @@ interface GachaImagePreviewDialogProps {
   imageUrl: string;
   name: string;
   onClose: () => void;
+  onImageError?: () => void;
 }
 
 export default function GachaImagePreviewDialog({
@@ -20,8 +22,10 @@ export default function GachaImagePreviewDialog({
   imageUrl,
   name,
   onClose,
+  onImageError,
 }: GachaImagePreviewDialogProps) {
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const [imageFailed, setImageFailed] = useState(false);
 
   useEffect(() => {
     const previouslyFocusedElement =
@@ -70,7 +74,20 @@ export default function GachaImagePreviewDialog({
             ×
           </ImagePreviewCloseButton>
         </ImagePreviewHeader>
-        <ImagePreviewImage alt={`${name} 확대 이미지`} src={imageUrl} />
+        {imageFailed ? (
+          <ImagePreviewFallback role="status">
+            이미지를 불러오지 못했습니다. 원본 이미지 URL을 확인해 주세요.
+          </ImagePreviewFallback>
+        ) : (
+          <ImagePreviewImage
+            alt={`${name} 확대 이미지`}
+            src={imageUrl}
+            onError={() => {
+              setImageFailed(true);
+              onImageError?.();
+            }}
+          />
+        )}
       </ImagePreviewPanel>
     </ImagePreviewOverlay>
   );

@@ -15,7 +15,6 @@ import {
   storeGachaAssignments,
   stores,
 } from './data';
-import type { AiCategorySuggestionRequestDto } from '../features/classification/api/aiSuggestion.dto';
 import type {
   CategoryDto,
   ClassifyGachaRequestDto,
@@ -30,7 +29,7 @@ import type {
 import type { BackendStoreCreateRequestDto } from '../features/storeInventory/api/storeInventory.dto';
 
 const apiPath = (path: string) => `${__API_BASE_URL__}${path}`;
-const aiApiPath = (path: string) => `${__AI_API_BASE_URL__}${path}`;
+const bffApiPath = (path: string) => `${__BFF_API_BASE_URL__}${path}`;
 
 const toAbsoluteApiUrl = (requestUrl: string, path: string) =>
   new URL(apiPath(path), requestUrl).toString();
@@ -101,14 +100,6 @@ const conflict = () =>
     { status: 409 },
   );
 
-const getMockCategoryNames = (itemId: number) => {
-  if (itemId === 101) return ['캐릭터', '피규어'];
-  if (itemId === 102) return ['캐릭터'];
-  if (itemId === 103) return ['캡슐토이', '가챠'];
-  if (itemId === 104) return ['미니어처'];
-  return ['가챠'];
-};
-
 const ok = <Data>(data: Data) => ({ code: 'C000', message: '정상', data });
 
 const getPageRequest = (requestUrl: string) => {
@@ -146,45 +137,31 @@ const toPage = <Item>(items: Item[], page: number, size: number) => {
 };
 
 export const handlers = [
-  http.post(aiApiPath('/suggest-categories'), async ({ request }) => {
-    await delay(650);
+  http.get(bffApiPath('/catalog-items'), async ({ request }) => {
+    await delay(120);
+    const requestedIds = new Set(
+      new URL(request.url).searchParams.getAll('gachaId').map(Number),
+    );
+    const items = classificationItems
+      .filter((item) => requestedIds.has(item.gachaId))
+      .map((item) => ({
+        gachaId: item.gachaId,
+        name: item.displayName,
+        caption: item.caption,
+        thumbnailUrl: item.thumbnailUrl,
+        productCode: item.originalFileName,
+        categories: item.categoryIds.flatMap((categoryId) => {
+          const category = categories.find(
+            ({ categoryId: id }) => id === categoryId,
+          );
+          return category ? [category.categoryName] : [];
+        }),
+        source: item.source,
+        createdAt: item.createdAt,
+        updatedAt: item.createdAt,
+      }));
 
-    const provider = request.headers.get('X-Gachi-AI-Provider');
-    const apiKey = request.headers.get('X-Gachi-AI-Key');
-
-    if (!provider || !apiKey) {
-      return HttpResponse.json(
-        { message: '사용할 AI 서비스와 API 키가 필요합니다.' },
-        { status: 401 },
-      );
-    }
-
-    const body = (await request.json()) as AiCategorySuggestionRequestDto;
-    const item = findItem(body.itemId);
-
-    if (!item || item.version !== body.itemVersion) {
-      return HttpResponse.json(
-        { message: 'AI 추천 대상 데이터가 변경되었거나 없습니다.' },
-        { status: 409 },
-      );
-    }
-
-    const workNames = item.gachaId === 101 ? ['산리오 캐릭터즈'] : [];
-    const characterNames = item.gachaId === 101 ? ['마이멜로디'] : [];
-    const categoryNames = [
-      ...workNames,
-      ...characterNames,
-      ...getMockCategoryNames(item.gachaId),
-    ];
-
-    return HttpResponse.json({
-      translatedName: item.displayName ?? '미확인 캡슐 가챠',
-      workNames,
-      characterNames,
-      categoryNames,
-      model: `msw-${provider.toLowerCase()}-gacha-classifier`,
-      generatedAt: new Date().toISOString(),
-    });
+    return HttpResponse.json({ items });
   }),
 
   http.post(apiPath('/stores'), async ({ request }) => {
