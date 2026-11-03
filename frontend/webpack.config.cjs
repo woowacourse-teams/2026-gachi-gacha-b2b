@@ -15,7 +15,10 @@ if (fs.existsSync(envPath)) {
 module.exports = (_env, argv) => {
   const isProduction = argv.mode === 'production';
   const apiBaseUrl = process.env.B2B_API_BASE_URL ?? '/api/v1';
-  const aiApiBaseUrl = process.env.B2B_AI_API_BASE_URL ?? '/api/b2b-ai';
+  const bffApiBaseUrl =
+    process.env.B2B_BFF_API_BASE_URL ??
+    process.env.B2B_AI_API_BASE_URL ??
+    '/api/b2b-ai';
   const backendOrigin =
     process.env.B2B_BACKEND_ORIGIN ?? 'http://127.0.0.1:8080';
   const useMockApi = process.env.B2B_USE_MSW
@@ -75,7 +78,7 @@ module.exports = (_env, argv) => {
       }),
       new webpack.DefinePlugin({
         __API_BASE_URL__: JSON.stringify(apiBaseUrl),
-        __AI_API_BASE_URL__: JSON.stringify(aiApiBaseUrl),
+        __BFF_API_BASE_URL__: JSON.stringify(bffApiBaseUrl),
         __USE_MOCK_API__: JSON.stringify(useMockApi),
       }),
     ],

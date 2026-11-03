@@ -20,7 +20,7 @@ describe('catalog search API', () => {
   it('검색어와 선택한 카테고리명을 BFF에 전달하고 화면 모델로 변환한다', async () => {
     let requestedUrl = '';
     server.use(
-      http.get(`${__AI_API_BASE_URL__}/catalog-search`, ({ request }) => {
+      http.get(`${__BFF_API_BASE_URL__}/catalog-search`, ({ request }) => {
         requestedUrl = request.url;
         return HttpResponse.json({
           items: [

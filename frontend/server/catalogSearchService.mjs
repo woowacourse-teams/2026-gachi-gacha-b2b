@@ -3,6 +3,7 @@ const DEFAULT_BACKEND_PAGE_SIZE = 500;
 const MAX_BACKEND_PAGES = 100;
 const MAX_QUERY_LENGTH = 100;
 const MAX_CATEGORY_FILTERS = 50;
+const MAX_LOOKUP_IDS = 100;
 const MAX_RESULT_SIZE = 100;
 
 export class CatalogSearchError extends Error {
@@ -190,7 +191,12 @@ export const createCatalogSearchService = ({
     return catalogRequest;
   };
 
-  return async ({ query = '', categoryNames = [], cursor, limit } = {}) => {
+  const search = async ({
+    query = '',
+    categoryNames = [],
+    cursor,
+    limit,
+  } = {}) => {
     if (typeof query !== 'string' || query.length > MAX_QUERY_LENGTH) {
       throw new CatalogSearchError(
         `검색어는 ${MAX_QUERY_LENGTH}자 이하의 문자열이어야 합니다.`,
@@ -232,4 +238,25 @@ export const createCatalogSearchService = ({
       nextCursor: start + items.length < filteredItems.length ? page + 1 : null,
     };
   };
+
+  search.getItemsByIds = async (gachaIds = []) => {
+    if (
+      !Array.isArray(gachaIds) ||
+      gachaIds.length > MAX_LOOKUP_IDS ||
+      gachaIds.some((id) => !Number.isSafeInteger(id) || id <= 0)
+    ) {
+      throw new CatalogSearchError('가챠 ID 목록이 올바르지 않습니다.');
+    }
+    if (gachaIds.length === 0) return [];
+
+    const catalogById = new Map(
+      (await getCatalog()).map((item) => [item.gachaId, item]),
+    );
+    return [...new Set(gachaIds)].flatMap((id) => {
+      const item = catalogById.get(id);
+      return item ? [item] : [];
+    });
+  };
+
+  return search;
 };

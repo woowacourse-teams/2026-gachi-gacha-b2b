@@ -1,5 +1,4 @@
 import AppShell from '@/components/AppShell';
-import { AiSettingsProvider } from '@/features/ai/context/AiSettingsContext';
 import ClassificationPage from '@/features/classification/pages/ClassificationPage';
 import QueuePage from '@/features/classification/pages/QueuePage';
 import RegistrationPage from '@/features/registration/pages/RegistrationPage';
@@ -54,9 +53,5 @@ function AppContent() {
 }
 
 export default function App() {
-  return (
-    <AiSettingsProvider>
-      <AppContent />
-    </AiSettingsProvider>
-  );
+  return <AppContent />;
 }

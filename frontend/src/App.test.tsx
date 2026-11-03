@@ -3,8 +3,8 @@ import {
   fireEvent,
   render,
   screen,
-  within,
   waitFor,
+  within,
 } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
@@ -19,8 +19,15 @@ import {
 } from 'vitest';
 
 import App from '@/App';
-import { getCategories } from '@/features/classification/api/classificationApi';
-import { classificationItems, resetMockData } from '@/mocks/data';
+import {
+  getCategories,
+  getClassificationItem,
+} from '@/features/classification/api/classificationApi';
+import {
+  classificationItems,
+  resetMockData,
+  storeGachaAssignments,
+} from '@/mocks/data';
 import { handlers } from '@/mocks/handlers';
 
 const server = setupServer(...handlers);
@@ -56,61 +63,38 @@ describe('App navigation', () => {
     ).toBeInTheDocument();
   });
 
-  it('기본 상태에서는 분류 화면에 들어가도 AI를 호출하지 않는다', async () => {
-    let aiRequestCount = 0;
-    server.use(
-      http.post('http://localhost/api/b2b-ai/suggest-categories', () => {
-        aiRequestCount += 1;
-        return HttpResponse.json({ message: '호출되면 안 됩니다.' });
-      }),
-    );
+  it('분류 화면에서 이름과 카테고리를 직접 편집해 저장한다', async () => {
     window.history.replaceState({}, '', '/classify/101');
-
     render(<App />);
 
     expect(await screen.findByDisplayValue('귀여운 토끼 피규어')).toBeVisible();
-    expect(
-      screen.getByText('AI 보조가 꺼져 있습니다. 직접 입력해 주세요.'),
-    ).toBeVisible();
-    expect(aiRequestCount).toBe(0);
-  });
-
-  it('개인 키로 AI를 켜면 번역 이름과 작품·캐릭터 카테고리를 초안에 반영한다', async () => {
-    window.history.replaceState({}, '', '/classify/101');
-    render(<App />);
-    await screen.findByDisplayValue('귀여운 토끼 피규어');
-
-    fireEvent.click(screen.getByRole('button', { name: 'AI 설정' }));
-    fireEvent.change(screen.getByLabelText('개인 API 키'), {
-      target: { value: 'test-gemini-key' },
+    expect(screen.queryByRole('button', { name: 'AI 설정' })).toBeNull();
+    fireEvent.change(screen.getByDisplayValue('귀여운 토끼 피규어'), {
+      target: { value: '직접 수정한 토끼 피규어' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'AI 보조 켜기' }));
+    fireEvent.change(screen.getByLabelText('카테고리 수정'), {
+      target: { value: '캐릭터, 피규어' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: '저장 후 다음 →' }));
 
-    expect(await screen.findByText(/AI 추천을 입력했습니다/)).toBeVisible();
-    expect(screen.getByLabelText('카테고리 수정')).toHaveValue(
-      '산리오 캐릭터즈, 마이멜로디, 캐릭터, 피규어',
-    );
-    expect(screen.getByText('작품: 산리오 캐릭터즈')).toBeVisible();
-    expect(screen.getByText('캐릭터: 마이멜로디')).toBeVisible();
+    expect(
+      await screen.findByDisplayValue('로봇 전사 블루', {}, { timeout: 5_000 }),
+    ).toBeVisible();
+    expect(await getClassificationItem(101)).toMatchObject({
+      name: '직접 수정한 토끼 피규어',
+      categoryIds: [3, 5],
+    });
+  }, 10_000);
 
-    await waitFor(() =>
-      expect(screen.getByText(/이번 탭 1회 요청/)).toBeVisible(),
-    );
-  });
-
-  it('AI가 제안한 새 카테고리는 관리자 확인 후 최종 저장 시 등록한다', async () => {
+  it('직접 입력한 새 카테고리는 확인 후 최종 저장 시 등록한다', async () => {
     vi.spyOn(window, 'confirm').mockReturnValue(true);
     window.history.replaceState({}, '', '/classify/101');
     render(<App />);
     await screen.findByDisplayValue('귀여운 토끼 피규어');
 
-    fireEvent.click(screen.getByRole('button', { name: 'AI 설정' }));
-    fireEvent.change(screen.getByLabelText('개인 API 키'), {
-      target: { value: 'test-gemini-key' },
+    fireEvent.change(screen.getByLabelText('카테고리 수정'), {
+      target: { value: '산리오 캐릭터즈, 마이멜로디, 캐릭터, 피규어' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'AI 보조 켜기' }));
-    await screen.findByText(/AI 추천을 입력했습니다/);
-
     fireEvent.click(screen.getByRole('button', { name: '저장 후 다음 →' }));
 
     expect(
@@ -158,7 +142,7 @@ describe('App navigation', () => {
     ).toBeVisible();
     expect(await screen.findByText('산리오 수정 피규어')).toBeVisible();
     expect(screen.getByText('편의점 음식 미니어처 수정')).toBeVisible();
-  });
+  }, 15_000);
 
   it('현재 목록의 마지막 가챠를 저장하면 다음 페이지의 첫 가챠로 이어간다', async () => {
     for (let id = 200; id <= 247; id += 1) {
@@ -197,32 +181,6 @@ describe('App navigation', () => {
     ).toBeVisible();
   });
 
-  it('선택한 AI 서비스별 API 키 발급 순서와 공식 페이지를 안내한다', async () => {
-    render(<App />);
-
-    fireEvent.click(screen.getByRole('button', { name: 'AI 설정' }));
-
-    expect(
-      screen.getByRole('button', { name: 'Google Gemini API 키 발급 안내' }),
-    ).toBeVisible();
-    expect(
-      screen.getByText(/Google AI Studio API 키 페이지/).closest('a'),
-    ).toHaveAttribute('href', 'https://aistudio.google.com/apikey');
-    expect(screen.getByText(/AIza로 시작하는 키/)).toBeInTheDocument();
-
-    fireEvent.change(screen.getByLabelText('AI 서비스'), {
-      target: { value: 'OPENAI' },
-    });
-
-    expect(
-      screen.getByRole('button', { name: 'OpenAI API 키 발급 안내' }),
-    ).toBeVisible();
-    expect(
-      screen.getByText(/OpenAI API 키 페이지/).closest('a'),
-    ).toHaveAttribute('href', 'https://platform.openai.com/api-keys');
-    expect(screen.getByText(/sk-로 시작하는 키/)).toBeInTheDocument();
-  });
-
   it('매장을 선택해 분류 완료 가챠를 등록하고 중복 등록을 막는다', async () => {
     render(<App />);
 
@@ -259,9 +217,117 @@ describe('App navigation', () => {
       within(catalogRow!).getByRole('button', { name: '매장에서 제거' }),
     ).toBeVisible();
     expect(
-      screen.getByText('현재 보유 가챠').previousSibling,
+      screen.getByText('등록 가챠 종류').previousSibling,
     ).toHaveTextContent('1');
+
+    const assignedSection = screen.getByRole('region', {
+      name: '매장에 등록된 가챠',
+    });
+    fireEvent.change(
+      screen.getByRole('textbox', { name: '가챠 이름 또는 카테고리 검색' }),
+      { target: { value: '건담' } },
+    );
+    expect(
+      await within(assignedSection).findByText('산리오 미니 피규어'),
+    ).toBeVisible();
+    expect(
+      await within(assignedSection).findByText(/카탈로그 등록일/),
+    ).toBeVisible();
   }, 10_000);
+
+  it('매장에 연결된 가챠가 미분류가 되어도 등록 목록에서 이름을 유지한다', async () => {
+    const item = classificationItems.find(({ gachaId }) => gachaId === 105);
+    expect(item).toBeDefined();
+    item!.categoryIds = [];
+    item!.status = 'UNCLASSIFIED';
+    window.history.replaceState({}, '', '/stores/1/gachas');
+    render(<App />);
+
+    const assignedSection = await screen.findByRole('region', {
+      name: '매장에 등록된 가챠',
+    });
+    expect(
+      await within(assignedSection).findByText('산리오 미니 피규어'),
+    ).toBeVisible();
+  });
+
+  it('등록된 가챠 종류를 이름·카테고리로 찾고 ID순으로 정렬한다', async () => {
+    storeGachaAssignments.get(1)?.add(107);
+    window.history.replaceState({}, '', '/stores/1/gachas');
+    render(<App />);
+
+    const assignedSection = await screen.findByRole('region', {
+      name: '매장에 등록된 가챠',
+    });
+    expect(
+      await within(assignedSection).findByText('건담 캡슐 피규어'),
+    ).toBeVisible();
+    await waitFor(() => {
+      expect(
+        within(assignedSection).getByRole('button', { name: '전체 종류 CSV' }),
+      ).toBeEnabled();
+    });
+
+    fireEvent.change(within(assignedSection).getByLabelText('등록 가챠 검색'), {
+      target: { value: '산 리오' },
+    });
+    expect(
+      within(assignedSection).getByText('산리오 미니 피규어'),
+    ).toBeVisible();
+    expect(within(assignedSection).queryByText('건담 캡슐 피규어')).toBeNull();
+
+    fireEvent.change(within(assignedSection).getByLabelText('등록 가챠 검색'), {
+      target: { value: '' },
+    });
+    fireEvent.change(within(assignedSection).getByLabelText('카테고리'), {
+      target: { value: '2' },
+    });
+    expect(
+      within(assignedSection).getByText('산리오 미니 피규어'),
+    ).toBeVisible();
+    expect(within(assignedSection).queryByText('건담 캡슐 피규어')).toBeNull();
+
+    fireEvent.change(within(assignedSection).getByLabelText('카테고리'), {
+      target: { value: '' },
+    });
+    fireEvent.change(within(assignedSection).getByLabelText('정렬'), {
+      target: { value: 'id' },
+    });
+    expect(
+      within(assignedSection).getAllByRole('listitem')[0],
+    ).toHaveTextContent('DB ID #105');
+  });
+
+  it('등록 가챠 상세조회가 실패하면 CSV를 막고 재시도할 수 있다', async () => {
+    server.use(
+      http.get(`${__BFF_API_BASE_URL__}/catalog-items`, () =>
+        HttpResponse.json({ message: '조회 실패' }, { status: 502 }),
+      ),
+    );
+    window.history.replaceState({}, '', '/stores/1/gachas');
+    render(<App />);
+
+    const assignedSection = await screen.findByRole('region', {
+      name: '매장에 등록된 가챠',
+    });
+    expect(await within(assignedSection).findByText(/조회 실패/)).toBeVisible();
+    expect(
+      within(assignedSection).getByRole('button', { name: '전체 종류 CSV' }),
+    ).toBeDisabled();
+
+    server.resetHandlers();
+    fireEvent.click(
+      within(assignedSection).getByRole('button', { name: '다시 시도' }),
+    );
+    expect(
+      await within(assignedSection).findByText('산리오 미니 피규어'),
+    ).toBeVisible();
+    await waitFor(() => {
+      expect(
+        within(assignedSection).getByRole('button', { name: '전체 종류 CSV' }),
+      ).toBeEnabled();
+    });
+  });
 
   it('새 매장을 등록한 뒤 해당 매장의 가챠 관리로 바로 이어간다', async () => {
     window.history.replaceState({}, '', '/stores');
@@ -320,9 +386,11 @@ describe('App navigation', () => {
       }),
     );
 
-    const previewButton = await screen.findByRole('button', {
-      name: '가챠 #105 산리오 미니 피규어 이미지 확대',
-    });
+    const previewButton = await screen.findByRole(
+      'button',
+      { name: '가챠 #105 산리오 미니 피규어 이미지 확대' },
+      { timeout: 5_000 },
+    );
     previewButton.focus();
     fireEvent.click(previewButton);
 

@@ -264,6 +264,11 @@ export const SectionHeader = styled.div`
   gap: 18px;
   margin-bottom: 16px;
 
+  @media (max-width: 720px) {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
   h2 {
     margin: 0;
     font-size: 20px;
@@ -280,9 +285,71 @@ export const SectionHeader = styled.div`
   }
 `;
 
+export const SectionActions = styled.div`
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 12px;
+
+  @media (max-width: 720px) {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+`;
+
+export const ExportButton = styled.button`
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid ${colors.borderStrong};
+  border-radius: ${radii.small};
+  color: ${colors.text};
+  background: ${colors.surface};
+  font-size: 12px;
+  font-weight: 800;
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+`;
+
+export const AssignedToolbar = styled.div`
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(140px, 200px) minmax(
+      140px,
+      180px
+    );
+  gap: 10px;
+  margin-bottom: 16px;
+
+  label {
+    display: grid;
+    gap: 5px;
+    min-width: 0;
+    color: ${colors.textMuted};
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  input,
+  select {
+    width: 100%;
+    min-height: 38px;
+    padding: 0 10px;
+    border: 1px solid ${colors.border};
+    border-radius: ${radii.small};
+    color: ${colors.text};
+    background: ${colors.surface};
+  }
+
+  @media (max-width: 720px) {
+    grid-template-columns: 1fr;
+  }
+`;
+
 export const AssignedList = styled.ul`
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
   gap: 10px;
   margin: 0;
   padding: 0;
@@ -300,8 +367,8 @@ export const AssignedCard = styled.li`
   border-radius: ${radii.medium};
   background: ${colors.surfaceMuted};
 
-  img,
-  > span:first-of-type {
+  > img,
+  > .assigned-placeholder {
     display: grid;
     width: 48px;
     height: 48px;
@@ -309,6 +376,10 @@ export const AssignedCard = styled.li`
     border-radius: ${radii.small};
     background: ${colors.surface};
     object-fit: cover;
+  }
+
+  > .assigned-detail {
+    min-width: 0;
   }
 
   strong {
@@ -320,7 +391,11 @@ export const AssignedCard = styled.li`
   }
 
   small {
+    display: block;
+    overflow: hidden;
     color: ${colors.textMuted};
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   button {
