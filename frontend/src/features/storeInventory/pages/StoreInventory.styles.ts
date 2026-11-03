@@ -33,6 +33,23 @@ export const Description = styled.p`
   line-height: 1.6;
 `;
 
+export const PreviewButton = styled.button`
+  margin-top: 17px;
+  padding: 11px 16px;
+  border: 1px solid ${colors.brand};
+  border-radius: ${radii.medium};
+  color: ${colors.brandDark};
+  background: ${colors.brandSoft};
+  font-size: 14px;
+  font-weight: 800;
+
+  &:hover,
+  &:focus-visible {
+    outline: 2px solid ${colors.brand};
+    outline-offset: 2px;
+  }
+`;
+
 export const CountBadge = styled.div`
   min-width: 122px;
   padding: 15px 18px;

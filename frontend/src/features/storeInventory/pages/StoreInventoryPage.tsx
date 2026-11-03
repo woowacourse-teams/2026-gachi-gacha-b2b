@@ -29,6 +29,7 @@ import {
   Heading,
   LoadMoreButton,
   Page,
+  PreviewButton,
   RelationButton,
   SearchForm,
   Section,
@@ -573,6 +574,12 @@ export default function StoreInventoryPage({
             분류 완료된 가챠만 검색됩니다. 등록 결과는 소비자용 매장 상세의 가챠
             목록 API에 바로 반영됩니다.
           </Description>
+          <PreviewButton
+            type="button"
+            onClick={() => onNavigate(`/stores/${storeId}/operations-preview`)}
+          >
+            기기 배치·쿠지 현황판 시안 보기 →
+          </PreviewButton>
         </div>
         <CountBadge>
           <strong>{assignedGachas.length}</strong>

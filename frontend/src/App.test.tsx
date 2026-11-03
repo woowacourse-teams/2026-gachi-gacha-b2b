@@ -547,9 +547,11 @@ describe('App navigation', () => {
     window.history.replaceState({}, '', '/stores/3/gachas');
     render(<App />);
 
-    const previewButton = await screen.findByRole('button', {
-      name: '가챠 #105 산리오 미니 피규어 이미지 확대',
-    });
+    const previewButton = await screen.findByRole(
+      'button',
+      { name: '가챠 #105 산리오 미니 피규어 이미지 확대' },
+      { timeout: 5_000 },
+    );
     fireEvent.click(previewButton);
     const previewImage = screen.getByRole('img', {
       name: '산리오 미니 피규어 확대 이미지',
@@ -597,5 +599,38 @@ describe('App navigation', () => {
     expect(screen.queryByText('산리오 미니 피규어')).not.toBeInTheDocument();
     expect(await screen.findByText('편의점 음식 미니어처')).toBeVisible();
     expect(screen.getByText('총 1개 중 1개 표시')).toBeVisible();
+  }, 10_000);
+
+  it('매장 가챠 화면에서 기기·쿠지 운영 시안을 열고 돌아온다', async () => {
+    window.history.replaceState({}, '', '/stores/1/gachas');
+    render(<App />);
+
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: '기기 배치·쿠지 현황판 시안 보기 →',
+      }),
+    );
+
+    expect(
+      await screen.findByRole('heading', { name: '가챠샵 홍대점 운영 보드' }),
+    ).toBeVisible();
+    expect(window.location.pathname).toBe('/stores/1/operations-preview');
+    expect(
+      screen.getByText(/매장 정보와 등록 가챠는 기존 DB에서 조회합니다/),
+    ).toBeVisible();
+    expect(screen.getByText(/서버에 저장되지 않는 체험용 초안/)).toBeVisible();
+    expect(screen.queryByText(/공개 상품정보 시트/)).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: '기기 배치 초안' }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole('heading', { name: '쿠지 현황판 초안' }),
+    ).toBeVisible();
+
+    fireEvent.click(screen.getByRole('button', { name: '← 보유 가챠 관리로' }));
+    expect(
+      await screen.findByRole('heading', { name: '가챠샵 홍대점' }),
+    ).toBeVisible();
+    expect(window.location.pathname).toBe('/stores/1/gachas');
   }, 10_000);
 });

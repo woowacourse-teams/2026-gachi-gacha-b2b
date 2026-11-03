@@ -4,6 +4,7 @@ import QueuePage from '@/features/classification/pages/QueuePage';
 import RegistrationPage from '@/features/registration/pages/RegistrationPage';
 import StoreInventoryPage from '@/features/storeInventory/pages/StoreInventoryPage';
 import StoreListPage from '@/features/storeInventory/pages/StoreListPage';
+import StoreOperationsPreviewPage from '@/features/storeInventory/pages/StoreOperationsPreviewPage';
 import StoreRegistrationPage from '@/features/storeInventory/pages/StoreRegistrationPage';
 import { useAppRoute } from '@/routing/useAppRoute';
 import GlobalStyles from '@/styles/GlobalStyles';
@@ -15,7 +16,8 @@ function AppContent() {
       ? route.status
       : route.page === 'stores' ||
           route.page === 'storeRegistration' ||
-          route.page === 'storeInventory'
+          route.page === 'storeInventory' ||
+          route.page === 'storeOperationsPreview'
         ? 'STORES'
         : 'UNCLASSIFIED';
 
@@ -31,6 +33,12 @@ function AppContent() {
           <StoreRegistrationPage onNavigate={navigate} />
         ) : route.page === 'storeInventory' ? (
           <StoreInventoryPage
+            key={route.storeId}
+            storeId={route.storeId}
+            onNavigate={navigate}
+          />
+        ) : route.page === 'storeOperationsPreview' ? (
+          <StoreOperationsPreviewPage
             key={route.storeId}
             storeId={route.storeId}
             onNavigate={navigate}
