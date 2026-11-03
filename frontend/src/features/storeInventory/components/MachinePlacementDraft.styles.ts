@@ -56,6 +56,31 @@ export const DraftWarning = styled.div`
   }
 `;
 
+export const DraftImport = styled.div`
+  margin-top: 16px;
+  padding: 16px;
+  border: 1px solid ${colors.border};
+  border-radius: ${radii.medium};
+  background: ${colors.surface};
+
+  h4 {
+    margin: 0;
+    font-size: 16px;
+  }
+
+  > p:not([role]) {
+    margin: 7px 0 0;
+    color: ${colors.textMuted};
+    font-size: 13px;
+    line-height: 1.6;
+  }
+
+  > label {
+    max-width: 560px;
+    margin-top: 12px;
+  }
+`;
+
 export const DraftGuide = styled.p`
   margin: 13px 0 0;
   color: ${colors.textMuted};
