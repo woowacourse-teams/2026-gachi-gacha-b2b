@@ -13,6 +13,13 @@
 
 점주용 재고관리의 데이터 계약과 구현 순서는 [store-inventory-roadmap.md](docs/store-inventory-roadmap.md)에 정리했습니다.
 
+## 프론트엔드 협업 규칙
+
+- 이슈는 기본 브랜치 `main`의 `.github/ISSUE_TEMPLATE/`에서 유형에 맞는 템플릿을 사용하고, 제목은 `[FEAT]`, `[BUG]`, `[REFACTOR]`처럼 대문자 유형으로 시작합니다.
+- PR은 `main`의 `.github/pull_request_template.md` 섹션을 빠짐없이 채우고, 제목은 `[FEAT]`, `[FIX]`, `[REFACTOR]` 등 작업 유형으로 시작합니다. 관련 이슈는 PR 본문의 `Closes #번호`로 연결합니다. 스크린샷을 첨부할 수 없으면 이유를 적고, 체크리스트는 실제 충족한 항목만 표시합니다.
+- 새 작업 브랜치에는 이슈 번호를 포함합니다. 예: `feature/33-store-operations`.
+- 커밋은 Angular 유형과 기능 범위를 사용하되, 콜론 앞뒤에 공백을 둔 `feat(store-inventory) : 한글 설명` 형식을 따릅니다. 수정·리팩터링도 `fix(범위) : 한글 설명`, `refactor(범위) : 한글 설명`처럼 작성합니다.
+
 ## 실행 명령어
 
 ```bash
