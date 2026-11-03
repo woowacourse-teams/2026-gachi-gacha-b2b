@@ -73,6 +73,362 @@ export const DraftEmpty = styled.p`
   font-size: 13px;
 `;
 
+export const CoinSetup = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 12px;
+  margin-top: 18px;
+
+  > label {
+    flex: 1 1 260px;
+    max-width: 400px;
+  }
+
+  > button {
+    min-height: 42px;
+    padding: 9px 15px;
+    border: 1px solid ${colors.borderStrong};
+    border-radius: ${radii.small};
+    color: ${colors.text};
+    background: ${colors.surface};
+    font-weight: 800;
+  }
+
+  > button:hover,
+  > button:focus-visible {
+    border-color: ${colors.brand};
+    color: ${colors.brand};
+  }
+`;
+
+export const GroupSetupGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+`;
+
+export const GroupSetupCard = styled.div<{ active?: boolean }>`
+  display: grid;
+  align-content: start;
+  gap: 9px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid ${({ active }) => (active ? colors.brand : colors.border)};
+  border-radius: ${radii.medium};
+  background: ${({ active }) => (active ? '#fff8f6' : colors.surface)};
+
+  > button:first-of-type {
+    display: grid;
+    gap: 3px;
+    width: 100%;
+    padding: 0;
+    border: 0;
+    color: ${colors.text};
+    background: transparent;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  > button:first-of-type strong {
+    font-size: 16px;
+  }
+
+  > button:first-of-type span {
+    color: ${colors.brand};
+    font-size: 13px;
+    font-weight: 800;
+  }
+
+  > button:first-of-type small {
+    color: ${colors.textMuted};
+    font-size: 12px;
+  }
+
+  > label {
+    display: grid;
+    gap: 5px;
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  > .remove-group {
+    justify-self: start;
+    padding: 3px 0;
+    border: 0;
+    color: ${colors.textMuted};
+    background: transparent;
+    font-size: 12px;
+    text-decoration: underline;
+  }
+
+  > button:focus-visible {
+    outline: 2px solid ${colors.brand};
+    outline-offset: 3px;
+  }
+`;
+
+export const GroupCountInput = styled.input`
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 1px solid ${colors.border};
+  border-radius: ${radii.small};
+  color: ${colors.text};
+  background: ${colors.surface};
+  font: inherit;
+  font-size: 14px;
+
+  &[aria-invalid='true'] {
+    border-color: ${colors.danger};
+  }
+
+  &:focus-visible {
+    outline: 2px solid ${colors.brand};
+    outline-offset: 1px;
+  }
+`;
+
+export const MachineGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+`;
+
+export const MachineTile = styled.button<{ active?: boolean }>`
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  min-height: 70px;
+  padding: 9px;
+  border: 1px solid ${({ active }) => (active ? colors.brand : colors.border)};
+  border-radius: ${radii.medium};
+  color: ${colors.text};
+  background: ${({ active }) => (active ? '#fff8f6' : colors.surface)};
+  text-align: left;
+  cursor: pointer;
+
+  > img,
+  > .image-placeholder {
+    display: grid;
+    flex: 0 0 auto;
+    width: 52px;
+    height: 52px;
+    place-items: center;
+    border-radius: ${radii.small};
+    background: ${colors.surfaceMuted};
+    color: ${colors.textMuted};
+    font-size: 11px;
+    object-fit: cover;
+  }
+
+  > .machine-copy {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  strong,
+  small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  strong {
+    font-size: 13px;
+  }
+
+  small {
+    color: ${colors.textMuted};
+    font-size: 12px;
+  }
+
+  &:focus-visible {
+    outline: 2px solid ${colors.brand};
+    outline-offset: 2px;
+  }
+`;
+
+export const MachineDetails = styled.fieldset`
+  min-width: 0;
+  margin: 18px 0 0;
+  padding: 16px;
+  border: 1px solid ${colors.border};
+  border-radius: ${radii.medium};
+  background: ${colors.surface};
+
+  legend {
+    padding: 0 5px;
+    font-size: 15px;
+    font-weight: 800;
+  }
+
+  > p {
+    margin: 0 0 12px;
+    color: ${colors.textMuted};
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  > .assigned-gacha {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 14px;
+    padding: 10px;
+    border: 1px solid ${colors.border};
+    border-radius: ${radii.small};
+  }
+
+  > .assigned-gacha img,
+  > .assigned-gacha .image-placeholder {
+    display: grid;
+    flex: 0 0 auto;
+    width: 64px;
+    height: 64px;
+    place-items: center;
+    border-radius: ${radii.small};
+    background: ${colors.surfaceMuted};
+    color: ${colors.textMuted};
+    font-size: 11px;
+    object-fit: cover;
+  }
+
+  > .assigned-gacha > span:not(.image-placeholder) {
+    display: grid;
+    flex: 1 1 140px;
+    min-width: 0;
+    gap: 4px;
+  }
+
+  > .assigned-gacha strong {
+    overflow-wrap: anywhere;
+    font-size: 14px;
+  }
+
+  > .assigned-gacha small {
+    color: ${colors.textMuted};
+    font-size: 12px;
+  }
+
+  > .assigned-gacha button {
+    padding: 7px 10px;
+    border: 1px solid ${colors.border};
+    border-radius: ${radii.small};
+    color: ${colors.textMuted};
+    background: ${colors.surface};
+    font-size: 12px;
+    font-weight: 800;
+  }
+`;
+
+export const GachaPicker = styled.section`
+  min-width: 0;
+  margin-top: 12px;
+  padding: 16px;
+  border: 1px solid ${colors.border};
+  border-radius: ${radii.medium};
+  background: ${colors.surfaceMuted};
+
+  h4 {
+    margin: 0 0 10px;
+    font-size: 15px;
+  }
+
+  > label {
+    max-width: 420px;
+  }
+`;
+
+export const GachaChoices = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 9px;
+  margin-top: 12px;
+`;
+
+export const GachaChoice = styled.button`
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  min-height: 76px;
+  padding: 8px;
+  border: 1px solid ${colors.border};
+  border-radius: ${radii.small};
+  color: ${colors.text};
+  background: ${colors.surface};
+  text-align: left;
+  cursor: pointer;
+
+  &[aria-pressed='true'] {
+    border-color: ${colors.brand};
+    background: #fff8f6;
+  }
+
+  > img,
+  > .image-placeholder {
+    display: grid;
+    flex: 0 0 auto;
+    width: 58px;
+    height: 58px;
+    place-items: center;
+    border-radius: ${radii.small};
+    background: ${colors.surfaceMuted};
+    color: ${colors.textMuted};
+    font-size: 11px;
+    object-fit: cover;
+  }
+
+  > span:last-child {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  strong,
+  small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  strong {
+    font-size: 12px;
+  }
+
+  small {
+    color: ${colors.textMuted};
+    font-size: 11px;
+  }
+
+  &:focus-visible {
+    outline: 2px solid ${colors.brand};
+    outline-offset: 2px;
+  }
+`;
+
+export const MoreButton = styled.button`
+  margin-top: 10px;
+  padding: 8px 12px;
+  border: 1px solid ${colors.borderStrong};
+  border-radius: ${radii.small};
+  color: ${colors.text};
+  background: ${colors.surface};
+  font-size: 12px;
+  font-weight: 800;
+
+  &:focus-visible {
+    outline: 2px solid ${colors.brand};
+    outline-offset: 2px;
+  }
+`;
+
 export const PlacementList = styled.ol`
   display: grid;
   gap: 14px;
@@ -326,20 +682,14 @@ export const DraftActions = styled.div`
     font-weight: 800;
   }
 
-  button:first-of-type {
-    border: 1px solid ${colors.borderStrong};
-    color: ${colors.text};
-    background: ${colors.surface};
-  }
-
-  button:last-of-type {
+  button {
     border: 1px solid ${colors.brand};
     color: ${colors.surface};
     background: ${colors.brand};
   }
 
-  button:last-of-type:hover,
-  button:last-of-type:focus-visible {
+  button:hover,
+  button:focus-visible {
     background: ${colors.brandDark};
   }
 

@@ -32,6 +32,7 @@ const toStoreSummary = (
   imageUrl: dto.thumbnailUrl ?? '',
   address: dto.address,
   machineCount: dto.gachaMachineAmount ?? 0,
+  coinPrice: ('coinPrice' in dto ? dto.coinPrice : null) ?? null,
 });
 
 const toAssignedGacha = (

@@ -194,7 +194,13 @@ export const validateStoreRegistration = (
     draft.gachaMachineAmount,
     '가챠 기계 수',
   );
-  const coinPrice = parseOptionalInteger(draft.coinPrice, '동전 가격');
+  const coinPrice = parseOptionalInteger(
+    draft.coinPrice,
+    '매장 공통 코인 단가',
+  );
+  if (coinPrice.value === 0) {
+    coinPrice.error = '매장 공통 코인 단가는 1원 이상이어야 합니다.';
+  }
   const gachaPriceMin = parseOptionalInteger(
     draft.gachaPriceMin,
     '가챠 최소 가격',

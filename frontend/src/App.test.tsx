@@ -77,6 +77,19 @@ describe('App navigation', () => {
     expect(within(storeButton).getByText('店')).toBeVisible();
   });
 
+  it('매장 상세의 공통 코인 단가를 표시하고 값이 없으면 미설정으로 표시한다', async () => {
+    window.history.replaceState({}, '', '/stores/1/gachas');
+    render(<App />);
+
+    expect(await screen.findByText('코인 단가 1,000원')).toBeVisible();
+
+    cleanup();
+    window.history.replaceState({}, '', '/stores/3/gachas');
+    render(<App />);
+
+    expect(await screen.findByText('코인 단가 미설정')).toBeVisible();
+  });
+
   it('분류 화면에서 이름과 카테고리를 직접 편집해 저장한다', async () => {
     window.history.replaceState({}, '', '/classify/101');
     render(<App />);
