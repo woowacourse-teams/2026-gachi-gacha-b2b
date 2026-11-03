@@ -5,6 +5,7 @@ export type AppRoute =
   | { page: 'stores' }
   | { page: 'storeRegistration' }
   | { page: 'storeInventory'; storeId: number }
+  | { page: 'storeOperationsPreview'; storeId: number }
   | {
       page: 'queue';
       status: 'UNCLASSIFIED' | 'CLASSIFIED' | 'SKIPPED';
@@ -50,6 +51,17 @@ const parseRoute = (): AppRoute => {
 
   if (window.location.pathname === '/stores/new') {
     return { page: 'storeRegistration' };
+  }
+
+  const storeOperationsPreviewMatch = window.location.pathname.match(
+    /^\/stores\/(\d+)\/operations-preview$/,
+  );
+
+  if (storeOperationsPreviewMatch) {
+    return {
+      page: 'storeOperationsPreview',
+      storeId: Number(storeOperationsPreviewMatch[1]),
+    };
   }
 
   const storeInventoryMatch = window.location.pathname.match(
