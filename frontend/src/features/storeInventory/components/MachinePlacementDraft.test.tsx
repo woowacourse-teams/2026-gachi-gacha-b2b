@@ -1,13 +1,16 @@
 import {
+  act,
   cleanup,
   fireEvent,
   render,
   screen,
+  waitFor,
   within,
 } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import MachinePlacementDraft from './MachinePlacementDraft';
+import { createMachinePlacementDraftCsv } from '../model/machinePlacementDraftCsv';
 
 const gachas = [
   {
@@ -44,6 +47,42 @@ const machinePicker = (ordinal = 1) =>
 
 const groupButton = (coins: string) =>
   screen.getByRole('button', { name: new RegExp(coins + '\\s*코인 기기') });
+
+const importFixture = (storeId = 3) =>
+  createMachinePlacementDraftCsv(
+    storeId,
+    '연남점',
+    [
+      {
+        key: '7',
+        machineLabel: '4코인 · 1번 기기',
+        coinsPerPlay: '4',
+        area: '입구, 오른쪽',
+        tier: '2',
+        gachaId: '1697',
+        quantity: '8',
+      },
+    ],
+    gachas,
+    '1200',
+    { 1697: '5', 1698: '2' },
+    [1698],
+    ['10'],
+  );
+
+const csvFile = (csv: string, name = 'machine-placement-draft.csv') => {
+  const file = new File([csv], name, { type: 'text/csv' });
+  Object.defineProperty(file, 'arrayBuffer', {
+    configurable: true,
+    value: vi.fn().mockResolvedValue(new TextEncoder().encode(csv).buffer),
+  });
+  return file;
+};
+
+const uploadCsv = (file: File) =>
+  fireEvent.change(screen.getByLabelText(/초안 CSV 파일 선택/), {
+    target: { files: [file] },
+  });
 
 afterEach(() => {
   cleanup();
@@ -219,5 +258,180 @@ describe('매장 기기 배치 시안', () => {
     expect(screen.getByRole('status')).toHaveTextContent(
       '파일을 수정해도 사이트나 소비자 화면에는 반영되지 않습니다.',
     );
+  });
+
+  it('같은 매장의 CSV에서 코인 단가·기기 배치·보관 수량·빈 기기 종류를 복원한다', async () => {
+    renderDraft();
+    uploadCsv(csvFile(importFixture()));
+
+    await waitFor(() =>
+      expect(screen.getByRole('status')).toHaveTextContent(
+        'CSV 초안을 불러왔습니다.',
+      ),
+    );
+    expect(screen.getByLabelText(/매장 공통 코인 단가/)).toHaveValue('1200');
+    expect(groupButton('4')).toHaveTextContent('1대 중 1대 배치');
+    expect(groupButton('4')).toHaveTextContent('회당 4,800원');
+    expect(groupButton('10')).toHaveTextContent('0대 중 0대 배치');
+    expect(screen.getByLabelText('매장 내 구역 (선택)')).toHaveValue(
+      '입구, 오른쪽',
+    );
+    expect(screen.getByLabelText('설치 단 (선택)')).toHaveValue('2');
+    expect(screen.getByLabelText(/기기 내 확인 수량/)).toHaveValue('8');
+    expect(
+      within(machinePicker()).getByRole('button', {
+        name: /메지루시 악세사리 산리오 캐릭터즈 2/,
+        pressed: true,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('textbox', {
+        name: /#1697 메지루시 악세사리 산리오 캐릭터즈 2 보관 수량/,
+      }),
+    ).toHaveValue('5');
+    expect(
+      screen.getByRole('textbox', { name: /#1698 다른 가챠 보관 수량/ }),
+    ).toHaveValue('2');
+    expect(screen.getByRole('status')).toHaveTextContent(
+      '서버 재고에는 반영되지 않습니다.',
+    );
+  });
+
+  it('기존 초안 덮어쓰기를 취소하면 그대로 두고 같은 파일을 다시 선택할 수 있다', async () => {
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    renderDraft();
+    setGroupCount('4', '2');
+    const file = csvFile(importFixture());
+
+    uploadCsv(file);
+    await waitFor(() =>
+      expect(screen.getByRole('status')).toHaveTextContent(
+        'CSV 불러오기를 취소했습니다.',
+      ),
+    );
+    expect(groupButton('4')).toHaveTextContent('2대 중 0대 배치');
+    expect(screen.getByLabelText(/매장 공통 코인 단가/)).toHaveValue('1000');
+    expect(screen.getByLabelText(/초안 CSV 파일 선택/)).toHaveValue('');
+
+    confirm.mockReturnValue(true);
+    uploadCsv(file);
+    await waitFor(() =>
+      expect(screen.getByRole('status')).toHaveTextContent(
+        'CSV 초안을 불러왔습니다.',
+      ),
+    );
+    expect(confirm).toHaveBeenCalledTimes(2);
+    expect(groupButton('4')).toHaveTextContent('1대 중 1대 배치');
+  });
+
+  it('깨진 CSV나 다른 매장 CSV는 거부하고 현재 초안을 유지한다', async () => {
+    const confirm = vi.spyOn(window, 'confirm');
+    renderDraft();
+    setGroupCount('4', '2');
+
+    uploadCsv(csvFile('레코드 종류,매장 ID\n기기,3'));
+    await waitFor(() =>
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        'CSV 양식의 첫 줄이 맞지 않습니다.',
+      ),
+    );
+    expect(groupButton('4')).toHaveTextContent('2대 중 0대 배치');
+
+    uploadCsv(csvFile(importFixture(4)));
+    await waitFor(() =>
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        '다른 매장의 CSV입니다.',
+      ),
+    );
+    expect(groupButton('4')).toHaveTextContent('2대 중 0대 배치');
+    expect(screen.getByLabelText(/매장 공통 코인 단가/)).toHaveValue('1000');
+    expect(confirm).not.toHaveBeenCalled();
+  });
+
+  it('CSV를 읽는 도중 매장을 바꾸면 이전 매장 파일을 적용하지 않는다', async () => {
+    let resolveRead: ((buffer: ArrayBuffer) => void) | undefined;
+    const csv = importFixture();
+    const file = csvFile(csv);
+    Object.defineProperty(file, 'arrayBuffer', {
+      value: vi.fn().mockImplementation(
+        () =>
+          new Promise<ArrayBuffer>((resolve) => {
+            resolveRead = resolve;
+          }),
+      ),
+    });
+    const view = renderDraft();
+    uploadCsv(file);
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'CSV 초안을 확인하는 중입니다.',
+    );
+
+    view.rerender(
+      <MachinePlacementDraft
+        gachas={gachas}
+        machineCount={2}
+        storeCoinPrice={800}
+        storeId={4}
+        storeName="홍대점"
+      />,
+    );
+    await act(async () => {
+      resolveRead?.(new TextEncoder().encode(csv).buffer);
+    });
+    expect(screen.getByLabelText(/매장 공통 코인 단가/)).toHaveValue('800');
+    expect(groupButton('4')).toHaveTextContent('0대 중 0대 배치');
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/초안 CSV 파일 선택/)).not.toBeDisabled();
+  });
+
+  it('CSV를 읽는 동안 작성한 기기 초안은 확인 없이 덮어쓰지 않는다', async () => {
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    let resolveRead: ((buffer: ArrayBuffer) => void) | undefined;
+    const csv = importFixture();
+    const file = csvFile(csv);
+    Object.defineProperty(file, 'arrayBuffer', {
+      value: vi.fn().mockImplementation(
+        () =>
+          new Promise<ArrayBuffer>((resolve) => {
+            resolveRead = resolve;
+          }),
+      ),
+    });
+    renderDraft();
+    uploadCsv(file);
+    setGroupCount('4', '2');
+
+    await act(async () => {
+      resolveRead?.(new TextEncoder().encode(csv).buffer);
+    });
+    expect(confirm).toHaveBeenCalledOnce();
+    expect(groupButton('4')).toHaveTextContent('2대 중 0대 배치');
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'CSV 불러오기를 취소했습니다.',
+    );
+  });
+
+  it('업로드 도중 화면을 벗어나면 나중에 확인창을 띄우지 않는다', async () => {
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    let resolveRead: ((buffer: ArrayBuffer) => void) | undefined;
+    const csv = importFixture();
+    const file = csvFile(csv);
+    Object.defineProperty(file, 'arrayBuffer', {
+      value: vi.fn().mockImplementation(
+        () =>
+          new Promise<ArrayBuffer>((resolve) => {
+            resolveRead = resolve;
+          }),
+      ),
+    });
+    const view = renderDraft();
+    setGroupCount('4', '1');
+    uploadCsv(file);
+    view.unmount();
+
+    await act(async () => {
+      resolveRead?.(new TextEncoder().encode(csv).buffer);
+    });
+    expect(confirm).not.toHaveBeenCalled();
   });
 });

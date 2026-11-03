@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 import {
   CoinSetup,
@@ -9,6 +9,7 @@ import {
   DraftField,
   DraftGuide,
   DraftHeader,
+  DraftImport,
   DraftSection,
   DraftWarning,
   FieldError,
@@ -34,6 +35,7 @@ import {
   createEmptyMachinePlacementRow,
   createMachinePlacementDraftCsv,
   hasMachinePlacementContent,
+  parseMachinePlacementDraftCsv,
   validateCoinUnit,
   validateMachinePlacementDraft,
   validateMachineReserveQuantities,
@@ -61,6 +63,7 @@ interface MachinePlacementDraftProps {
 
 const PRESET_COINS = ['4', '6', '8'] as const;
 const MAX_GROUP_MACHINES = 1000;
+const MAX_IMPORT_FILE_SIZE = 5 * 1024 * 1024;
 const MACHINE_PAGE_SIZE = 24;
 const GACHA_PAGE_SIZE = 32;
 const EDITABLE_FIELDS = ['tier', 'gachaId', 'quantity'] as const;
@@ -116,13 +119,44 @@ export default function MachinePlacementDraft({
   const [reserveOnlyGachaIds, setReserveOnlyGachaIds] = useState<number[]>([]);
   const [feedback, setFeedback] = useState('');
   const [feedbackIsError, setFeedbackIsError] = useState(false);
+  const [importFeedback, setImportFeedback] = useState('');
+  const [importFeedbackIsError, setImportFeedbackIsError] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
   const [failedImages, setFailedImages] = useState<Set<string>>(
     () => new Set(),
   );
   const nextKeyRef = useRef(1);
+  const importGenerationRef = useRef(0);
+  const hasCurrentDraftRef = useRef(false);
   const pickerRef = useRef<HTMLElement | null>(null);
 
+  useLayoutEffect(() => {
+    hasCurrentDraftRef.current =
+      rows.length > 0 ||
+      reserveOnlyGachaIds.length > 0 ||
+      customCoins.length > 0 ||
+      customCoinInput.trim().length > 0 ||
+      Object.keys(countInputs).length > 0 ||
+      coinUnit !== initialCoinUnit(storeCoinPrice);
+  }, [
+    rows,
+    reserveOnlyGachaIds,
+    customCoins,
+    customCoinInput,
+    countInputs,
+    coinUnit,
+    storeCoinPrice,
+  ]);
+
+  useLayoutEffect(
+    () => () => {
+      importGenerationRef.current += 1;
+    },
+    [storeId, storeCoinPrice],
+  );
+
   useEffect(() => {
+    importGenerationRef.current += 1;
     nextKeyRef.current = 1;
     setCoinUnit(initialCoinUnit(storeCoinPrice));
     setCoinUnitError('');
@@ -144,6 +178,10 @@ export default function MachinePlacementDraft({
     setReserveErrors({});
     setReserveOnlyGachaIds([]);
     setFeedback('');
+    setFeedbackIsError(false);
+    setImportFeedback('');
+    setImportFeedbackIsError(false);
+    setIsImporting(false);
     setFailedImages(new Set());
   }, [storeId, storeCoinPrice]);
 
@@ -473,6 +511,7 @@ export default function MachinePlacementDraft({
         coinUnit,
         reserveQuantities,
         reserveOnlyGachaIds,
+        customCoins,
       );
       const url = URL.createObjectURL(
         new Blob([csv], { type: 'text/csv;charset=utf-8' }),
@@ -494,6 +533,100 @@ export default function MachinePlacementDraft({
       setFeedback(
         'CSV를 만들지 못했습니다. 입력값을 확인하고 다시 시도해 주세요.',
       );
+    }
+  };
+
+  const importCsv = async (file: File) => {
+    const generation = ++importGenerationRef.current;
+    setImportFeedbackIsError(false);
+    if (!/\.csv$/iu.test(file.name)) {
+      setImportFeedbackIsError(true);
+      setImportFeedback('CSV 파일(.csv)을 선택해 주세요.');
+      return;
+    }
+    if (file.size > MAX_IMPORT_FILE_SIZE) {
+      setImportFeedbackIsError(true);
+      setImportFeedback('CSV 파일은 5MB 이하만 불러올 수 있습니다.');
+      return;
+    }
+
+    setIsImporting(true);
+    setImportFeedback('CSV 초안을 확인하는 중입니다.');
+    try {
+      const bytes = await file.arrayBuffer();
+      let csv: string;
+      try {
+        csv = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+      } catch {
+        throw new Error('UTF-8 형식으로 저장한 CSV 파일만 불러올 수 있습니다.');
+      }
+      if (generation !== importGenerationRef.current) return;
+      const imported = parseMachinePlacementDraftCsv(
+        csv,
+        storeId,
+        availableGachas,
+        initialCoinUnit(storeCoinPrice),
+      );
+      if (generation !== importGenerationRef.current) return;
+
+      if (
+        hasCurrentDraftRef.current &&
+        !window.confirm(
+          '현재 기기 배치 초안을 업로드한 CSV 내용으로 바꿀까요? 지금 입력한 내용은 사라집니다.',
+        )
+      ) {
+        setImportFeedback(
+          'CSV 불러오기를 취소했습니다. 현재 초안은 그대로입니다.',
+        );
+        return;
+      }
+
+      nextKeyRef.current = imported.nextKey;
+      setCoinUnit(imported.coinUnit);
+      setCoinUnitError('');
+      setCustomCoins(imported.customCoins);
+      setCustomCoinInput('');
+      setCustomCoinError('');
+      setCountInputs(
+        Object.fromEntries(
+          [...PRESET_COINS, ...imported.customCoins].map((coins) => [
+            coins,
+            String(
+              imported.rows.filter((row) => row.coinsPerPlay === coins).length,
+            ),
+          ]),
+        ),
+      );
+      setRows(imported.rows);
+      setActiveCoins(imported.rows[0]?.coinsPerPlay ?? '4');
+      setSelectedMachineKey(imported.rows[0]?.key ?? null);
+      setVisibleMachineCount(MACHINE_PAGE_SIZE);
+      setGachaQuery('');
+      setVisibleGachaCount(GACHA_PAGE_SIZE);
+      setReserveQuery('');
+      setIsReservePickerOpen(false);
+      setVisibleReserveCount(GACHA_PAGE_SIZE);
+      setReserveQuantities(imported.reserveQuantities);
+      setReserveOnlyGachaIds(imported.reserveOnlyGachaIds);
+      setErrors({});
+      setReserveErrors({});
+      setFailedImages(new Set());
+      setFeedback('');
+      setFeedbackIsError(false);
+      setImportFeedbackIsError(false);
+      setImportFeedback(
+        'CSV 초안을 불러왔습니다. 이 내용은 이 탭에만 있으며 서버 재고에는 반영되지 않습니다.',
+      );
+    } catch (error) {
+      if (generation !== importGenerationRef.current) return;
+      setImportFeedbackIsError(true);
+      setImportFeedback(
+        error instanceof Error
+          ? error.message
+          : 'CSV를 읽지 못했습니다. UTF-8 형식의 파일인지 확인해 주세요.',
+      );
+    } finally {
+      if (generation === importGenerationRef.current) setIsImporting(false);
     }
   };
 
@@ -521,6 +654,42 @@ export default function MachinePlacementDraft({
         재고 및 소비자 화면 반영은 하지 않습니다. 계속 보관하려면 CSV를 내려받아
         주세요.
       </DraftWarning>
+
+      <DraftImport>
+        <h4>지난 CSV 초안 이어가기</h4>
+        <p>
+          이 화면에서 내려받은 UTF-8 CSV를 수정한 뒤 다시 올릴 수 있습니다. 같은
+          매장의 가챠 ID만 사용하며, 제목과 사진은 현재 등록된 정보로
+          표시합니다. 파일을 불러와도 서버 재고는 바뀌지 않습니다.
+        </p>
+        <DraftField>
+          초안 CSV 파일 선택
+          <input
+            accept=".csv,text/csv"
+            aria-describedby="machine-csv-upload-help"
+            disabled={isImporting}
+            type="file"
+            onChange={(event) => {
+              const file = event.currentTarget.files?.[0];
+              event.currentTarget.value = '';
+              if (file) void importCsv(file);
+            }}
+          />
+        </DraftField>
+        <p id="machine-csv-upload-help">
+          기기 행에서 구역·설치 단·가챠 ID·기기 내 확인 수량을, 보관 재고 행에서
+          보관 수량을 수정할 수 있습니다. 코인 단가와 기기 대수는 업로드 후 이
+          화면에서 조정하면 편리합니다.
+        </p>
+        {importFeedback && (
+          <DraftFeedback
+            error={importFeedbackIsError}
+            role={importFeedbackIsError ? 'alert' : 'status'}
+          >
+            {importFeedback}
+          </DraftFeedback>
+        )}
+      </DraftImport>
 
       <CoinSetup>
         <DraftField>
