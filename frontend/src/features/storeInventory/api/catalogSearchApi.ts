@@ -6,30 +6,58 @@ import {
   toBackendClassificationItem,
 } from '@/features/classification/api/toClassification';
 import type {
+  CatalogMetadata,
+  CatalogMetadataStatus,
   ClassificationItem,
   ClassificationQueue,
 } from '@/features/classification/model/classification';
 
+interface CatalogGachaDto extends BackendGachaDto {
+  metadata?: CatalogMetadata;
+}
+
 interface CatalogSearchResponseDto {
-  items: BackendGachaDto[];
+  items: CatalogGachaDto[];
   totalCount: number;
   nextCursor: number | null;
+  metadataStatus?: CatalogMetadataStatus;
+  metadataAsOf?: string | null;
 }
 
 interface CatalogItemsResponseDto {
-  items: BackendGachaDto[];
+  items: CatalogGachaDto[];
+  metadataStatus?: CatalogMetadataStatus;
+  metadataAsOf?: string | null;
+}
+
+export interface CatalogItemsResult {
+  items: ClassificationItem[];
+  metadataStatus: CatalogMetadataStatus;
+  metadataAsOf: string | null;
 }
 
 const LOOKUP_BATCH_SIZE = 100;
 
+const toCatalogItem = (
+  item: CatalogGachaDto,
+  categoryIdsByName: ReadonlyMap<string, number>,
+): ClassificationItem => {
+  const mapped = toBackendClassificationItem(item, categoryIdsByName);
+  return item.metadata ? { ...mapped, metadata: item.metadata } : mapped;
+};
+
 export const getCatalogItemsByIds = async (
   gachaIds: number[],
-): Promise<ClassificationItem[]> => {
-  if (gachaIds.length === 0) return [];
+): Promise<CatalogItemsResult> => {
+  if (gachaIds.length === 0) {
+    return { items: [], metadataStatus: 'disabled', metadataAsOf: null };
+  }
 
   const categories = await getCategories();
   const categoryIdsByName = createCategoryIdByName(categories);
-  const items: BackendGachaDto[] = [];
+  const items: CatalogGachaDto[] = [];
+  const statuses: CatalogMetadataStatus[] = [];
+  const asOfValues = new Set<string>();
 
   for (let offset = 0; offset < gachaIds.length; offset += LOOKUP_BATCH_SIZE) {
     const searchParams = new URLSearchParams();
@@ -41,11 +69,22 @@ export const getCatalogItemsByIds = async (
       `/catalog-items?${searchParams.toString()}`,
     );
     items.push(...response.items);
+    statuses.push(response.metadataStatus ?? 'disabled');
+    if (response.metadataAsOf) asOfValues.add(response.metadataAsOf);
   }
 
-  return items.map((item) =>
-    toBackendClassificationItem(item, categoryIdsByName),
-  );
+  const metadataStatus: CatalogMetadataStatus = statuses.includes('unavailable')
+    ? 'unavailable'
+    : statuses.includes('stale') || asOfValues.size > 1
+      ? 'stale'
+      : statuses.includes('fresh')
+        ? 'fresh'
+        : 'disabled';
+  return {
+    items: items.map((item) => toCatalogItem(item, categoryIdsByName)),
+    metadataStatus,
+    metadataAsOf: asOfValues.size === 1 ? ([...asOfValues][0] ?? null) : null,
+  };
 };
 
 export const searchAssignableGachaCatalog = async ({
@@ -94,12 +133,12 @@ export const searchAssignableGachaCatalog = async ({
   const categoryIdsByName = createCategoryIdByName(categories);
 
   return {
-    items: dto.items.map((item) =>
-      toBackendClassificationItem(item, categoryIdsByName),
-    ),
+    items: dto.items.map((item) => toCatalogItem(item, categoryIdsByName)),
     totalCount: dto.totalCount,
     skippedCount: 0,
     filteredCount: dto.totalCount,
     nextCursor: dto.nextCursor,
+    metadataStatus: dto.metadataStatus ?? 'disabled',
+    metadataAsOf: dto.metadataAsOf ?? null,
   };
 };

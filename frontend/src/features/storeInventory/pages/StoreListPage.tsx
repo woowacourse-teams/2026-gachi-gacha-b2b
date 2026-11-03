@@ -28,6 +28,9 @@ export default function StoreListPage({ onNavigate }: StoreListPageProps) {
   const [query, setQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+  const [failedImageUrls, setFailedImageUrls] = useState<Set<string>>(
+    () => new Set(),
+  );
 
   useEffect(() => {
     let isCurrent = true;
@@ -49,13 +52,13 @@ export default function StoreListPage({ onNavigate }: StoreListPageProps) {
   }, []);
 
   const filteredStores = useMemo(() => {
-    const normalizedQuery = query.trim().toLocaleLowerCase('ko-KR');
+    const normalize = (value: string) =>
+      value.normalize('NFKC').toLocaleLowerCase('ko-KR').replace(/\s+/gu, '');
+    const normalizedQuery = normalize(query);
     if (!normalizedQuery) return stores;
 
     return stores.filter((store) =>
-      `${store.name} ${store.address}`
-        .toLocaleLowerCase('ko-KR')
-        .includes(normalizedQuery),
+      normalize(`${store.name} ${store.address}`).includes(normalizedQuery),
     );
   }, [query, stores]);
 
@@ -120,8 +123,16 @@ export default function StoreListPage({ onNavigate }: StoreListPageProps) {
                 onClick={() => onNavigate(`/stores/${store.id}/gachas`)}
               >
                 <StoreThumbnail>
-                  {store.imageUrl ? (
-                    <img alt="" src={store.imageUrl} />
+                  {store.imageUrl && !failedImageUrls.has(store.imageUrl) ? (
+                    <img
+                      alt=""
+                      src={store.imageUrl}
+                      onError={() =>
+                        setFailedImageUrls(
+                          (current) => new Set([...current, store.imageUrl]),
+                        )
+                      }
+                    />
                   ) : (
                     <span aria-hidden>店</span>
                   )}

@@ -16,6 +16,7 @@ const port = Number(process.env.BFF_PORT ?? process.env.AI_PORT ?? 8787);
 const searchCatalog = createCatalogSearchService({
   backendBaseUrl:
     process.env.B2B_BACKEND_BASE_URL ?? 'http://127.0.0.1:8080/api/v1',
+  metadataCsvUrl: process.env.B2B_CATALOG_CSV_URL ?? '',
 });
 
 if (!Number.isSafeInteger(port) || port < 1 || port > 65_535) {
@@ -70,10 +71,10 @@ const server = createServer(async (request, response) => {
     url.pathname === '/api/b2b-ai/catalog-items'
   ) {
     try {
-      const items = await searchCatalog.getItemsByIds(
+      const result = await searchCatalog.getItemsByIds(
         url.searchParams.getAll('gachaId').map(Number),
       );
-      sendJson(response, 200, { items });
+      sendJson(response, 200, result);
     } catch (error) {
       if (error instanceof CatalogSearchError) {
         sendJson(response, error.status, { message: error.message });

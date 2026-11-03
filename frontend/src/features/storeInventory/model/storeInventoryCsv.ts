@@ -1,6 +1,13 @@
 export interface StoreCatalogCsvRow {
   gachaId: number;
   name: string;
+  nameKo?: string;
+  nameJa?: string;
+  aliases?: string[];
+  work?: string;
+  series?: string;
+  characters?: string[];
+  reviewedAt?: string;
   categories: string[];
   source: string;
   catalogCreatedAt: string;
@@ -9,7 +16,9 @@ export interface StoreCatalogCsvRow {
 
 const escapeCell = (value: string | number) => {
   const text = String(value);
-  const safeText = /^[\s]*[=+\-@]/u.test(text) ? `'${text}` : text;
+  const safeText = /^[\s\u200B\u200C\u200D]*[=+\-@]/u.test(text)
+    ? `'${text}`
+    : text;
   return `"${safeText.replace(/"/gu, '""')}"`;
 };
 
@@ -24,9 +33,16 @@ export const createStoreCatalogCsv = (
       '매장명',
       '가챠 ID',
       '가챠명',
+      '한국어 이름',
+      '일본어 이름',
+      '검색 별칭',
+      '작품',
+      '시리즈',
+      '캐릭터',
       '카테고리',
       '출처',
       '카탈로그 등록일',
+      '추가 정보 검수일',
       '카탈로그 정보',
     ],
     ...rows.map((row) => [
@@ -34,9 +50,16 @@ export const createStoreCatalogCsv = (
       storeName,
       row.gachaId,
       row.name,
+      row.nameKo ?? '',
+      row.nameJa ?? '',
+      (row.aliases ?? []).join(' / '),
+      row.work ?? '',
+      row.series ?? '',
+      (row.characters ?? []).join(' / '),
       row.categories.join(' / '),
       row.source,
       row.catalogCreatedAt,
+      row.reviewedAt ?? '',
       row.catalogStatus,
     ]),
   ];

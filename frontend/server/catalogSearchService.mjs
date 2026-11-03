@@ -1,3 +1,5 @@
+import { createCatalogMetadataService } from './catalogMetadataService.mjs';
+
 const DEFAULT_CACHE_TTL_MS = 30_000;
 const DEFAULT_BACKEND_PAGE_SIZE = 500;
 const MAX_BACKEND_PAGES = 100;
@@ -126,13 +128,24 @@ const readBackendPage = async (url, fetchImpl) => {
   }
 };
 
-const matchesQuery = (item, normalizedQuery) =>
-  !normalizedQuery ||
-  (typeof item.name === 'string' &&
-    normalizeText(item.name).includes(normalizedQuery)) ||
-  item.categories.some((category) =>
-    normalizeText(category).includes(normalizedQuery),
+const matchesQuery = (item, normalizedQuery) => {
+  if (!normalizedQuery) return true;
+  const metadata = item.metadata;
+  const searchTerms = [
+    item.name,
+    ...item.categories,
+    metadata?.nameKo,
+    metadata?.nameJa,
+    ...(metadata?.aliases ?? []),
+    metadata?.work,
+    metadata?.series,
+    ...(metadata?.characters ?? []),
+  ];
+  return searchTerms.some(
+    (term) =>
+      typeof term === 'string' && normalizeText(term).includes(normalizedQuery),
   );
+};
 
 const matchesCategories = (item, normalizedCategoryNames) =>
   normalizedCategoryNames.size === 0 ||
@@ -142,12 +155,18 @@ const matchesCategories = (item, normalizedCategoryNames) =>
 
 export const createCatalogSearchService = ({
   backendBaseUrl,
+  metadataCsvUrl = '',
   fetchImpl = fetch,
   cacheTtlMs = DEFAULT_CACHE_TTL_MS,
   backendPageSize = DEFAULT_BACKEND_PAGE_SIZE,
   now = Date.now,
 }) => {
   const baseUrl = parseBackendBaseUrl(backendBaseUrl);
+  const getMetadata = createCatalogMetadataService({
+    csvUrl: metadataCsvUrl,
+    fetchImpl,
+    now,
+  });
   let catalogCache = null;
   let catalogRequest = null;
 
@@ -222,8 +241,15 @@ export const createCatalogSearchService = ({
     const normalizedCategoryNames = new Set(
       categoryNames.map(normalizeText).filter(Boolean),
     );
-    const catalog = await getCatalog();
-    const filteredItems = catalog.filter(
+    const [catalog, metadata] = await Promise.all([
+      getCatalog(),
+      getMetadata(),
+    ]);
+    const enrichedCatalog = catalog.map((item) => {
+      const supplemental = metadata.itemsById.get(item.gachaId);
+      return supplemental ? { ...item, metadata: supplemental } : item;
+    });
+    const filteredItems = enrichedCatalog.filter(
       (item) =>
         item.categories.length > 0 &&
         matchesQuery(item, normalizedQuery) &&
@@ -236,6 +262,8 @@ export const createCatalogSearchService = ({
       items,
       totalCount: filteredItems.length,
       nextCursor: start + items.length < filteredItems.length ? page + 1 : null,
+      metadataStatus: metadata.metadataStatus,
+      metadataAsOf: metadata.metadataAsOf,
     };
   };
 
@@ -247,15 +275,30 @@ export const createCatalogSearchService = ({
     ) {
       throw new CatalogSearchError('가챠 ID 목록이 올바르지 않습니다.');
     }
-    if (gachaIds.length === 0) return [];
+    if (gachaIds.length === 0) {
+      return {
+        items: [],
+        metadataStatus: 'disabled',
+        metadataAsOf: null,
+      };
+    }
 
-    const catalogById = new Map(
-      (await getCatalog()).map((item) => [item.gachaId, item]),
-    );
-    return [...new Set(gachaIds)].flatMap((id) => {
+    const [catalog, metadata] = await Promise.all([
+      getCatalog(),
+      getMetadata(),
+    ]);
+    const catalogById = new Map(catalog.map((item) => [item.gachaId, item]));
+    const items = [...new Set(gachaIds)].flatMap((id) => {
       const item = catalogById.get(id);
-      return item ? [item] : [];
+      if (!item) return [];
+      const supplemental = metadata.itemsById.get(id);
+      return [supplemental ? { ...item, metadata: supplemental } : item];
     });
+    return {
+      items,
+      metadataStatus: metadata.metadataStatus,
+      metadataAsOf: metadata.metadataAsOf,
+    };
   };
 
   return search;

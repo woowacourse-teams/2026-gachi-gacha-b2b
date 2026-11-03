@@ -22,6 +22,19 @@ export interface Category {
   name: string;
 }
 
+export interface CatalogMetadata {
+  nameKo: string;
+  nameJa: string;
+  aliases: string[];
+  work: string;
+  series: string;
+  characters: string[];
+  reviewedAt: string;
+}
+
+export type CatalogMetadataStatus =
+  'disabled' | 'fresh' | 'stale' | 'unavailable';
+
 export interface ClassificationItem {
   id: number;
   imageUrl: string;
@@ -34,6 +47,7 @@ export interface ClassificationItem {
   status: ClassificationStatus;
   version: number;
   createdAt: string;
+  metadata?: CatalogMetadata;
 }
 
 export interface ClassificationIdRange {
@@ -47,6 +61,8 @@ export interface ClassificationQueue {
   skippedCount: number;
   filteredCount: number;
   nextCursor: number | null;
+  metadataStatus?: CatalogMetadataStatus;
+  metadataAsOf?: string | null;
 }
 
 export interface ClassificationDraft {

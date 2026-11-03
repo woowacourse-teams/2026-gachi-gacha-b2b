@@ -1,4 +1,5 @@
 import {
+  useRef,
   useState,
   type ChangeEvent,
   type FormEvent,
@@ -21,6 +22,7 @@ import {
   FormSection,
   Header,
   Heading,
+  OptionalDetails,
   Page,
   RequiredNotice,
   ToggleGrid,
@@ -155,6 +157,26 @@ const FIELD_ORDER: TextDraftField[] = [
   'facilities',
 ];
 
+const LOCATION_OPTIONAL_FIELDS: TextDraftField[] = [
+  'floor',
+  'unit',
+  'phoneNumber',
+  'instagramId',
+  'businessHours',
+  'paymentMethods',
+];
+const OPERATIONS_FIELDS: TextDraftField[] = [
+  'gachaMachineAmount',
+  'coinPrice',
+  'gachaPriceMin',
+  'gachaPriceMax',
+  'kujiAmount',
+  'kujiPriceMin',
+  'kujiPriceMax',
+  'selectGachaPriceMin',
+  'selectGachaPriceMax',
+];
+
 export default function StoreRegistrationPage({
   onNavigate,
 }: StoreRegistrationPageProps) {
@@ -164,6 +186,9 @@ export default function StoreRegistrationPage({
   const [fieldErrors, setFieldErrors] = useState<StoreRegistrationErrors>({});
   const [submitError, setSubmitError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const locationOptionalRef = useRef<HTMLDetailsElement>(null);
+  const operationsRef = useRef<HTMLDetailsElement>(null);
+  const facilitiesRef = useRef<HTMLDetailsElement>(null);
 
   const updateDraft = <Field extends keyof StoreRegistrationDraft>(
     field: Field,
@@ -179,6 +204,16 @@ export default function StoreRegistrationPage({
   };
 
   const focusFirstError = (errors: StoreRegistrationErrors) => {
+    if (LOCATION_OPTIONAL_FIELDS.some((field) => errors[field])) {
+      if (locationOptionalRef.current) locationOptionalRef.current.open = true;
+    }
+    if (OPERATIONS_FIELDS.some((field) => errors[field])) {
+      if (operationsRef.current) operationsRef.current.open = true;
+    }
+    if (errors.facilities && facilitiesRef.current) {
+      facilitiesRef.current.open = true;
+    }
+
     const firstField = FIELD_ORDER.find((field) => errors[field]);
     if (!firstField) return;
 
@@ -305,218 +340,231 @@ export default function StoreRegistrationPage({
               value={draft.longitude}
               onChange={updateTextDraft}
             />
-            <RegistrationField
-              error={fieldErrors.floor}
-              field="floor"
-              hint="지하는 -1, -2처럼 입력하며 0층은 사용할 수 없습니다."
-              inputMode="numeric"
-              label="층"
-              placeholder="예: 2"
-              step="1"
-              type="number"
-              value={draft.floor}
-              onChange={updateTextDraft}
-            />
-            <RegistrationField
-              error={fieldErrors.unit}
-              field="unit"
-              label="호수 또는 점포 번호"
-              maxLength={STORE_TEXT_MAX_LENGTH}
-              placeholder="예: 201호"
-              value={draft.unit}
-              onChange={updateTextDraft}
-            />
-            <RegistrationField
-              autoComplete="tel"
-              error={fieldErrors.phoneNumber}
-              field="phoneNumber"
-              inputMode="tel"
-              label="전화번호"
-              maxLength={STORE_TEXT_MAX_LENGTH}
-              placeholder="02-1234-5678"
-              type="tel"
-              value={draft.phoneNumber}
-              onChange={updateTextDraft}
-            />
-            <RegistrationField
-              error={fieldErrors.instagramId}
-              field="instagramId"
-              label="인스타그램 ID"
-              maxLength={STORE_TEXT_MAX_LENGTH}
-              placeholder="@ 없이 입력"
-              value={draft.instagramId}
-              onChange={updateTextDraft}
-            />
-            <RegistrationField
-              error={fieldErrors.businessHours}
-              field="businessHours"
-              label="영업시간"
-              maxLength={STORE_TEXT_MAX_LENGTH}
-              placeholder="예: 매일 10:00-22:00"
-              value={draft.businessHours}
-              onChange={updateTextDraft}
-            />
-            <RegistrationField
-              error={fieldErrors.paymentMethods}
-              field="paymentMethods"
-              label="결제 방법"
-              maxLength={STORE_TEXT_MAX_LENGTH}
-              placeholder="예: 현금, 카드"
-              value={draft.paymentMethods}
-              onChange={updateTextDraft}
-            />
           </FieldGrid>
+          <OptionalDetails ref={locationOptionalRef}>
+            <summary>층·연락처·영업정보 추가 (선택)</summary>
+            <FieldGrid>
+              <RegistrationField
+                error={fieldErrors.floor}
+                field="floor"
+                hint="지하는 -1, -2처럼 입력하며 0층은 사용할 수 없습니다."
+                inputMode="numeric"
+                label="층"
+                placeholder="예: 2"
+                step="1"
+                type="number"
+                value={draft.floor}
+                onChange={updateTextDraft}
+              />
+              <RegistrationField
+                error={fieldErrors.unit}
+                field="unit"
+                label="호수 또는 점포 번호"
+                maxLength={STORE_TEXT_MAX_LENGTH}
+                placeholder="예: 201호"
+                value={draft.unit}
+                onChange={updateTextDraft}
+              />
+              <RegistrationField
+                autoComplete="tel"
+                error={fieldErrors.phoneNumber}
+                field="phoneNumber"
+                inputMode="tel"
+                label="전화번호"
+                maxLength={STORE_TEXT_MAX_LENGTH}
+                placeholder="02-1234-5678"
+                type="tel"
+                value={draft.phoneNumber}
+                onChange={updateTextDraft}
+              />
+              <RegistrationField
+                error={fieldErrors.instagramId}
+                field="instagramId"
+                label="인스타그램 ID"
+                maxLength={STORE_TEXT_MAX_LENGTH}
+                placeholder="@ 없이 입력"
+                value={draft.instagramId}
+                onChange={updateTextDraft}
+              />
+              <RegistrationField
+                error={fieldErrors.businessHours}
+                field="businessHours"
+                label="영업시간"
+                maxLength={STORE_TEXT_MAX_LENGTH}
+                placeholder="예: 매일 10:00-22:00"
+                value={draft.businessHours}
+                onChange={updateTextDraft}
+              />
+              <RegistrationField
+                error={fieldErrors.paymentMethods}
+                field="paymentMethods"
+                label="결제 방법"
+                maxLength={STORE_TEXT_MAX_LENGTH}
+                placeholder="예: 현금, 카드"
+                value={draft.paymentMethods}
+                onChange={updateTextDraft}
+              />
+            </FieldGrid>
+          </OptionalDetails>
         </FormSection>
 
         <FormSection>
           <legend>가챠·쿠지 운영 정보</legend>
-          <p>알 수 없는 숫자는 0으로 입력하지 말고 비워 두세요.</p>
-          <ToggleGrid>
-            <ToggleLabel>
-              <input
-                checked={draft.hasRandomBox}
-                type="checkbox"
-                onChange={(event) =>
-                  updateDraft('hasRandomBox', event.target.checked)
-                }
+          <p>
+            매장 기본 정보입니다. 알 수 없는 숫자는 0으로 입력하지 말고 비워
+            두세요. 쿠지 상품·상자·등급별 남은 추첨권은 여기서 관리되지
+            않습니다.
+          </p>
+          <OptionalDetails ref={operationsRef}>
+            <summary>가챠·쿠지 운영 정보 입력 (선택)</summary>
+            <ToggleGrid>
+              <ToggleLabel>
+                <input
+                  checked={draft.hasRandomBox}
+                  type="checkbox"
+                  onChange={(event) =>
+                    updateDraft('hasRandomBox', event.target.checked)
+                  }
+                />
+                랜덤박스 취급
+              </ToggleLabel>
+              <ToggleLabel>
+                <input
+                  checked={draft.hasSelectGacha}
+                  type="checkbox"
+                  onChange={(event) => {
+                    const checked = event.target.checked;
+                    setDraft((current) => ({
+                      ...current,
+                      hasSelectGacha: checked,
+                      ...(checked
+                        ? {}
+                        : {
+                            selectGachaPriceMin: '',
+                            selectGachaPriceMax: '',
+                          }),
+                    }));
+                    setFieldErrors({});
+                    setSubmitError('');
+                  }}
+                />
+                선택 가챠 취급
+              </ToggleLabel>
+            </ToggleGrid>
+            <FieldGrid>
+              <RegistrationField
+                error={fieldErrors.gachaMachineAmount}
+                field="gachaMachineAmount"
+                inputMode="numeric"
+                label="가챠 기계 수"
+                min="0"
+                placeholder="예: 24"
+                step="1"
+                type="number"
+                value={draft.gachaMachineAmount}
+                onChange={updateTextDraft}
               />
-              랜덤박스 취급
-            </ToggleLabel>
-            <ToggleLabel>
-              <input
-                checked={draft.hasSelectGacha}
-                type="checkbox"
-                onChange={(event) => {
-                  const checked = event.target.checked;
-                  setDraft((current) => ({
-                    ...current,
-                    hasSelectGacha: checked,
-                    ...(checked
-                      ? {}
-                      : {
-                          selectGachaPriceMin: '',
-                          selectGachaPriceMax: '',
-                        }),
-                  }));
-                  setFieldErrors({});
-                  setSubmitError('');
-                }}
+              <RegistrationField
+                error={fieldErrors.coinPrice}
+                field="coinPrice"
+                inputMode="numeric"
+                label="동전 가격"
+                min="0"
+                placeholder="예: 500"
+                step="1"
+                type="number"
+                value={draft.coinPrice}
+                onChange={updateTextDraft}
               />
-              선택 가챠 취급
-            </ToggleLabel>
-          </ToggleGrid>
-          <FieldGrid>
-            <RegistrationField
-              error={fieldErrors.gachaMachineAmount}
-              field="gachaMachineAmount"
-              inputMode="numeric"
-              label="가챠 기계 수"
-              min="0"
-              placeholder="예: 24"
-              step="1"
-              type="number"
-              value={draft.gachaMachineAmount}
-              onChange={updateTextDraft}
-            />
-            <RegistrationField
-              error={fieldErrors.coinPrice}
-              field="coinPrice"
-              inputMode="numeric"
-              label="동전 가격"
-              min="0"
-              placeholder="예: 500"
-              step="1"
-              type="number"
-              value={draft.coinPrice}
-              onChange={updateTextDraft}
-            />
-            <RegistrationField
-              error={fieldErrors.gachaPriceMin}
-              field="gachaPriceMin"
-              inputMode="numeric"
-              label="가챠 최소 가격"
-              min="0"
-              placeholder="예: 3000"
-              step="1"
-              type="number"
-              value={draft.gachaPriceMin}
-              onChange={updateTextDraft}
-            />
-            <RegistrationField
-              error={fieldErrors.gachaPriceMax}
-              field="gachaPriceMax"
-              inputMode="numeric"
-              label="가챠 최대 가격"
-              min="0"
-              placeholder="예: 5000"
-              step="1"
-              type="number"
-              value={draft.gachaPriceMax}
-              onChange={updateTextDraft}
-            />
-            <RegistrationField
-              error={fieldErrors.kujiAmount}
-              field="kujiAmount"
-              inputMode="numeric"
-              label="쿠지 수"
-              min="0"
-              placeholder="예: 5"
-              step="1"
-              type="number"
-              value={draft.kujiAmount}
-              onChange={updateTextDraft}
-            />
-            <RegistrationField
-              error={fieldErrors.kujiPriceMin}
-              field="kujiPriceMin"
-              inputMode="numeric"
-              label="쿠지 최소 가격"
-              min="0"
-              placeholder="예: 5000"
-              step="1"
-              type="number"
-              value={draft.kujiPriceMin}
-              onChange={updateTextDraft}
-            />
-            <RegistrationField
-              error={fieldErrors.kujiPriceMax}
-              field="kujiPriceMax"
-              inputMode="numeric"
-              label="쿠지 최대 가격"
-              min="0"
-              placeholder="예: 10000"
-              step="1"
-              type="number"
-              value={draft.kujiPriceMax}
-              onChange={updateTextDraft}
-            />
-            <RegistrationField
-              disabled={!draft.hasSelectGacha}
-              error={fieldErrors.selectGachaPriceMin}
-              field="selectGachaPriceMin"
-              inputMode="numeric"
-              label="선택 가챠 최소 가격"
-              min="0"
-              placeholder="선택 가챠 취급 시 입력"
-              step="1"
-              type="number"
-              value={draft.selectGachaPriceMin}
-              onChange={updateTextDraft}
-            />
-            <RegistrationField
-              disabled={!draft.hasSelectGacha}
-              error={fieldErrors.selectGachaPriceMax}
-              field="selectGachaPriceMax"
-              inputMode="numeric"
-              label="선택 가챠 최대 가격"
-              min="0"
-              placeholder="선택 가챠 취급 시 입력"
-              step="1"
-              type="number"
-              value={draft.selectGachaPriceMax}
-              onChange={updateTextDraft}
-            />
-          </FieldGrid>
+              <RegistrationField
+                error={fieldErrors.gachaPriceMin}
+                field="gachaPriceMin"
+                inputMode="numeric"
+                label="가챠 최소 가격"
+                min="0"
+                placeholder="예: 3000"
+                step="1"
+                type="number"
+                value={draft.gachaPriceMin}
+                onChange={updateTextDraft}
+              />
+              <RegistrationField
+                error={fieldErrors.gachaPriceMax}
+                field="gachaPriceMax"
+                inputMode="numeric"
+                label="가챠 최대 가격"
+                min="0"
+                placeholder="예: 5000"
+                step="1"
+                type="number"
+                value={draft.gachaPriceMax}
+                onChange={updateTextDraft}
+              />
+              <RegistrationField
+                error={fieldErrors.kujiAmount}
+                field="kujiAmount"
+                hint="매장 기본 정보이며 현재 남은 추첨권 수가 아닙니다."
+                inputMode="numeric"
+                label="쿠지 수"
+                min="0"
+                placeholder="예: 5"
+                step="1"
+                type="number"
+                value={draft.kujiAmount}
+                onChange={updateTextDraft}
+              />
+              <RegistrationField
+                error={fieldErrors.kujiPriceMin}
+                field="kujiPriceMin"
+                inputMode="numeric"
+                label="쿠지 최소 가격"
+                min="0"
+                placeholder="예: 5000"
+                step="1"
+                type="number"
+                value={draft.kujiPriceMin}
+                onChange={updateTextDraft}
+              />
+              <RegistrationField
+                error={fieldErrors.kujiPriceMax}
+                field="kujiPriceMax"
+                inputMode="numeric"
+                label="쿠지 최대 가격"
+                min="0"
+                placeholder="예: 10000"
+                step="1"
+                type="number"
+                value={draft.kujiPriceMax}
+                onChange={updateTextDraft}
+              />
+              <RegistrationField
+                disabled={!draft.hasSelectGacha}
+                error={fieldErrors.selectGachaPriceMin}
+                field="selectGachaPriceMin"
+                inputMode="numeric"
+                label="선택 가챠 최소 가격"
+                min="0"
+                placeholder="선택 가챠 취급 시 입력"
+                step="1"
+                type="number"
+                value={draft.selectGachaPriceMin}
+                onChange={updateTextDraft}
+              />
+              <RegistrationField
+                disabled={!draft.hasSelectGacha}
+                error={fieldErrors.selectGachaPriceMax}
+                field="selectGachaPriceMax"
+                inputMode="numeric"
+                label="선택 가챠 최대 가격"
+                min="0"
+                placeholder="선택 가챠 취급 시 입력"
+                step="1"
+                type="number"
+                value={draft.selectGachaPriceMax}
+                onChange={updateTextDraft}
+              />
+            </FieldGrid>
+          </OptionalDetails>
         </FormSection>
 
         <FormSection>
@@ -524,18 +572,21 @@ export default function StoreRegistrationPage({
           <p>
             쉼표 또는 줄바꿈으로 구분하면 중복과 빈 항목을 정리해 저장합니다.
           </p>
-          <FieldGrid>
-            <RegistrationField
-              multiline
-              fullWidth
-              error={fieldErrors.facilities}
-              field="facilities"
-              label="편의시설 목록"
-              placeholder={'동전교환기, 주차장\n엘리베이터'}
-              value={draft.facilities}
-              onChange={updateTextDraft}
-            />
-          </FieldGrid>
+          <OptionalDetails ref={facilitiesRef}>
+            <summary>편의시설 입력 (선택)</summary>
+            <FieldGrid>
+              <RegistrationField
+                multiline
+                fullWidth
+                error={fieldErrors.facilities}
+                field="facilities"
+                label="편의시설 목록"
+                placeholder={'동전교환기, 주차장\n엘리베이터'}
+                value={draft.facilities}
+                onChange={updateTextDraft}
+              />
+            </FieldGrid>
+          </OptionalDetails>
         </FormSection>
 
         {submitError && <FormError role="alert">{submitError}</FormError>}

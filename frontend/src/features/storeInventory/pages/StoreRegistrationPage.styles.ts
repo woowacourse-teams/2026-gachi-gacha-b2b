@@ -74,6 +74,30 @@ export const FormSection = styled.fieldset`
   }
 `;
 
+export const OptionalDetails = styled.details`
+  margin-top: 18px;
+
+  summary {
+    width: fit-content;
+    padding: 9px 12px;
+    border: 1px solid ${colors.borderStrong};
+    border-radius: ${radii.small};
+    color: ${colors.brand};
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 800;
+  }
+
+  summary:focus-visible {
+    outline: 3px solid ${colors.brand};
+    outline-offset: 2px;
+  }
+
+  > div {
+    margin-top: 18px;
+  }
+`;
+
 export const FieldGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

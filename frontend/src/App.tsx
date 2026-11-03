@@ -30,7 +30,11 @@ function AppContent() {
         ) : route.page === 'storeRegistration' ? (
           <StoreRegistrationPage onNavigate={navigate} />
         ) : route.page === 'storeInventory' ? (
-          <StoreInventoryPage storeId={route.storeId} onNavigate={navigate} />
+          <StoreInventoryPage
+            key={route.storeId}
+            storeId={route.storeId}
+            onNavigate={navigate}
+          />
         ) : route.page === 'classify' ? (
           <ClassificationPage
             itemId={route.itemId}

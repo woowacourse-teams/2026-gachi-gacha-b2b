@@ -63,6 +63,20 @@ describe('App navigation', () => {
     ).toBeInTheDocument();
   });
 
+  it('매장 썸네일 URL이 실패하면 기본 표시로 대체한다', async () => {
+    window.history.replaceState({}, '', '/stores');
+    render(<App />);
+
+    const storeButton = await screen.findByRole('button', {
+      name: '가챠샵 홍대점 보유 가챠 관리',
+    });
+    const thumbnail = storeButton.querySelector('img');
+    expect(thumbnail).not.toBeNull();
+    fireEvent.error(thumbnail!);
+
+    expect(within(storeButton).getByText('店')).toBeVisible();
+  });
+
   it('분류 화면에서 이름과 카테고리를 직접 편집해 저장한다', async () => {
     window.history.replaceState({}, '', '/classify/101');
     render(<App />);
@@ -329,6 +343,96 @@ describe('App navigation', () => {
     });
   });
 
+  it('다른 관리자가 등록한 가챠 종류를 새로고침으로 확인한다', async () => {
+    window.history.replaceState({}, '', '/stores/1/gachas');
+    render(<App />);
+
+    const assignedSection = await screen.findByRole('region', {
+      name: '매장에 등록된 가챠',
+    });
+    expect(
+      await within(assignedSection).findByText('산리오 미니 피규어'),
+    ).toBeVisible();
+
+    storeGachaAssignments.get(1)?.add(107);
+    fireEvent.click(
+      within(assignedSection).getByRole('button', { name: '목록 새로고침' }),
+    );
+
+    expect(
+      await within(assignedSection).findByText('건담 캡슐 피규어'),
+    ).toBeVisible();
+    expect(within(assignedSection).getByText(/마지막 목록 조회/)).toBeVisible();
+  });
+
+  it('보강 시트 정보의 한·일 이름과 캐릭터를 보여주고 별칭으로 등록 목록을 찾는다', async () => {
+    server.use(
+      http.get(`${__BFF_API_BASE_URL__}/catalog-items`, () =>
+        HttpResponse.json({
+          items: [
+            {
+              gachaId: 105,
+              name: '산리오 미니 피규어',
+              caption: '',
+              thumbnailUrl: '/mock/gacha-pink.svg',
+              productCode: 'sanrio-105.jpg',
+              categories: ['캐릭터', '피규어'],
+              source: 'BANDAI',
+              createdAt: '2026-09-01T00:00:00+09:00',
+              metadata: {
+                nameKo: '산리오 친구들',
+                nameJa: 'サンリオフレンズ',
+                aliases: ['헬로키티'],
+                work: '산리오',
+                series: '미니 피규어',
+                characters: ['시나모롤'],
+                reviewedAt: '2026-11-01',
+              },
+            },
+          ],
+          metadataStatus: 'stale',
+          metadataAsOf: '2026-11-01T00:00:00.000Z',
+        }),
+      ),
+    );
+    window.history.replaceState({}, '', '/stores/1/gachas');
+    render(<App />);
+
+    const assignedSection = await screen.findByRole('region', {
+      name: '매장에 등록된 가챠',
+    });
+    expect(
+      await within(assignedSection).findByText('산리오 친구들'),
+    ).toBeVisible();
+    expect(
+      within(assignedSection).getByText('일본어 サンリオフレンズ'),
+    ).toBeVisible();
+    expect(within(assignedSection).getByText(/캐릭터 시나모롤/)).toBeVisible();
+    expect(
+      within(assignedSection).getByText(/이전 정보를 표시합니다/),
+    ).toBeVisible();
+
+    fireEvent.change(within(assignedSection).getByLabelText('등록 가챠 검색'), {
+      target: { value: '헬로 키티' },
+    });
+    expect(within(assignedSection).getByText('산리오 친구들')).toBeVisible();
+  });
+
+  it('쿠지 기록 양식은 저장·동기화 현황판이 아님을 명시한다', async () => {
+    window.history.replaceState({}, '', '/stores/1/gachas');
+    render(<App />);
+
+    const kujiSection = await screen.findByRole('region', {
+      name: '쿠지 현장 기록 준비',
+    });
+    expect(
+      within(kujiSection).getByRole('button', { name: '쿠지 기록 양식 CSV' }),
+    ).toBeEnabled();
+    expect(
+      within(kujiSection).getByText(/사이트에 저장·동기화되지 않고/),
+    ).toBeVisible();
+  });
+
   it('새 매장을 등록한 뒤 해당 매장의 가챠 관리로 바로 이어간다', async () => {
     window.history.replaceState({}, '', '/stores');
     render(<App />);
@@ -376,6 +480,37 @@ describe('App navigation', () => {
     ).toBeVisible();
   }, 10_000);
 
+  it('매장 등록의 선택 정보는 접어 두고 오류가 있으면 해당 영역을 연다', () => {
+    window.history.replaceState({}, '', '/stores/new');
+    render(<App />);
+
+    const operationsSummary = screen.getByText(
+      '가챠·쿠지 운영 정보 입력 (선택)',
+    );
+    const operationsDetails = operationsSummary.closest('details');
+    expect(operationsDetails).not.toBeNull();
+    expect(operationsDetails).not.toHaveAttribute('open');
+
+    fireEvent.click(operationsSummary);
+    fireEvent.change(screen.getByLabelText('쿠지 최소 가격'), {
+      target: { value: '10000' },
+    });
+    fireEvent.change(screen.getByLabelText('쿠지 최대 가격'), {
+      target: { value: '5000' },
+    });
+    fireEvent.click(operationsSummary);
+    expect(operationsDetails).not.toHaveAttribute('open');
+
+    fireEvent.click(
+      screen.getByRole('button', { name: '매장 등록 후 가챠 관리' }),
+    );
+    expect(operationsDetails).toHaveAttribute('open');
+    expect(document.getElementById('store-kujiPriceMax')).toHaveAttribute(
+      'aria-invalid',
+      'true',
+    );
+  });
+
   it('매장에 추가할 가챠의 섬네일을 확대하고 Escape로 닫는다', async () => {
     render(<App />);
 
@@ -407,6 +542,25 @@ describe('App navigation', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(previewButton).toHaveFocus();
   }, 10_000);
+
+  it('가챠 이미지가 실패하면 깨진 이미지 대신 안내를 표시한다', async () => {
+    window.history.replaceState({}, '', '/stores/3/gachas');
+    render(<App />);
+
+    const previewButton = await screen.findByRole('button', {
+      name: '가챠 #105 산리오 미니 피규어 이미지 확대',
+    });
+    fireEvent.click(previewButton);
+    const previewImage = screen.getByRole('img', {
+      name: '산리오 미니 피규어 확대 이미지',
+    });
+    fireEvent.error(previewImage);
+
+    expect(screen.getByText(/이미지를 불러오지 못했습니다/)).toBeVisible();
+    expect(
+      screen.getByRole('button', { name: '가챠 #105 이미지 없음' }),
+    ).toBeDisabled();
+  });
 
   it('매장 가챠 검색어와 카테고리 변경을 즉시 결과에 반영한다', async () => {
     render(<App />);

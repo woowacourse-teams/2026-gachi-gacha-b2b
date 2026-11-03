@@ -291,6 +291,11 @@ export const SectionActions = styled.div`
   align-items: center;
   gap: 12px;
 
+  small {
+    color: ${colors.textMuted};
+    font-size: 11px;
+  }
+
   @media (max-width: 720px) {
     flex-wrap: wrap;
     justify-content: flex-start;
@@ -423,6 +428,11 @@ export const CategoryToolbar = styled.div`
   align-items: center;
   gap: 10px;
 
+  @media (max-width: 720px) {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
   strong {
     flex: 0 0 auto;
     font-size: 13px;
@@ -495,11 +505,32 @@ export const CatalogRow = styled.li`
   }
 
   @media (max-width: 920px) {
-    grid-template-columns: 48px minmax(150px, 1fr) auto;
+    grid-template-columns: 56px minmax(0, 1fr) auto;
 
-    > strong:first-of-type,
-    > div:nth-of-type(2) {
+    > strong:first-of-type {
       display: none;
+    }
+
+    > div:nth-of-type(2) {
+      grid-column: 2;
+      grid-row: 2;
+    }
+
+    > button:last-child {
+      grid-column: 3;
+      grid-row: 1 / span 2;
+    }
+  }
+
+  @media (max-width: 720px) {
+    grid-template-columns: 56px minmax(0, 1fr);
+    gap: 10px;
+    padding: 12px;
+
+    > button:last-child {
+      width: 100%;
+      grid-column: 1 / -1;
+      grid-row: 3;
     }
   }
 `;
@@ -601,6 +632,15 @@ export const ImagePreviewImage = styled.img`
   max-height: calc(100dvh - 132px);
   object-fit: contain;
   background: ${colors.surfaceMuted};
+`;
+
+export const ImagePreviewFallback = styled.div`
+  display: grid;
+  min-height: 180px;
+  padding: 20px;
+  place-items: center;
+  color: ${colors.textMuted};
+  text-align: center;
 `;
 
 export const GachaName = styled.div`
