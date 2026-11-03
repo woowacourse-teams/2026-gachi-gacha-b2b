@@ -4,6 +4,7 @@ export interface StoreSummary {
   imageUrl: string;
   address: string;
   machineCount: number;
+  coinPrice: number | null;
 }
 
 export interface AssignedGachaSummary {

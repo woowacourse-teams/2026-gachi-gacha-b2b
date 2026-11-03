@@ -468,9 +468,9 @@ export default function StoreRegistrationPage({
                 error={fieldErrors.coinPrice}
                 field="coinPrice"
                 inputMode="numeric"
-                label="동전 가격"
-                min="0"
-                placeholder="예: 500"
+                label="매장 공통 코인 단가 (1개당 원)"
+                min="1"
+                placeholder="예: 1000"
                 step="1"
                 type="number"
                 value={draft.coinPrice}

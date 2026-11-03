@@ -14,6 +14,7 @@ export interface BackendStoreDetailDto {
   thumbnailUrl: string | null;
   address: string;
   gachaMachineAmount: number | null;
+  coinPrice?: number | null;
   ownedGachaAmount: number;
 }
 

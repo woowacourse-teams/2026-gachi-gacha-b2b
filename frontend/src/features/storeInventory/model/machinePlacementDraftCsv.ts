@@ -1,10 +1,9 @@
 export interface MachinePlacementDraftRow {
   key: string;
-  machineCode: string;
+  machineLabel: string;
+  coinsPerPlay: string;
   area: string;
   tier: string;
-  coinUnit: string;
-  coinsPerPlay: string;
   gachaId: string;
   quantity: string;
 }
@@ -17,10 +16,8 @@ export interface MachinePlacementCatalogGacha {
   nameJa?: string;
 }
 
-export type MachinePlacementDraftField = Exclude<
-  keyof MachinePlacementDraftRow,
-  'key'
->;
+export type MachinePlacementDraftField =
+  'coinsPerPlay' | 'tier' | 'gachaId' | 'quantity';
 
 export type MachinePlacementDraftErrors = Record<
   string,
@@ -32,36 +29,22 @@ export type MachineReserveErrors = Record<number, string>;
 
 export const createEmptyMachinePlacementRow = (
   key: string,
+  machineLabel: string,
+  coinsPerPlay: string,
 ): MachinePlacementDraftRow => ({
   key,
-  machineCode: '',
+  machineLabel,
+  coinsPerPlay,
   area: '',
   tier: '',
-  coinUnit: '',
-  coinsPerPlay: '',
   gachaId: '',
   quantity: '',
 });
 
 export const hasMachinePlacementContent = (row: MachinePlacementDraftRow) =>
-  (
-    [
-      'machineCode',
-      'area',
-      'tier',
-      'coinUnit',
-      'coinsPerPlay',
-      'gachaId',
-      'quantity',
-    ] as const
-  ).some((field) => row[field].trim().length > 0);
-
-const normalizeLabel = (value: string) =>
-  value
-    .normalize('NFKC')
-    .trim()
-    .toLocaleLowerCase('ko-KR')
-    .replace(/\s+/gu, '');
+  [row.area, row.tier, row.gachaId, row.quantity].some(
+    (value) => value.trim().length > 0,
+  );
 
 const setError = (
   errors: MachinePlacementDraftErrors,
@@ -88,32 +71,62 @@ const isNonNegativeSafeInteger = (value: string) => {
   );
 };
 
+export const validateCoinUnit = (coinUnit: string): string | undefined =>
+  isPositiveSafeInteger(coinUnit)
+    ? undefined
+    : '매장 공통 코인 단가는 1원 이상의 정수로 입력해 주세요.';
+
 export const calculateMachinePrice = (
-  row: Pick<MachinePlacementDraftRow, 'coinUnit' | 'coinsPerPlay'>,
+  coinUnit: string,
+  coinsPerPlay: string,
 ): number | undefined => {
-  const unit = row.coinUnit.trim() || String(DEFAULT_COIN_UNIT);
-  const count = row.coinsPerPlay.trim();
-  if (!isPositiveSafeInteger(unit) || !isPositiveSafeInteger(count)) {
+  if (
+    !isPositiveSafeInteger(coinUnit) ||
+    !isPositiveSafeInteger(coinsPerPlay)
+  ) {
     return undefined;
   }
-  const price = Number(unit) * Number(count);
+  const price = Number(coinUnit) * Number(coinsPerPlay);
   return Number.isSafeInteger(price) ? price : undefined;
 };
 
 export const validateMachinePlacementDraft = (
   rows: readonly MachinePlacementDraftRow[],
   gachas: readonly MachinePlacementCatalogGacha[],
+  coinUnit: string,
 ): MachinePlacementDraftErrors => {
   const errors: MachinePlacementDraftErrors = {};
   const gachaIds = new Set(gachas.map(({ id }) => id));
-  const rowsByMachine = new Map<string, MachinePlacementDraftRow[]>();
+  const seenKeys = new Set<string>();
 
-  rows.filter(hasMachinePlacementContent).forEach((row) => {
-    const code = normalizeLabel(row.machineCode);
-    if (!code) {
-      setError(errors, row.key, 'machineCode', '기기 코드를 입력해 주세요.');
-    } else {
-      rowsByMachine.set(code, [...(rowsByMachine.get(code) ?? []), row]);
+  rows.forEach((row) => {
+    if (!row.key || seenKeys.has(row.key)) {
+      setError(
+        errors,
+        row.key,
+        'coinsPerPlay',
+        '자동 기기 번호가 중복됩니다. 기기 구성을 다시 확인해 주세요.',
+      );
+    }
+    seenKeys.add(row.key);
+
+    if (!isPositiveSafeInteger(row.coinsPerPlay)) {
+      setError(
+        errors,
+        row.key,
+        'coinsPerPlay',
+        '회당 코인 수는 1 이상의 정수여야 합니다.',
+      );
+    } else if (
+      !validateCoinUnit(coinUnit) &&
+      calculateMachinePrice(coinUnit, row.coinsPerPlay) === undefined
+    ) {
+      setError(
+        errors,
+        row.key,
+        'coinsPerPlay',
+        '계산된 회당 가격이 너무 큽니다. 코인 조건을 확인해 주세요.',
+      );
     }
 
     if (row.tier.trim() && !isPositiveSafeInteger(row.tier)) {
@@ -125,48 +138,19 @@ export const validateMachinePlacementDraft = (
       );
     }
 
-    if (!row.gachaId) {
-      setError(
-        errors,
-        row.key,
-        'gachaId',
-        '매장에 등록된 가챠를 선택해 주세요.',
-      );
-    } else if (!gachaIds.has(Number(row.gachaId))) {
+    if (row.gachaId && !gachaIds.has(Number(row.gachaId))) {
       setError(
         errors,
         row.key,
         'gachaId',
         '현재 매장에 등록된 가챠가 아닙니다. 목록을 다시 확인해 주세요.',
       );
-    }
-
-    if (row.coinUnit.trim() && !isPositiveSafeInteger(row.coinUnit)) {
+    } else if (!row.gachaId && row.quantity.trim()) {
       setError(
         errors,
         row.key,
-        'coinUnit',
-        '코인 단가는 1원 이상의 정수로 입력해 주세요.',
-      );
-    }
-
-    if (row.coinsPerPlay.trim() && !isPositiveSafeInteger(row.coinsPerPlay)) {
-      setError(
-        errors,
-        row.key,
-        'coinsPerPlay',
-        '회당 코인 수는 1 이상의 정수로 입력해 주세요.',
-      );
-    } else if (
-      row.coinsPerPlay.trim() &&
-      !errors[row.key]?.coinUnit &&
-      calculateMachinePrice(row) === undefined
-    ) {
-      setError(
-        errors,
-        row.key,
-        'coinsPerPlay',
-        '계산된 회당 가격이 너무 큽니다. 코인 조건을 확인해 주세요.',
+        'gachaId',
+        '기기 수량을 적으려면 먼저 가챠를 배치해 주세요.',
       );
     }
 
@@ -178,18 +162,6 @@ export const validateMachinePlacementDraft = (
         '기기 내 확인 수량은 0 이상의 정수로 입력해 주세요.',
       );
     }
-  });
-
-  rowsByMachine.forEach((sameMachineRows) => {
-    if (sameMachineRows.length < 2) return;
-    sameMachineRows.forEach((row) =>
-      setError(
-        errors,
-        row.key,
-        'machineCode',
-        '기기 코드가 중복됩니다. 물리 기기 한 대에는 가챠 한 종류만 배치해 주세요.',
-      ),
-    );
   });
 
   return errors;
@@ -221,10 +193,11 @@ const HEADERS = [
   '레코드 종류',
   '매장 ID',
   '매장명',
-  '기기 코드',
+  '초안 행 ID',
+  '자동 기기 번호',
   '매장 내 구역',
   '설치 단',
-  '코인 단가(원)',
+  '매장 코인 단가(원)',
   '회당 코인 수',
   '회당 가격(원)',
   '가챠 ID',
@@ -250,18 +223,19 @@ export const createMachinePlacementDraftCsv = (
   storeName: string,
   rows: readonly MachinePlacementDraftRow[],
   gachas: readonly MachinePlacementCatalogGacha[],
+  coinUnit: string,
   reserveQuantities: Readonly<MachineReserveQuantities> = {},
   reserveOnlyGachaIds: readonly number[] = [],
 ): string => {
-  const placementRows = rows.filter(hasMachinePlacementContent);
-  const errors = validateMachinePlacementDraft(rows, gachas);
+  const errors = validateMachinePlacementDraft(rows, gachas, coinUnit);
   const reserveErrors = validateMachineReserveQuantities(
     rows,
     reserveQuantities,
     reserveOnlyGachaIds,
   );
   if (
-    (placementRows.length === 0 && reserveOnlyGachaIds.length === 0) ||
+    (rows.length === 0 && reserveOnlyGachaIds.length === 0) ||
+    validateCoinUnit(coinUnit) ||
     Object.keys(errors).length > 0 ||
     Object.keys(reserveErrors).length > 0
   ) {
@@ -269,24 +243,25 @@ export const createMachinePlacementDraftCsv = (
   }
 
   const gachaById = new Map(gachas.map((gacha) => [gacha.id, gacha]));
-  const dataRows = placementRows.map((row) => {
-    const gacha = gachaById.get(Number(row.gachaId));
-    if (!gacha)
+  const dataRows = rows.map((row) => {
+    const gacha = row.gachaId ? gachaById.get(Number(row.gachaId)) : undefined;
+    if (row.gachaId && !gacha)
       throw new Error('매장 가챠 목록이 바뀌었습니다. 다시 선택해 주세요.');
 
     return [
-      '기기 배치',
+      '기기',
       storeId,
       storeName,
-      row.machineCode.trim(),
+      row.key,
+      row.machineLabel,
       row.area.trim(),
       row.tier.trim(),
-      row.coinUnit.trim() || DEFAULT_COIN_UNIT,
+      coinUnit.trim(),
       row.coinsPerPlay.trim(),
-      calculateMachinePrice(row) ?? '',
-      gacha.id,
-      gacha.name,
-      gacha.nameJa ?? '',
+      calculateMachinePrice(coinUnit, row.coinsPerPlay) ?? '',
+      gacha?.id ?? '',
+      gacha?.name ?? '',
+      gacha?.nameJa ?? '',
       row.quantity.trim(),
       '',
       '작성 초안 · 사이트 미저장',
@@ -295,32 +270,35 @@ export const createMachinePlacementDraftCsv = (
 
   const reserveRows = [
     ...new Set([
-      ...placementRows.map((row) => Number(row.gachaId)),
+      ...rows.map((row) => Number(row.gachaId)),
       ...reserveOnlyGachaIds,
     ]),
-  ].map((gachaId) => {
-    const gacha = gachaById.get(gachaId);
-    if (!gacha)
-      throw new Error('매장 가챠 목록이 바뀌었습니다. 다시 선택해 주세요.');
+  ]
+    .filter((gachaId) => Number.isSafeInteger(gachaId) && gachaId > 0)
+    .map((gachaId) => {
+      const gacha = gachaById.get(gachaId);
+      if (!gacha)
+        throw new Error('매장 가챠 목록이 바뀌었습니다. 다시 선택해 주세요.');
 
-    return [
-      '보관 재고',
-      storeId,
-      storeName,
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      gacha.id,
-      gacha.name,
-      gacha.nameJa ?? '',
-      '',
-      (reserveQuantities[gachaId] ?? '').trim(),
-      '작성 초안 · 사이트 미저장',
-    ];
-  });
+      return [
+        '보관 재고',
+        storeId,
+        storeName,
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        gacha.id,
+        gacha.name,
+        gacha.nameJa ?? '',
+        '',
+        (reserveQuantities[gachaId] ?? '').trim(),
+        '작성 초안 · 사이트 미저장',
+      ];
+    });
 
   return `\uFEFF${[HEADERS, ...dataRows, ...reserveRows]
     .map((row) => row.map(escapeCell).join(','))

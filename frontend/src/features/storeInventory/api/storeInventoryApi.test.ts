@@ -34,7 +34,9 @@ describe('store inventory API', () => {
       id: 2,
       name: '국제전자센터 가챠존',
       machineCount: 72,
+      coinPrice: 500,
     });
+    expect((await getStoreSummary(3)).coinPrice).toBeNull();
   });
 
   it('새 매장을 생성하면 목록과 가챠 관리 API에서 즉시 조회할 수 있다', async () => {
@@ -68,11 +70,13 @@ describe('store inventory API', () => {
     expect((await getAllStores()).at(-1)).toMatchObject({
       id: 4,
       name: '캡슐 스테이션 성수',
+      coinPrice: null,
       machineCount: 18,
     });
     expect(await getStoreSummary(created.id)).toMatchObject({
       id: 4,
       name: '캡슐 스테이션 성수',
+      coinPrice: 500,
     });
     expect(await getAssignedGachas(created.id)).toEqual([]);
   });

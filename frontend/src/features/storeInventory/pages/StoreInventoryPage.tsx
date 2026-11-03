@@ -569,6 +569,12 @@ export default function StoreInventoryPage({
           <StoreMeta>
             <span>{store.address}</span>
             <span>가챠 기계 {store.machineCount}대</span>
+            <span>
+              코인 단가{' '}
+              {store.coinPrice !== null && store.coinPrice > 0
+                ? `${store.coinPrice.toLocaleString('ko-KR')}원`
+                : '미설정'}
+            </span>
           </StoreMeta>
           <Description>
             분류 완료된 가챠만 검색됩니다. 등록 결과는 소비자용 매장 상세의 가챠

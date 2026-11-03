@@ -129,6 +129,7 @@ export interface MockStore {
   latitude: number;
   longitude: number;
   gachaMachineAmount: number | null;
+  coinPrice: number | null;
 }
 
 const initialStores: MockStore[] = [
@@ -140,6 +141,7 @@ const initialStores: MockStore[] = [
     latitude: 37.5563,
     longitude: 126.9236,
     gachaMachineAmount: 48,
+    coinPrice: 1000,
   },
   {
     storeId: 2,
@@ -149,6 +151,7 @@ const initialStores: MockStore[] = [
     latitude: 37.4847,
     longitude: 127.0177,
     gachaMachineAmount: 72,
+    coinPrice: 500,
   },
   {
     storeId: 3,
@@ -158,6 +161,7 @@ const initialStores: MockStore[] = [
     latitude: 37.5621,
     longitude: 126.9252,
     gachaMachineAmount: 24,
+    coinPrice: null,
   },
 ];
 

@@ -178,6 +178,7 @@ export const handlers = [
       latitude: body.latitude,
       longitude: body.longitude,
       gachaMachineAmount: body.gachaMachineAmount,
+      coinPrice: body.coinPrice,
     });
     storeGachaAssignments.set(storeId, new Set());
 
@@ -195,9 +196,17 @@ export const handlers = [
   http.get(apiPath('/stores'), async ({ request }) => {
     await delay(120);
     const { page, size } = getPageRequest(request.url);
-    const orderedStores = [...stores].sort(
-      (left, right) => left.storeId - right.storeId,
-    );
+    const orderedStores = [...stores]
+      .sort((left, right) => left.storeId - right.storeId)
+      .map((store) => ({
+        storeId: store.storeId,
+        name: store.name,
+        thumbnailUrl: store.thumbnailUrl,
+        address: store.address,
+        latitude: store.latitude,
+        longitude: store.longitude,
+        gachaMachineAmount: store.gachaMachineAmount,
+      }));
 
     return HttpResponse.json(ok(toPage(orderedStores, page, size)));
   }),

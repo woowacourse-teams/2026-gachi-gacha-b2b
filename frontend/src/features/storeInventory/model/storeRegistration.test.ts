@@ -101,4 +101,20 @@ describe('store registration validation', () => {
     expect(result.value.selectGachaPriceMin).toBeNull();
     expect(result.value.selectGachaPriceMax).toBeNull();
   });
+
+  it('매장 공통 코인 단가는 비워둘 수 있지만 입력하면 1원 이상이어야 한다', () => {
+    const invalid = validateStoreRegistration(
+      createValidDraft({ coinPrice: '0' }),
+    );
+    expect(invalid.isValid).toBe(false);
+    if (invalid.isValid) return;
+    expect(invalid.errors.coinPrice).toContain('1원 이상');
+
+    const valid = validateStoreRegistration(
+      createValidDraft({ coinPrice: '1000' }),
+    );
+    expect(valid.isValid).toBe(true);
+    if (!valid.isValid) return;
+    expect(valid.value.coinPrice).toBe(1000);
+  });
 });

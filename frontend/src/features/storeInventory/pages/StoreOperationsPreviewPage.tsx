@@ -148,6 +148,19 @@ export default function StoreOperationsPreviewPage({
             <span>매장에 연결된 가챠</span>
           </FactCard>
           <FactCard>
+            <strong>
+              {store.coinPrice !== null && store.coinPrice > 0
+                ? `${store.coinPrice.toLocaleString('ko-KR')}원`
+                : '미설정'}
+            </strong>
+            <span>
+              매장 공통 코인 단가
+              {store.coinPrice === null || store.coinPrice <= 0
+                ? ' · 시안에서는 1,000원 적용'
+                : ''}
+            </span>
+          </FactCard>
+          <FactCard>
             <strong>미연결</strong>
             <span>수량·배치 저장 API</span>
           </FactCard>
@@ -183,6 +196,7 @@ export default function StoreOperationsPreviewPage({
           storeId={store.id}
           storeName={store.name}
           machineCount={store.machineCount}
+          storeCoinPrice={store.coinPrice}
           gachas={gachas}
         />
       </PreviewSection>
