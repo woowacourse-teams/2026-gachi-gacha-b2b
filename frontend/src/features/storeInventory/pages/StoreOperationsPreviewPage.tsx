@@ -1,9 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 
-import type {
-  CatalogMetadataStatus,
-  ClassificationItem,
-} from '@/features/classification/model/classification';
+import type { ClassificationItem } from '@/features/classification/model/classification';
 import { getErrorMessage } from '@/utils/getErrorMessage';
 
 import {
@@ -45,8 +42,6 @@ export default function StoreOperationsPreviewPage({
   const [store, setStore] = useState<StoreSummary | null>(null);
   const [assignments, setAssignments] = useState<AssignedGachaSummary[]>([]);
   const [details, setDetails] = useState<ClassificationItem[]>([]);
-  const [metadataStatus, setMetadataStatus] =
-    useState<CatalogMetadataStatus>('disabled');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [detailError, setDetailError] = useState('');
@@ -75,7 +70,6 @@ export default function StoreOperationsPreviewPage({
             );
             if (!isCurrent) return;
             setDetails(result.items);
-            setMetadataStatus(result.metadataStatus);
           } catch (cause) {
             if (!isCurrent) return;
             setDetails([]);
@@ -83,7 +77,6 @@ export default function StoreOperationsPreviewPage({
           }
         } else {
           setDetails([]);
-          setMetadataStatus('disabled');
         }
       } catch (cause) {
         if (isCurrent) setError(getErrorMessage(cause));
@@ -138,7 +131,7 @@ export default function StoreOperationsPreviewPage({
       </BackButton>
       <Intro>
         <div>
-          <StatusPill>운영 화면 시안 · 서버 미연결</StatusPill>
+          <StatusPill>운영 화면 시안 · 재고 저장 미연결</StatusPill>
           <Heading>{store.name} 운영 보드</Heading>
           <Description>
             실제 매장에 등록된 가챠를 바탕으로 기기 배치를 시험하고, 쿠지 상자별
@@ -162,21 +155,15 @@ export default function StoreOperationsPreviewPage({
       </Intro>
 
       <Notice role="status">
-        이 페이지의 기기·재고·쿠지 숫자는 서버에 저장되지 않는 체험용
-        초안입니다. 새로고침하거나 페이지를 벗어나면 입력값이 사라집니다. 실제
-        판매·매출이나 소비자용 재고로 표시되지 않습니다.
+        매장 정보와 등록 가챠는 기존 DB에서 조회합니다. 이 페이지에서 입력하는
+        기기·재고·쿠지 숫자는 서버에 저장되지 않는 체험용 초안입니다.
+        새로고침하거나 페이지를 벗어나면 사라지며, 실제 판매·매출이나 소비자용
+        재고로 표시되지 않습니다.
       </Notice>
       {detailError && (
         <Notice role="alert">
           상품 상세정보를 가져오지 못했습니다: {detailError}. 기기 초안에서는
           상품 ID로 표시합니다.
-        </Notice>
-      )}
-      {metadataStatus === 'disabled' && assignments.length > 0 && (
-        <Notice>
-          한·일 이름 입력 칸은 공개 상품정보 시트의 <code>name_ko</code>와{' '}
-          <code>name_ja</code>로 이미 분리되어 있습니다. 현재 시트 URL이
-          연결되지 않아 기존 카탈로그 이름만 보일 수 있습니다.
         </Notice>
       )}
       <JumpLinks aria-label="운영 시안 영역 이동">

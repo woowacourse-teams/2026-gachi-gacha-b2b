@@ -23,6 +23,8 @@ import {
   ReserveSection,
 } from './MachinePlacementDraft.styles';
 import {
+  DEFAULT_COIN_UNIT,
+  calculateMachinePrice,
   createEmptyMachinePlacementRow,
   createMachinePlacementDraftCsv,
   hasMachinePlacementContent,
@@ -52,8 +54,9 @@ interface MachinePlacementDraftProps {
 const FIELD_ORDER: MachinePlacementDraftField[] = [
   'machineCode',
   'area',
-  'slot',
-  'pricePerPlay',
+  'tier',
+  'coinUnit',
+  'coinsPerPlay',
   'gachaId',
   'quantity',
 ];
@@ -215,7 +218,7 @@ export default function MachinePlacementDraft({
       setReserveErrors(nextReserveErrors);
       setFeedbackIsError(true);
       setFeedback(
-        '필수 입력과 중복 기기·슬롯, 기기/보관 수량을 확인해 주세요.',
+        '필수 입력과 중복 기기 코드, 코인 조건, 기기/보관 수량을 확인해 주세요.',
       );
 
       const firstInvalid = rows.flatMap((row) =>
@@ -281,8 +284,8 @@ export default function MachinePlacementDraft({
         <div>
           <h3 id="machine-placement-input-title">기기별 배치 입력</h3>
           <p>
-            매장에 등록된 가챠를 어느 기기와 슬롯에 넣을지 미리 적어 보는 현장
-            조사 양식입니다.
+            매장에 등록된 가챠를 어느 기기에 넣을지 미리 적어 보는 현장 조사
+            양식입니다. 물리 기기 한 대마다 가챠 한 종류를 배치합니다.
           </p>
         </div>
         <DraftBadge>시안 · 서버 저장 안 됨</DraftBadge>
@@ -297,10 +300,13 @@ export default function MachinePlacementDraft({
 
       <DraftGuide>
         매장 정보에 적힌 기계 수는 {machineCount}대입니다. 이 숫자는 참고용이며
-        아래 행을 자동 생성하거나 실제 기기 목록으로 확정하지 않습니다. 같은
-        기기에 여러 슬롯이 있으면 기기 코드를 반복하고 서로 다른 슬롯 코드를
-        적어 주세요. 기기 내 수량은 수기 확인 메모로, 판매량이나 완판 여부를
-        자동 추정하지 않습니다. 가챠 교체도 판매로 계산하지 않습니다.
+        아래 행을 자동 생성하거나 실제 기기 목록으로 확정하지 않습니다. 쌓인
+        기계의 설치 단은 기기별 위치 메모이며, 기기 코드 중복은 허용하지
+        않습니다. 코인 단가는 기기별로 변경할 수 있고 비우면{' '}
+        {DEFAULT_COIN_UNIT.toLocaleString('ko-KR')}원을 적용합니다. 코인 수를
+        모르면 비워 두며 회당 가격도 미확인 상태로 남습니다. 기기 내 수량은 수기
+        확인 메모로, 판매량이나 완판 여부를 자동 추정하지 않습니다. 가챠 교체도
+        판매로 계산하지 않습니다.
       </DraftGuide>
 
       {availableGachas.length === 0 && (
@@ -315,6 +321,7 @@ export default function MachinePlacementDraft({
           const selectedGacha = gachaById.get(Number(row.gachaId));
           const imageUrl = selectedGacha?.imageUrl;
           const hasImage = imageUrl && !failedImages.has(imageUrl);
+          const calculatedPrice = calculateMachinePrice(row);
 
           return (
             <PlacementItem key={row.key}>
@@ -357,35 +364,57 @@ export default function MachinePlacementDraft({
                     />
                   </DraftField>
                   <DraftField>
-                    슬롯 코드 (선택)
+                    설치 단 (선택)
                     <input
-                      aria-invalid={Boolean(fieldError(row, 'slot'))}
-                      id={`placement-${row.key}-slot`}
-                      maxLength={40}
-                      placeholder="예: 1번 칸"
-                      value={row.slot}
+                      aria-invalid={Boolean(fieldError(row, 'tier'))}
+                      id={`placement-${row.key}-tier`}
+                      inputMode="numeric"
+                      placeholder="예: 2 (2단에 쌓인 기기)"
+                      value={row.tier}
                       onChange={(event) =>
-                        updateRow(row.key, 'slot', event.target.value)
+                        updateRow(row.key, 'tier', event.target.value)
                       }
                     />
-                    {fieldError(row, 'slot') && (
-                      <FieldError>{fieldError(row, 'slot')}</FieldError>
+                    {fieldError(row, 'tier') && (
+                      <FieldError>{fieldError(row, 'tier')}</FieldError>
                     )}
                   </DraftField>
                   <DraftField>
-                    회당 가격 (원, 선택)
+                    코인 단가 (원, 기본{' '}
+                    {DEFAULT_COIN_UNIT.toLocaleString('ko-KR')})
                     <input
-                      aria-invalid={Boolean(fieldError(row, 'pricePerPlay'))}
-                      id={`placement-${row.key}-pricePerPlay`}
+                      aria-invalid={Boolean(fieldError(row, 'coinUnit'))}
+                      id={`placement-${row.key}-coinUnit`}
                       inputMode="numeric"
-                      placeholder="예: 3000"
-                      value={row.pricePerPlay}
+                      placeholder={String(DEFAULT_COIN_UNIT)}
+                      value={row.coinUnit}
                       onChange={(event) =>
-                        updateRow(row.key, 'pricePerPlay', event.target.value)
+                        updateRow(row.key, 'coinUnit', event.target.value)
                       }
                     />
-                    {fieldError(row, 'pricePerPlay') && (
-                      <FieldError>{fieldError(row, 'pricePerPlay')}</FieldError>
+                    {fieldError(row, 'coinUnit') && (
+                      <FieldError>{fieldError(row, 'coinUnit')}</FieldError>
+                    )}
+                  </DraftField>
+                  <DraftField>
+                    회당 코인 수 (선택)
+                    <input
+                      aria-invalid={Boolean(fieldError(row, 'coinsPerPlay'))}
+                      id={`placement-${row.key}-coinsPerPlay`}
+                      inputMode="numeric"
+                      placeholder="예: 4"
+                      value={row.coinsPerPlay}
+                      onChange={(event) =>
+                        updateRow(row.key, 'coinsPerPlay', event.target.value)
+                      }
+                    />
+                    <small>
+                      {calculatedPrice === undefined
+                        ? '회당 가격 미확인 · 코인 수를 입력하면 자동 계산합니다.'
+                        : `회당 가격 ${calculatedPrice.toLocaleString('ko-KR')}원 (자동 계산)`}
+                    </small>
+                    {fieldError(row, 'coinsPerPlay') && (
+                      <FieldError>{fieldError(row, 'coinsPerPlay')}</FieldError>
                     )}
                   </DraftField>
                   <DraftField>

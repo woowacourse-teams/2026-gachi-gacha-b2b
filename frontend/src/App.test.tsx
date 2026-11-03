@@ -615,7 +615,11 @@ describe('App navigation', () => {
       await screen.findByRole('heading', { name: '가챠샵 홍대점 운영 보드' }),
     ).toBeVisible();
     expect(window.location.pathname).toBe('/stores/1/operations-preview');
+    expect(
+      screen.getByText(/매장 정보와 등록 가챠는 기존 DB에서 조회합니다/),
+    ).toBeVisible();
     expect(screen.getByText(/서버에 저장되지 않는 체험용 초안/)).toBeVisible();
+    expect(screen.queryByText(/공개 상품정보 시트/)).not.toBeInTheDocument();
     expect(
       screen.getByRole('heading', { name: '기기 배치 초안' }),
     ).toBeVisible();

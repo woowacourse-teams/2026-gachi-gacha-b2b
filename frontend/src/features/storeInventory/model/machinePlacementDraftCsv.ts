@@ -2,11 +2,14 @@ export interface MachinePlacementDraftRow {
   key: string;
   machineCode: string;
   area: string;
-  slot: string;
-  pricePerPlay: string;
+  tier: string;
+  coinUnit: string;
+  coinsPerPlay: string;
   gachaId: string;
   quantity: string;
 }
+
+export const DEFAULT_COIN_UNIT = 1000;
 
 export interface MachinePlacementCatalogGacha {
   id: number;
@@ -33,8 +36,9 @@ export const createEmptyMachinePlacementRow = (
   key,
   machineCode: '',
   area: '',
-  slot: '',
-  pricePerPlay: '',
+  tier: '',
+  coinUnit: '',
+  coinsPerPlay: '',
   gachaId: '',
   quantity: '',
 });
@@ -44,8 +48,9 @@ export const hasMachinePlacementContent = (row: MachinePlacementDraftRow) =>
     [
       'machineCode',
       'area',
-      'slot',
-      'pricePerPlay',
+      'tier',
+      'coinUnit',
+      'coinsPerPlay',
       'gachaId',
       'quantity',
     ] as const
@@ -83,6 +88,18 @@ const isNonNegativeSafeInteger = (value: string) => {
   );
 };
 
+export const calculateMachinePrice = (
+  row: Pick<MachinePlacementDraftRow, 'coinUnit' | 'coinsPerPlay'>,
+): number | undefined => {
+  const unit = row.coinUnit.trim() || String(DEFAULT_COIN_UNIT);
+  const count = row.coinsPerPlay.trim();
+  if (!isPositiveSafeInteger(unit) || !isPositiveSafeInteger(count)) {
+    return undefined;
+  }
+  const price = Number(unit) * Number(count);
+  return Number.isSafeInteger(price) ? price : undefined;
+};
+
 export const validateMachinePlacementDraft = (
   rows: readonly MachinePlacementDraftRow[],
   gachas: readonly MachinePlacementCatalogGacha[],
@@ -97,6 +114,15 @@ export const validateMachinePlacementDraft = (
       setError(errors, row.key, 'machineCode', '기기 코드를 입력해 주세요.');
     } else {
       rowsByMachine.set(code, [...(rowsByMachine.get(code) ?? []), row]);
+    }
+
+    if (row.tier.trim() && !isPositiveSafeInteger(row.tier)) {
+      setError(
+        errors,
+        row.key,
+        'tier',
+        '설치 단은 1 이상의 정수로 입력해 주세요.',
+      );
     }
 
     if (!row.gachaId) {
@@ -115,12 +141,32 @@ export const validateMachinePlacementDraft = (
       );
     }
 
-    if (row.pricePerPlay.trim() && !isPositiveSafeInteger(row.pricePerPlay)) {
+    if (row.coinUnit.trim() && !isPositiveSafeInteger(row.coinUnit)) {
       setError(
         errors,
         row.key,
-        'pricePerPlay',
-        '회당 가격은 1원 이상의 정수로 입력해 주세요.',
+        'coinUnit',
+        '코인 단가는 1원 이상의 정수로 입력해 주세요.',
+      );
+    }
+
+    if (row.coinsPerPlay.trim() && !isPositiveSafeInteger(row.coinsPerPlay)) {
+      setError(
+        errors,
+        row.key,
+        'coinsPerPlay',
+        '회당 코인 수는 1 이상의 정수로 입력해 주세요.',
+      );
+    } else if (
+      row.coinsPerPlay.trim() &&
+      !errors[row.key]?.coinUnit &&
+      calculateMachinePrice(row) === undefined
+    ) {
+      setError(
+        errors,
+        row.key,
+        'coinsPerPlay',
+        '계산된 회당 가격이 너무 큽니다. 코인 조건을 확인해 주세요.',
       );
     }
 
@@ -136,35 +182,14 @@ export const validateMachinePlacementDraft = (
 
   rowsByMachine.forEach((sameMachineRows) => {
     if (sameMachineRows.length < 2) return;
-
-    if (sameMachineRows.some((row) => !normalizeLabel(row.slot))) {
-      sameMachineRows.forEach((row) =>
-        setError(
-          errors,
-          row.key,
-          'slot',
-          '같은 기기를 여러 번 적을 때는 각 행에 서로 다른 슬롯을 입력해 주세요.',
-        ),
-      );
-      return;
-    }
-
-    const rowsBySlot = new Map<string, MachinePlacementDraftRow[]>();
-    sameMachineRows.forEach((row) => {
-      const slot = normalizeLabel(row.slot);
-      rowsBySlot.set(slot, [...(rowsBySlot.get(slot) ?? []), row]);
-    });
-    rowsBySlot.forEach((sameSlotRows) => {
-      if (sameSlotRows.length < 2) return;
-      sameSlotRows.forEach((row) =>
-        setError(
-          errors,
-          row.key,
-          'slot',
-          '같은 기기의 슬롯 코드가 중복됩니다.',
-        ),
-      );
-    });
+    sameMachineRows.forEach((row) =>
+      setError(
+        errors,
+        row.key,
+        'machineCode',
+        '기기 코드가 중복됩니다. 물리 기기 한 대에는 가챠 한 종류만 배치해 주세요.',
+      ),
+    );
   });
 
   return errors;
@@ -198,7 +223,9 @@ const HEADERS = [
   '매장명',
   '기기 코드',
   '매장 내 구역',
-  '슬롯 코드',
+  '설치 단',
+  '코인 단가(원)',
+  '회당 코인 수',
   '회당 가격(원)',
   '가챠 ID',
   '가챠 이름',
@@ -253,8 +280,10 @@ export const createMachinePlacementDraftCsv = (
       storeName,
       row.machineCode.trim(),
       row.area.trim(),
-      row.slot.trim(),
-      row.pricePerPlay.trim(),
+      row.tier.trim(),
+      row.coinUnit.trim() || DEFAULT_COIN_UNIT,
+      row.coinsPerPlay.trim(),
+      calculateMachinePrice(row) ?? '',
       gacha.id,
       gacha.name,
       gacha.nameJa ?? '',
@@ -278,6 +307,8 @@ export const createMachinePlacementDraftCsv = (
       '보관 재고',
       storeId,
       storeName,
+      '',
+      '',
       '',
       '',
       '',

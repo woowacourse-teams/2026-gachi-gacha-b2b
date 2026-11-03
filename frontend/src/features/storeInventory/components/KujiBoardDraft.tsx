@@ -25,32 +25,18 @@ interface GradeCount {
 }
 
 const INITIAL_DRAFT: BoardDraft = {
-  nameKo: '예시 쿠지',
-  nameJa: 'サンプルくじ',
-  boxCode: 'BOX-01',
-  price: '10000',
-  lastOne: '마지막 티켓 구매자에게 제공 (예시)',
+  nameKo: '',
+  nameJa: '',
+  boxCode: '',
+  price: '',
+  lastOne: '',
   grades: [
     {
       id: 1,
-      label: 'A',
-      prizeName: '예시 경품 A',
-      initial: '2',
-      remaining: '2',
-    },
-    {
-      id: 2,
-      label: 'B',
-      prizeName: '예시 경품 B',
-      initial: '5',
-      remaining: '4',
-    },
-    {
-      id: 3,
-      label: 'C',
-      prizeName: '예시 경품 C',
-      initial: '20',
-      remaining: '18',
+      label: '',
+      prizeName: '',
+      initial: '',
+      remaining: '',
     },
   ],
 };
@@ -100,6 +86,53 @@ const getGradeError = (
   return null;
 };
 
+const hasGradeInput = (grade: GradeDraft) =>
+  [grade.label, grade.prizeName, grade.initial, grade.remaining].some(
+    (value) => value.trim() !== '',
+  );
+
+const calculateTicketCounts = (grades: GradeDraft[]) => {
+  const counts = grades.map(parseGradeCount);
+  if (
+    grades.length === 0 ||
+    grades.some((grade) => getGradeError(grade, grades) !== null)
+  ) {
+    return { counts, total: null, hasUnsafeTotal: false };
+  }
+
+  let initial = 0;
+  let remaining = 0;
+  for (const count of counts) {
+    if (!count) return { counts, total: null, hasUnsafeTotal: false };
+    if (
+      count.initial > Number.MAX_SAFE_INTEGER - initial ||
+      count.remaining > Number.MAX_SAFE_INTEGER - remaining
+    ) {
+      return { counts, total: null, hasUnsafeTotal: true };
+    }
+    initial += count.initial;
+    remaining += count.remaining;
+  }
+
+  return {
+    counts,
+    total: { initial, remaining },
+    hasUnsafeTotal: false,
+  };
+};
+
+const canExportDraft = (draft: BoardDraft, total: GradeCount | null) => {
+  const price = parseCount(draft.price);
+  return (
+    total !== null &&
+    total.initial > 0 &&
+    (draft.nameKo.trim() !== '' || draft.nameJa.trim() !== '') &&
+    draft.boxCode.trim() !== '' &&
+    price !== null &&
+    price > 0
+  );
+};
+
 const formatWon = (value: string): string => {
   const parsed = parseCount(value);
   return parsed !== null && parsed > 0
@@ -122,6 +155,11 @@ export const createKujiBoardDraftCsv = (
   storeName: string,
   draft: BoardDraft,
 ): string => {
+  const { total } = calculateTicketCounts(draft.grades);
+  if (!canExportDraft(draft, total)) {
+    throw new Error('쿠지 초안의 제목·상자·가격·티켓 장수를 확인해 주세요.');
+  }
+
   const headers = [
     '자료 성격',
     '매장 ID',
@@ -163,7 +201,7 @@ export function KujiBoardDraft({
   storeName: string;
 }) {
   const formId = useId();
-  const nextGradeId = useRef(4);
+  const nextGradeId = useRef(2);
   const [draft, setDraft] = useState<BoardDraft>(INITIAL_DRAFT);
 
   const updateField = (
@@ -204,32 +242,14 @@ export function KujiBoardDraft({
     }));
   };
 
-  const counts = draft.grades.map(parseGradeCount);
-  const hasGradeError = draft.grades.some(
-    (grade) => getGradeError(grade, draft.grades) !== null,
-  );
-  const total =
-    hasGradeError || counts.some((count) => count === null)
-      ? null
-      : counts.reduce<GradeCount>(
-          (sum, count) => ({
-            initial: sum.initial + (count?.initial ?? 0),
-            remaining: sum.remaining + (count?.remaining ?? 0),
-          }),
-          { initial: 0, remaining: 0 },
-        );
+  const { counts, total, hasUnsafeTotal } = calculateTicketCounts(draft.grades);
   const remainingPercent =
     total && total.initial > 0
       ? Math.round((total.remaining / total.initial) * 100)
       : 0;
   const title =
     draft.nameKo.trim() || draft.nameJa.trim() || '쿠지 제목 미입력';
-  const canExport =
-    total !== null &&
-    (draft.nameKo.trim() !== '' || draft.nameJa.trim() !== '') &&
-    draft.boxCode.trim() !== '' &&
-    parseCount(draft.price) !== null &&
-    Number(draft.price) > 0;
+  const canExport = canExportDraft(draft, total);
 
   const downloadDraftCsv = () => {
     if (!canExport) return;
@@ -254,14 +274,14 @@ export function KujiBoardDraft({
           <h3 id={`${formId}-heading`}>상자별 설정 및 미리보기</h3>
           <p>상자별 등급과 남은 장수를 입력해 화면 구성을 미리 확인하세요.</p>
         </div>
-        <S.PreviewBadge>가상 예시 데이터</S.PreviewBadge>
+        <S.PreviewBadge>빈 초안 · 서버 미저장</S.PreviewBadge>
       </S.Header>
 
       <S.Notice>
         <strong>저장되지 않는 시안입니다.</strong> 입력 내용은 이 화면의
         브라우저 메모리에만 남고 새로고침하거나 이동하면 사라집니다. 서버
-        저장·기기 간 공유·실시간 갱신·소비자 공개는 지원하지 않습니다. 아래 초기
-        값은 실제 매장 재고가 아닙니다.
+        저장·기기 간 공유·실시간 갱신·소비자 공개는 지원하지 않습니다. 실제 매장
+        재고를 가져오지 않는 빈 양식에서 시작합니다.
       </S.Notice>
 
       <S.Workspace>
@@ -308,7 +328,9 @@ export function KujiBoardDraft({
                 <input
                   inputMode="numeric"
                   aria-invalid={
-                    parseCount(draft.price) === null || Number(draft.price) <= 0
+                    draft.price.trim() !== '' &&
+                    (parseCount(draft.price) === null ||
+                      Number(draft.price) <= 0)
                   }
                   value={draft.price}
                   onChange={(event) => updateField('price', event.target.value)}
@@ -323,6 +345,7 @@ export function KujiBoardDraft({
             <S.GradeEditorList>
               {draft.grades.map((grade, index) => {
                 const error = getGradeError(grade, draft.grades);
+                const isStarted = hasGradeInput(grade);
                 return (
                   <S.GradeEditorCard
                     key={grade.id}
@@ -346,7 +369,7 @@ export function KujiBoardDraft({
                         <input
                           maxLength={24}
                           aria-invalid={Boolean(
-                            error && error.includes('등급'),
+                            isStarted && error && error.includes('등급'),
                           )}
                           value={grade.label}
                           onChange={(event) =>
@@ -375,9 +398,11 @@ export function KujiBoardDraft({
                         <input
                           inputMode="numeric"
                           aria-invalid={
-                            parseCount(grade.initial) === null ||
-                            (parseCount(grade.remaining) !== null &&
-                              Number(grade.remaining) > Number(grade.initial))
+                            isStarted &&
+                            (parseCount(grade.initial) === null ||
+                              (parseCount(grade.remaining) !== null &&
+                                Number(grade.remaining) >
+                                  Number(grade.initial)))
                           }
                           value={grade.initial}
                           onChange={(event) =>
@@ -391,9 +416,11 @@ export function KujiBoardDraft({
                         <input
                           inputMode="numeric"
                           aria-invalid={
-                            parseCount(grade.remaining) === null ||
-                            (parseCount(grade.initial) !== null &&
-                              Number(grade.remaining) > Number(grade.initial))
+                            isStarted &&
+                            (parseCount(grade.remaining) === null ||
+                              (parseCount(grade.initial) !== null &&
+                                Number(grade.remaining) >
+                                  Number(grade.initial)))
                           }
                           value={grade.remaining}
                           onChange={(event) =>
@@ -407,11 +434,18 @@ export function KujiBoardDraft({
                         />
                       </S.Field>
                     </S.FieldGrid>
-                    {error && <S.FieldError role="alert">{error}</S.FieldError>}
+                    {error && isStarted && (
+                      <S.FieldError role="alert">{error}</S.FieldError>
+                    )}
                   </S.GradeEditorCard>
                 );
               })}
             </S.GradeEditorList>
+            {hasUnsafeTotal && (
+              <S.FieldError role="alert">
+                전체 초기·남은 티켓 합계가 너무 큽니다. 장수를 확인해 주세요.
+              </S.FieldError>
+            )}
             <S.ActionButton type="button" onClick={addGrade}>
               + 등급 추가
             </S.ActionButton>
@@ -438,7 +472,8 @@ export function KujiBoardDraft({
               현재 초안 CSV 다운로드
             </S.ActionButton>
             <small>
-              유효한 제목·상자·가격·등급 장수를 입력하면 내려받을 수 있습니다.
+              제목·상자·가격·등급 장수를 입력하고 초기 티켓 합계가 1장 이상이면
+              내려받을 수 있습니다.
             </small>
           </S.ExportBar>
         </S.Editor>

@@ -89,12 +89,24 @@ describe('MachinePlacementDraft', () => {
     fireEvent.change(screen.getByLabelText(/매장 내 구역/), {
       target: { value: '입구' },
     });
+    fireEvent.change(screen.getByLabelText(/설치 단/), {
+      target: { value: '2' },
+    });
+    fireEvent.change(screen.getByLabelText(/코인 단가/), {
+      target: { value: '1500' },
+    });
+    fireEvent.change(screen.getByLabelText(/회당 코인 수/), {
+      target: { value: '12' },
+    });
     fireEvent.change(screen.getByLabelText(/연결된 가챠/), {
       target: { value: '1697' },
     });
     fireEvent.change(screen.getByLabelText(/기기 내 확인 수량/), {
       target: { value: '5' },
     });
+    expect(
+      screen.getByText('회당 가격 18,000원 (자동 계산)'),
+    ).toBeInTheDocument();
     fireEvent.click(
       screen.getByRole('button', { name: '배치 초안 CSV 내려받기' }),
     );
@@ -106,7 +118,7 @@ describe('MachinePlacementDraft', () => {
     );
   });
 
-  it('중복 기기·슬롯과 음수 수량을 오류로 표시한다', () => {
+  it('쌓인 단이 달라도 중복 기기 코드와 음수 수량을 오류로 표시한다', () => {
     render(<MachinePlacementDraft {...props} />);
 
     fireEvent.change(screen.getByLabelText(/기기 코드/), {
@@ -121,18 +133,45 @@ describe('MachinePlacementDraft', () => {
     fireEvent.click(screen.getByRole('button', { name: '+ 배치 행 추가' }));
     const codes = screen.getAllByLabelText(/기기 코드/);
     const gachas = screen.getAllByLabelText(/연결된 가챠/);
+    const tiers = screen.getAllByLabelText(/설치 단/);
     fireEvent.change(codes[1]!, { target: { value: 'a-01' } });
+    fireEvent.change(tiers[1]!, { target: { value: '2' } });
     fireEvent.change(gachas[1]!, { target: { value: '1698' } });
     fireEvent.click(
       screen.getByRole('button', { name: '배치 초안 CSV 내려받기' }),
     );
 
-    expect(
-      screen.getAllByText(/같은 기기를 여러 번 적을 때는 각 행/),
-    ).toHaveLength(2);
+    expect(screen.getAllByText(/기기 코드가 중복됩니다/)).toHaveLength(2);
     expect(
       screen.getByText(/기기 내 확인 수량은 0 이상의 정수/),
     ).toBeInTheDocument();
+    expect(URL.createObjectURL).not.toHaveBeenCalled();
+  });
+
+  it('코인 수를 모르면 가격 미확인으로 두고 잘못된 단가는 다운로드를 막는다', () => {
+    render(<MachinePlacementDraft {...props} />);
+
+    expect(screen.getByText(/회당 가격 미확인/)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText(/기기 코드/), {
+      target: { value: 'A-01' },
+    });
+    fireEvent.change(screen.getByLabelText(/연결된 가챠/), {
+      target: { value: '1697' },
+    });
+    fireEvent.change(screen.getByLabelText(/회당 코인 수/), {
+      target: { value: '8' },
+    });
+    expect(
+      screen.getByText('회당 가격 8,000원 (자동 계산)'),
+    ).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText(/코인 단가/), {
+      target: { value: '0' },
+    });
+    fireEvent.click(
+      screen.getByRole('button', { name: '배치 초안 CSV 내려받기' }),
+    );
+
+    expect(screen.getByText(/코인 단가는 1원 이상의 정수/)).toBeInTheDocument();
     expect(URL.createObjectURL).not.toHaveBeenCalled();
   });
 
