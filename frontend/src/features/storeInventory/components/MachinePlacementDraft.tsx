@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
+import GachaImagePreviewDialog from './GachaImagePreviewDialog';
 import {
   CoinSetup,
   DraftActions,
@@ -13,14 +14,21 @@ import {
   DraftSection,
   DraftWarning,
   FieldError,
+  GachaAssignButton,
   GachaChoice,
   GachaChoices,
   GachaPicker,
+  GachaPickerHeader,
+  GachaPickerResults,
+  GachaPreviewButton,
   GroupCountInput,
   GroupSetupCard,
   GroupSetupGrid,
   MachineDetails,
   MachineGrid,
+  MachineGachaChoice,
+  MachineListHeader,
+  MachinePickerAction,
   MachineTile,
   MoreButton,
   PlacementFields,
@@ -107,6 +115,15 @@ export default function MachinePlacementDraft({
   const [visibleMachineCount, setVisibleMachineCount] =
     useState(MACHINE_PAGE_SIZE);
   const [gachaQuery, setGachaQuery] = useState('');
+  const [isGachaPickerOpen, setIsGachaPickerOpen] = useState(false);
+  const [pickerPosition, setPickerPosition] = useState<{
+    top: number;
+    left: number;
+    width: number;
+    maxHeight: number;
+  } | null>(null);
+  const isPickerPositioned = pickerPosition !== null;
+  const [previewGacha, setPreviewGacha] = useState<DraftGacha | null>(null);
   const [visibleGachaCount, setVisibleGachaCount] = useState(GACHA_PAGE_SIZE);
   const [reserveQuery, setReserveQuery] = useState('');
   const [isReservePickerOpen, setIsReservePickerOpen] = useState(false);
@@ -128,7 +145,12 @@ export default function MachinePlacementDraft({
   const nextKeyRef = useRef(1);
   const importGenerationRef = useRef(0);
   const hasCurrentDraftRef = useRef(false);
+  const selectedTileRef = useRef<HTMLButtonElement | null>(null);
   const pickerRef = useRef<HTMLElement | null>(null);
+  const pickerSearchRef = useRef<HTMLInputElement | null>(null);
+  const pickerTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const quickPickerTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const pickerOriginRef = useRef<HTMLButtonElement | null>(null);
 
   useLayoutEffect(() => {
     hasCurrentDraftRef.current =
@@ -169,6 +191,9 @@ export default function MachinePlacementDraft({
     setSelectedMachineKey(null);
     setVisibleMachineCount(MACHINE_PAGE_SIZE);
     setGachaQuery('');
+    setIsGachaPickerOpen(false);
+    setPickerPosition(null);
+    setPreviewGacha(null);
     setVisibleGachaCount(GACHA_PAGE_SIZE);
     setReserveQuery('');
     setIsReservePickerOpen(false);
@@ -240,6 +265,148 @@ export default function MachinePlacementDraft({
     );
   }, [availableGachas, gachaQuery]);
 
+  useLayoutEffect(() => {
+    if (!isGachaPickerOpen) return;
+
+    const positionPicker = () => {
+      const gutter = 16;
+      const gap = 8;
+      const viewportWidth = Math.min(
+        window.innerWidth,
+        document.documentElement.clientWidth || window.innerWidth,
+      );
+      const viewportHeight = window.innerHeight;
+      const isVisible = (rect: DOMRect | undefined) =>
+        rect &&
+        rect.bottom > gutter &&
+        rect.top < viewportHeight - gutter &&
+        rect.right > gutter &&
+        rect.left < viewportWidth - gutter;
+      const tileRect = selectedTileRef.current?.getBoundingClientRect();
+      const trigger = pickerOriginRef.current?.isConnected
+        ? pickerOriginRef.current
+        : pickerTriggerRef.current;
+      const triggerRect = trigger?.getBoundingClientRect();
+      const rect = isVisible(tileRect)
+        ? tileRect
+        : isVisible(triggerRect)
+          ? triggerRect
+          : undefined;
+      const width = Math.min(960, Math.max(0, viewportWidth - gutter * 2));
+      const left = rect
+        ? Math.min(
+            Math.max(gutter, rect.left),
+            Math.max(gutter, viewportWidth - width - gutter),
+          )
+        : gutter;
+      const below = rect ? viewportHeight - rect.bottom - gutter - gap : 0;
+      const above = rect ? rect.top - gutter - gap : 0;
+      const availableHeight = Math.max(0, viewportHeight - gutter * 2);
+      let top = gutter;
+      let maxHeight = Math.min(640, availableHeight);
+
+      if (rect && below >= 280) {
+        top = rect.bottom + gap;
+        maxHeight = Math.min(maxHeight, below);
+      } else if (rect && above >= 280) {
+        maxHeight = Math.min(maxHeight, above);
+        top = rect.top - gap - maxHeight;
+      }
+
+      top = Math.max(
+        gutter,
+        Math.min(top, viewportHeight - maxHeight - gutter),
+      );
+      setPickerPosition({ top, left, width, maxHeight });
+    };
+
+    const handleScroll = (event: Event) => {
+      if (
+        event.target instanceof Node &&
+        pickerRef.current?.contains(event.target)
+      ) {
+        return;
+      }
+      positionPicker();
+    };
+
+    positionPicker();
+    window.addEventListener('resize', positionPicker);
+    window.addEventListener('scroll', handleScroll, true);
+    return () => {
+      window.removeEventListener('resize', positionPicker);
+      window.removeEventListener('scroll', handleScroll, true);
+    };
+  }, [isGachaPickerOpen, activeRow?.key]);
+
+  useEffect(() => {
+    if (!isGachaPickerOpen || !isPickerPositioned) return;
+    pickerSearchRef.current?.focus({ preventScroll: true });
+  }, [isGachaPickerOpen, isPickerPositioned]);
+
+  useEffect(() => {
+    if (!isGachaPickerOpen) return;
+    const handlePointerDown = (event: PointerEvent) => {
+      if (previewGacha) return;
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (
+        pickerRef.current?.contains(target) ||
+        pickerTriggerRef.current?.contains(target) ||
+        quickPickerTriggerRef.current?.contains(target)
+      ) {
+        return;
+      }
+      setIsGachaPickerOpen(false);
+      window.requestAnimationFrame(() => {
+        if (
+          document.activeElement === document.body ||
+          !document.activeElement?.isConnected
+        ) {
+          (pickerOriginRef.current?.isConnected
+            ? pickerOriginRef.current
+            : pickerTriggerRef.current
+          )?.focus();
+        }
+      });
+    };
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || previewGacha) return;
+      setIsGachaPickerOpen(false);
+      (pickerOriginRef.current?.isConnected
+        ? pickerOriginRef.current
+        : pickerTriggerRef.current
+      )?.focus();
+    };
+
+    window.addEventListener('pointerdown', handlePointerDown);
+    window.addEventListener('keydown', handleEscape);
+    return () => {
+      window.removeEventListener('pointerdown', handlePointerDown);
+      window.removeEventListener('keydown', handleEscape);
+    };
+  }, [isGachaPickerOpen, previewGacha]);
+
+  const closeGachaPicker = (restoreFocus = false) => {
+    setIsGachaPickerOpen(false);
+    if (restoreFocus) {
+      window.requestAnimationFrame(() =>
+        (pickerOriginRef.current?.isConnected
+          ? pickerOriginRef.current
+          : pickerTriggerRef.current
+        )?.focus(),
+      );
+    }
+  };
+
+  const openGachaPicker = (origin: HTMLButtonElement) => {
+    pickerOriginRef.current = origin;
+    setGachaQuery('');
+    setVisibleGachaCount(GACHA_PAGE_SIZE);
+    setPickerPosition(null);
+    setIsGachaPickerOpen(true);
+  };
+
   const clearValidation = () => {
     setErrors({});
     setReserveErrors({});
@@ -263,7 +430,7 @@ export default function MachinePlacementDraft({
     value: string,
   ) => {
     const previous = rows.find((row) => row.key === rowKey);
-    if (!previous) return;
+    if (!previous) return false;
     if (field === 'gachaId' && previous.gachaId !== value) {
       if (
         previous.quantity.trim() &&
@@ -271,7 +438,7 @@ export default function MachinePlacementDraft({
           '가챠를 바꾸면 이 기기의 기존 확인 수량이 지워집니다. 계속할까요?',
         )
       ) {
-        return;
+        return false;
       }
       rememberReserve([Number(previous.gachaId)]);
     }
@@ -289,6 +456,7 @@ export default function MachinePlacementDraft({
       ),
     );
     clearValidation();
+    return true;
   };
 
   const commitGroupCount = (coins: string, rawValue: string) => {
@@ -323,6 +491,7 @@ export default function MachinePlacementDraft({
       rememberReserve(removed.map((row) => Number(row.gachaId)));
       setRows((current) => current.filter((row) => !removedKeys.has(row.key)));
       if (selectedMachineKey && removedKeys.has(selectedMachineKey)) {
+        setIsGachaPickerOpen(false);
         setSelectedMachineKey(
           targetCount > 0 ? (groupRows[0]?.key ?? null) : null,
         );
@@ -365,6 +534,7 @@ export default function MachinePlacementDraft({
     setCustomCoinError('');
     setActiveCoins(normalized);
     setSelectedMachineKey(null);
+    setIsGachaPickerOpen(false);
     setVisibleMachineCount(MACHINE_PAGE_SIZE);
   };
 
@@ -388,6 +558,7 @@ export default function MachinePlacementDraft({
       return next;
     });
     if (activeCoins === coins) {
+      setIsGachaPickerOpen(false);
       setActiveCoins('4');
       setSelectedMachineKey(
         rows.find((row) => row.coinsPerPlay === '4')?.key ?? null,
@@ -397,6 +568,7 @@ export default function MachinePlacementDraft({
   };
 
   const selectGroup = (coins: string) => {
+    setIsGachaPickerOpen(false);
     setActiveCoins(coins);
     setSelectedMachineKey(
       rows.find((row) => row.coinsPerPlay === coins)?.key ?? null,
@@ -408,10 +580,7 @@ export default function MachinePlacementDraft({
 
   const selectMachine = (row: MachinePlacementDraftRow) => {
     setSelectedMachineKey(row.key);
-    pickerRef.current?.scrollIntoView?.({
-      block: 'nearest',
-      behavior: 'smooth',
-    });
+    setIsGachaPickerOpen(false);
   };
 
   const addReserveOnlyGacha = (gachaId: number) => {
@@ -478,6 +647,12 @@ export default function MachinePlacementDraft({
         const field = EDITABLE_FIELDS.find(
           (candidate) => nextErrors[firstInvalid.key]?.[candidate],
         );
+        setIsGachaPickerOpen(field === 'gachaId');
+        if (field === 'gachaId') {
+          pickerOriginRef.current = pickerTriggerRef.current;
+          setGachaQuery('');
+          setVisibleGachaCount(GACHA_PAGE_SIZE);
+        }
         window.requestAnimationFrame(() =>
           document
             .getElementById(
@@ -602,6 +777,9 @@ export default function MachinePlacementDraft({
       setSelectedMachineKey(imported.rows[0]?.key ?? null);
       setVisibleMachineCount(MACHINE_PAGE_SIZE);
       setGachaQuery('');
+      setIsGachaPickerOpen(false);
+      setPickerPosition(null);
+      setPreviewGacha(null);
       setVisibleGachaCount(GACHA_PAGE_SIZE);
       setReserveQuery('');
       setIsReservePickerOpen(false);
@@ -824,7 +1002,28 @@ export default function MachinePlacementDraft({
       </section>
 
       <section aria-labelledby="machine-list-title">
-        <h4 id="machine-list-title">{activeCoins}코인 기기</h4>
+        <MachineListHeader>
+          <h4 id="machine-list-title">{activeCoins}코인 기기</h4>
+          {activeRow && (
+            <button
+              aria-controls="machine-gacha-picker"
+              aria-expanded={isGachaPickerOpen}
+              ref={quickPickerTriggerRef}
+              type="button"
+              onClick={(event) => {
+                if (isGachaPickerOpen) {
+                  pickerOriginRef.current = event.currentTarget;
+                  closeGachaPicker(true);
+                } else {
+                  openGachaPicker(event.currentTarget);
+                }
+              }}
+            >
+              선택한 {activeRow.machineLabel}에 가챠{' '}
+              {activeRow.gachaId ? '바꾸기' : '넣기'}
+            </button>
+          )}
+        </MachineListHeader>
         {activeRows.length === 0 ? (
           <DraftEmpty>
             위에서 {activeCoins}코인 기기 대수를 입력하면 기기 카드가 생깁니다.
@@ -840,6 +1039,9 @@ export default function MachinePlacementDraft({
                     aria-pressed={activeRow?.key === row.key}
                     active={activeRow?.key === row.key}
                     key={row.key}
+                    ref={
+                      activeRow?.key === row.key ? selectedTileRef : undefined
+                    }
                     type="button"
                     onClick={() => selectMachine(row)}
                   >
@@ -937,12 +1139,28 @@ export default function MachinePlacementDraft({
               </div>
             ) : activeRow.gachaId ? (
               <DraftEmpty role="status">
-                이 가챠는 매장 등록 목록에서 제거되었습니다. 아래에서 다른
-                가챠를 선택해 주세요.
+                이 가챠는 매장 등록 목록에서 제거되었습니다. 가챠 바꾸기를 눌러
+                다른 가챠를 선택해 주세요.
               </DraftEmpty>
             ) : (
-              <p>아래 사진 목록에서 가챠를 선택하면 이 기기에 배치됩니다.</p>
+              <p>가챠 넣기를 눌러 매장 등록 가챠를 검색하고 배치해 주세요.</p>
             )}
+            <MachinePickerAction
+              aria-controls="machine-gacha-picker"
+              aria-expanded={isGachaPickerOpen}
+              ref={pickerTriggerRef}
+              type="button"
+              onClick={(event) => {
+                if (isGachaPickerOpen) {
+                  pickerOriginRef.current = event.currentTarget;
+                  closeGachaPicker(true);
+                } else {
+                  openGachaPicker(event.currentTarget);
+                }
+              }}
+            >
+              {activeRow.gachaId ? '가챠 바꾸기' : '가챠 넣기'}
+            </MachinePickerAction>
             <PlacementFields>
               <DraftField>
                 매장 내 구역 (선택)
@@ -992,97 +1210,153 @@ export default function MachinePlacementDraft({
             </PlacementFields>
           </MachineDetails>
 
-          <GachaPicker
-            aria-labelledby="machine-gacha-picker-title"
-            ref={pickerRef}
-          >
-            <h4 id="machine-gacha-picker-title">
-              {activeRow.machineLabel}에 넣을 가챠 선택
-            </h4>
-            <DraftField>
-              매장 등록 가챠 검색
-              <input
-                aria-invalid={Boolean(fieldError(activeRow, 'gachaId'))}
-                id={'placement-' + activeRow.key + '-gachaId'}
-                placeholder="이름, 일본어 이름 또는 ID"
-                value={gachaQuery}
-                onChange={(event) => {
-                  setGachaQuery(event.target.value);
-                  setVisibleGachaCount(GACHA_PAGE_SIZE);
-                }}
-              />
-            </DraftField>
-            {fieldError(activeRow, 'gachaId') && (
-              <FieldError>{fieldError(activeRow, 'gachaId')}</FieldError>
-            )}
-            {availableGachas.length === 0 ? (
-              <DraftEmpty role="status">
-                이 매장에 등록된 가챠가 없습니다. 먼저 매장 가챠 목록에서 가챠를
-                추가해 주세요.
-              </DraftEmpty>
-            ) : filteredGachas.length === 0 ? (
-              <DraftEmpty role="status">검색 결과가 없습니다.</DraftEmpty>
-            ) : (
-              <>
-                <GachaChoices>
-                  {filteredGachas.slice(0, visibleGachaCount).map((gacha) => {
-                    const imageUrl = gacha.imageUrl;
-                    return (
-                      <GachaChoice
-                        aria-pressed={activeRow.gachaId === String(gacha.id)}
-                        key={gacha.id}
+          {isGachaPickerOpen && (
+            <GachaPicker
+              aria-labelledby="machine-gacha-picker-title"
+              id="machine-gacha-picker"
+              ref={pickerRef}
+              role="dialog"
+              style={
+                pickerPosition
+                  ? {
+                      top: pickerPosition.top,
+                      left: pickerPosition.left,
+                      width: pickerPosition.width,
+                      maxHeight: pickerPosition.maxHeight,
+                    }
+                  : { visibility: 'hidden' }
+              }
+            >
+              <GachaPickerHeader>
+                <div>
+                  <h4 id="machine-gacha-picker-title">
+                    {activeRow.machineLabel}에 넣을 가챠 선택
+                  </h4>
+                  <small>
+                    사진은 확대해서 확인하고, 카드 이름을 눌러 배치하세요.
+                  </small>
+                </div>
+                <button
+                  aria-label="가챠 선택 닫기"
+                  type="button"
+                  onClick={() => closeGachaPicker(true)}
+                >
+                  ×
+                </button>
+              </GachaPickerHeader>
+              <DraftField>
+                매장 등록 가챠 검색
+                <input
+                  aria-invalid={Boolean(fieldError(activeRow, 'gachaId'))}
+                  id={'placement-' + activeRow.key + '-gachaId'}
+                  placeholder="이름, 일본어 이름 또는 ID"
+                  ref={pickerSearchRef}
+                  value={gachaQuery}
+                  onChange={(event) => {
+                    setGachaQuery(event.target.value);
+                    setVisibleGachaCount(GACHA_PAGE_SIZE);
+                  }}
+                />
+              </DraftField>
+              {fieldError(activeRow, 'gachaId') && (
+                <FieldError>{fieldError(activeRow, 'gachaId')}</FieldError>
+              )}
+              <GachaPickerResults>
+                {availableGachas.length === 0 ? (
+                  <DraftEmpty role="status">
+                    이 매장에 등록된 가챠가 없습니다. 먼저 매장 가챠 목록에서
+                    가챠를 추가해 주세요.
+                  </DraftEmpty>
+                ) : filteredGachas.length === 0 ? (
+                  <DraftEmpty role="status">검색 결과가 없습니다.</DraftEmpty>
+                ) : (
+                  <>
+                    <GachaChoices>
+                      {filteredGachas
+                        .slice(0, visibleGachaCount)
+                        .map((gacha) => {
+                          const imageUrl = gacha.imageUrl;
+                          return (
+                            <MachineGachaChoice
+                              key={gacha.id}
+                              selected={activeRow.gachaId === String(gacha.id)}
+                            >
+                              {imageUrl && !failedImages.has(imageUrl) ? (
+                                <GachaPreviewButton
+                                  aria-label={gacha.name + ' 이미지 확대'}
+                                  title="이미지 확대"
+                                  type="button"
+                                  onClick={() => setPreviewGacha(gacha)}
+                                >
+                                  <img
+                                    alt=""
+                                    loading="lazy"
+                                    src={imageUrl}
+                                    onError={() =>
+                                      setFailedImages(
+                                        (current) =>
+                                          new Set([...current, imageUrl]),
+                                      )
+                                    }
+                                  />
+                                </GachaPreviewButton>
+                              ) : (
+                                <span aria-hidden className="image-placeholder">
+                                  사진 없음
+                                </span>
+                              )}
+                              <GachaAssignButton
+                                aria-label={
+                                  gacha.name + ' #' + gacha.id + ' 배치'
+                                }
+                                aria-pressed={
+                                  activeRow.gachaId === String(gacha.id)
+                                }
+                                type="button"
+                                onClick={() => {
+                                  if (
+                                    updateRow(
+                                      activeRow.key,
+                                      'gachaId',
+                                      String(gacha.id),
+                                    )
+                                  ) {
+                                    closeGachaPicker(true);
+                                  }
+                                }}
+                              >
+                                <strong>{gacha.name}</strong>
+                                <small>
+                                  #{gacha.id}
+                                  {gacha.nameJa ? ' · ' + gacha.nameJa : ''}
+                                </small>
+                              </GachaAssignButton>
+                            </MachineGachaChoice>
+                          );
+                        })}
+                    </GachaChoices>
+                    {filteredGachas.length > visibleGachaCount && (
+                      <MoreButton
                         type="button"
                         onClick={() =>
-                          updateRow(activeRow.key, 'gachaId', String(gacha.id))
+                          setVisibleGachaCount((current) =>
+                            Math.min(
+                              current + GACHA_PAGE_SIZE,
+                              filteredGachas.length,
+                            ),
+                          )
                         }
                       >
-                        {imageUrl && !failedImages.has(imageUrl) ? (
-                          <img
-                            alt=""
-                            loading="lazy"
-                            src={imageUrl}
-                            onError={() =>
-                              setFailedImages(
-                                (current) => new Set([...current, imageUrl]),
-                              )
-                            }
-                          />
-                        ) : (
-                          <span aria-hidden className="image-placeholder">
-                            사진 없음
-                          </span>
-                        )}
-                        <span>
-                          <strong>{gacha.name}</strong>
-                          <small>
-                            #{gacha.id}
-                            {gacha.nameJa ? ' · ' + gacha.nameJa : ''}
-                          </small>
-                        </span>
-                      </GachaChoice>
-                    );
-                  })}
-                </GachaChoices>
-                {filteredGachas.length > visibleGachaCount && (
-                  <MoreButton
-                    type="button"
-                    onClick={() =>
-                      setVisibleGachaCount((current) =>
-                        Math.min(
-                          current + GACHA_PAGE_SIZE,
-                          filteredGachas.length,
-                        ),
-                      )
-                    }
-                  >
-                    가챠 더 보기 (
-                    {Math.min(visibleGachaCount, filteredGachas.length)}/
-                    {filteredGachas.length}종)
-                  </MoreButton>
+                        가챠 더 보기 (
+                        {Math.min(visibleGachaCount, filteredGachas.length)}/
+                        {filteredGachas.length}종)
+                      </MoreButton>
+                    )}
+                  </>
                 )}
-              </>
-            )}
-          </GachaPicker>
+              </GachaPickerResults>
+            </GachaPicker>
+          )}
         </>
       )}
 
@@ -1261,6 +1535,20 @@ export default function MachinePlacementDraft({
         >
           {feedback}
         </DraftFeedback>
+      )}
+      {previewGacha?.imageUrl && (
+        <GachaImagePreviewDialog
+          gachaId={previewGacha.id}
+          imageUrl={previewGacha.imageUrl}
+          name={previewGacha.name}
+          onClose={() => setPreviewGacha(null)}
+          onImageError={() => {
+            if (!previewGacha.imageUrl) return;
+            setFailedImages(
+              (current) => new Set([...current, previewGacha.imageUrl!]),
+            );
+          }}
+        />
       )}
     </DraftSection>
   );

@@ -222,6 +222,38 @@ export const MachineGrid = styled.div`
   margin-top: 12px;
 `;
 
+export const MachineListHeader = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 22px;
+
+  h4 {
+    margin: 0;
+  }
+
+  > button {
+    min-height: 36px;
+    padding: 7px 12px;
+    border: 1px solid ${colors.brand};
+    border-radius: ${radii.small};
+    color: ${colors.brand};
+    background: ${colors.surface};
+    font-size: 12px;
+    font-weight: 800;
+    cursor: pointer;
+
+    &:hover,
+    &:focus-visible {
+      outline: 2px solid ${colors.brand};
+      outline-offset: 2px;
+      background: ${colors.brandSoft};
+    }
+  }
+`;
+
 export const MachineTile = styled.button<{ active?: boolean }>`
   display: flex;
   align-items: center;
@@ -352,22 +384,91 @@ export const MachineDetails = styled.fieldset`
   }
 `;
 
+export const MachinePickerAction = styled.button`
+  min-height: 40px;
+  margin-bottom: 14px;
+  padding: 9px 16px;
+  border: 1px solid ${colors.brand};
+  border-radius: ${radii.small};
+  color: ${colors.surface};
+  background: ${colors.brand};
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+
+  &:hover,
+  &:focus-visible {
+    outline: 2px solid ${colors.brand};
+    outline-offset: 2px;
+    background: ${colors.brandDark};
+  }
+`;
+
 export const GachaPicker = styled.section`
+  position: fixed;
+  z-index: 120;
+  display: flex;
+  flex-direction: column;
   min-width: 0;
-  margin-top: 12px;
+  overflow: hidden;
   padding: 16px;
-  border: 1px solid ${colors.border};
+  border: 1px solid ${colors.brand};
   border-radius: ${radii.medium};
-  background: ${colors.surfaceMuted};
+  background: ${colors.surface};
+  box-shadow: 0 18px 48px rgba(20, 22, 28, 0.2);
 
   h4 {
-    margin: 0 0 10px;
+    margin: 0;
     font-size: 15px;
   }
 
   > label {
     max-width: 420px;
+    margin-top: 12px;
   }
+`;
+
+export const GachaPickerHeader = styled.div`
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+
+  small {
+    display: block;
+    margin-top: 4px;
+    color: ${colors.textMuted};
+    font-size: 12px;
+    line-height: 1.4;
+  }
+
+  > button {
+    flex: 0 0 auto;
+    width: 32px;
+    height: 32px;
+    border: 1px solid ${colors.border};
+    border-radius: ${radii.small};
+    color: ${colors.textMuted};
+    background: ${colors.surface};
+    font-size: 22px;
+    line-height: 1;
+    cursor: pointer;
+
+    &:hover,
+    &:focus-visible {
+      border-color: ${colors.brand};
+      outline: 2px solid ${colors.brand};
+      outline-offset: 1px;
+      color: ${colors.brand};
+    }
+  }
+`;
+
+export const GachaPickerResults = styled.div`
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0 4px 4px 0;
 `;
 
 export const GachaChoices = styled.div`
@@ -375,6 +476,95 @@ export const GachaChoices = styled.div`
   grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
   gap: 9px;
   margin-top: 12px;
+`;
+
+export const MachineGachaChoice = styled.div<{ selected?: boolean }>`
+  position: relative;
+  display: grid;
+  min-width: 0;
+  min-height: 76px;
+  padding: 8px;
+  border: 1px solid
+    ${({ selected }) => (selected ? colors.brand : colors.border)};
+  border-radius: ${radii.small};
+  background: ${({ selected }) => (selected ? '#fff8f6' : colors.surface)};
+
+  > .image-placeholder {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    width: 58px;
+    height: 58px;
+    place-items: center;
+    border-radius: ${radii.small};
+    color: ${colors.textMuted};
+    background: ${colors.surfaceMuted};
+    font-size: 11px;
+    pointer-events: none;
+  }
+`;
+
+export const GachaPreviewButton = styled.button`
+  position: relative;
+  z-index: 1;
+  width: 58px;
+  height: 58px;
+  overflow: hidden;
+  padding: 0;
+  border: 0;
+  border-radius: ${radii.small};
+  background: ${colors.surfaceMuted};
+  cursor: zoom-in;
+
+  img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  &:focus-visible {
+    outline: 3px solid ${colors.brand};
+    outline-offset: 2px;
+  }
+`;
+
+export const GachaAssignButton = styled.button`
+  position: absolute;
+  inset: 0;
+  display: grid;
+  align-content: center;
+  gap: 4px;
+  width: 100%;
+  min-width: 0;
+  padding: 8px 8px 8px 75px;
+  border: 0;
+  border-radius: inherit;
+  color: ${colors.text};
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+
+  strong,
+  small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  strong {
+    font-size: 12px;
+  }
+
+  small {
+    color: ${colors.textMuted};
+    font-size: 11px;
+  }
+
+  &:focus-visible {
+    outline: 2px solid ${colors.brand};
+    outline-offset: 2px;
+  }
 `;
 
 export const GachaChoice = styled.button`
