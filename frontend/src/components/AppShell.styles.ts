@@ -8,7 +8,7 @@ export const Layout = styled.div`
   min-height: 100dvh;
 
   @media (max-width: 820px) {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 `;
 

@@ -41,12 +41,22 @@ const setGroupCount = (coins: string, count: string) => {
 };
 
 const machinePicker = (ordinal = 1) =>
-  screen.getByRole('region', {
+  screen.getByRole('dialog', {
     name: `4코인 · ${ordinal}번 기기에 넣을 가챠 선택`,
   });
 
+const openMachinePicker = (ordinal = 1) => {
+  fireEvent.click(screen.getByRole('button', { name: '가챠 넣기' }));
+  return machinePicker(ordinal);
+};
+
 const groupButton = (coins: string) =>
   screen.getByRole('button', { name: new RegExp(coins + '\\s*코인 기기') });
+
+const machineTile = (ordinal = 1) =>
+  screen.getByRole('button', {
+    name: new RegExp(`^4코인 · ${ordinal}번 기기`),
+  });
 
 const importFixture = (storeId = 3) =>
   createMachinePlacementDraftCsv(
@@ -119,22 +129,25 @@ describe('매장 기기 배치 시안', () => {
 
     expect(groupButton('4')).toHaveTextContent('2대 중 0대 배치');
     expect(groupButton('4')).toHaveTextContent('회당 4,000원');
-    expect(
-      screen.getByRole('button', { name: /4코인 · 1번 기기/ }),
-    ).toBeInTheDocument();
-    expect(machinePicker().querySelector('img')).toHaveAttribute(
+    expect(machineTile()).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(openMachinePicker().querySelector('img')).toHaveAttribute(
       'src',
       '/mock/gacha-1697.jpg',
     );
 
     fireEvent.click(
       within(machinePicker()).getByRole('button', {
-        name: /메지루시 악세사리 산리오 캐릭터즈 2/,
+        name: /메지루시 악세사리 산리오 캐릭터즈 2.*배치/,
       }),
     );
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(groupButton('4')).toHaveTextContent('2대 중 1대 배치');
     expect(screen.getByText('4코인 · 1번 기기 상세')).toBeInTheDocument();
     expect(screen.getByText('회당 가격 4,000원')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: '가챠 바꾸기' }),
+    ).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText(/매장 공통 코인 단가/), {
       target: { value: '1500' },
@@ -146,14 +159,19 @@ describe('매장 기기 배치 시안', () => {
   it('이름·일본어 이름·ID를 검색하며 사진이 없을 때도 고를 수 있다', () => {
     renderDraft();
     setGroupCount('4', '1');
+    openMachinePicker();
     const search = within(machinePicker()).getByRole('textbox', {
       name: '매장 등록 가챠 검색',
     });
 
     fireEvent.change(search, { target: { value: '１６９７' } });
-    expect(within(machinePicker()).getAllByRole('button')).toHaveLength(1);
+    expect(
+      within(machinePicker()).getAllByRole('button', { name: /배치/ }),
+    ).toHaveLength(1);
     fireEvent.change(search, { target: { value: 'めじるし' } });
-    expect(within(machinePicker()).getAllByRole('button')).toHaveLength(1);
+    expect(
+      within(machinePicker()).getAllByRole('button', { name: /배치/ }),
+    ).toHaveLength(1);
     fireEvent.change(search, { target: { value: '없는 상품' } });
     expect(
       within(machinePicker()).getByText('검색 결과가 없습니다.'),
@@ -166,34 +184,291 @@ describe('매장 기기 배치 시안', () => {
     expect(within(machinePicker()).getByText('사진 없음')).toBeInTheDocument();
     fireEvent.click(
       within(machinePicker()).getByRole('button', {
-        name: /메지루시 악세사리 산리오 캐릭터즈 2/,
+        name: /메지루시 악세사리 산리오 캐릭터즈 2.*배치/,
       }),
     );
     expect(screen.getByText('회당 가격 4,000원')).toBeInTheDocument();
+  });
+
+  it('기기 카드 클릭은 상세만 전환하고 가챠 검색은 명시적으로 연다', () => {
+    renderDraft();
+    setGroupCount('4', '2');
+
+    const first = machineTile();
+    const second = machineTile(2);
+    const scrollIntoView = vi.fn();
+    const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
+    HTMLElement.prototype.scrollIntoView = scrollIntoView;
+
+    try {
+      fireEvent.change(screen.getByLabelText('매장 내 구역 (선택)'), {
+        target: { value: '입구 오른쪽' },
+      });
+      fireEvent.click(second);
+      expect(second).toHaveAttribute('aria-pressed', 'true');
+      expect(screen.getByText('4코인 · 2번 기기 상세')).toBeInTheDocument();
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(scrollIntoView).not.toHaveBeenCalled();
+
+      fireEvent.click(first);
+      expect(screen.getByLabelText('매장 내 구역 (선택)')).toHaveValue(
+        '입구 오른쪽',
+      );
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+
+      openMachinePicker();
+      expect(machinePicker()).toBeInTheDocument();
+      fireEvent.click(second);
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(screen.getByText('4코인 · 2번 기기 상세')).toBeInTheDocument();
+    } finally {
+      HTMLElement.prototype.scrollIntoView = originalScrollIntoView;
+    }
+  });
+
+  it('선택한 기기가 화면 밖이면 보이는 가챠 넣기 버튼 아래에 검색창을 띄운다', () => {
+    renderDraft();
+    setGroupCount('4', '1');
+    vi.stubGlobal('innerWidth', 1200);
+    vi.stubGlobal('innerHeight', 900);
+
+    const tile = machineTile();
+    const trigger = screen.getByRole('button', { name: '가챠 넣기' });
+    const originalRect = HTMLElement.prototype.getBoundingClientRect;
+    const rect = (top: number, bottom: number): DOMRect =>
+      ({
+        x: 40,
+        y: top,
+        width: 200,
+        height: bottom - top,
+        top,
+        right: 240,
+        bottom,
+        left: 40,
+        toJSON: () => ({}),
+      }) as DOMRect;
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(
+      function (this: HTMLElement) {
+        if (this === tile) return rect(-500, -400);
+        if (this === trigger) return rect(180, 220);
+        return originalRect.call(this);
+      },
+    );
+
+    fireEvent.click(trigger);
+    const picker = machinePicker();
+    const top = Number.parseFloat(picker.style.top);
+    const maxHeight = Number.parseFloat(picker.style.maxHeight);
+
+    expect(top).toBe(228);
+    expect(top).toBeGreaterThanOrEqual(16);
+    expect(top + maxHeight).toBeLessThanOrEqual(window.innerHeight - 16);
+  });
+
+  it('가챠 섬네일은 확대만 하고 카드의 배치 버튼은 기기에 배치한다', () => {
+    renderDraft();
+    setGroupCount('4', '1');
+    openMachinePicker();
+
+    fireEvent.click(
+      within(machinePicker()).getByRole('button', {
+        name: '메지루시 악세사리 산리오 캐릭터즈 2 이미지 확대',
+      }),
+    );
+    expect(
+      screen.getByRole('dialog', {
+        name: '메지루시 악세사리 산리오 캐릭터즈 2',
+      }),
+    ).toBeInTheDocument();
+    expect(groupButton('4')).toHaveTextContent('1대 중 0대 배치');
+    expect(machinePicker()).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(
+      screen.queryByRole('dialog', {
+        name: '메지루시 악세사리 산리오 캐릭터즈 2',
+      }),
+    ).not.toBeInTheDocument();
+    expect(machinePicker()).toBeInTheDocument();
+
+    fireEvent.click(
+      within(machinePicker()).getByRole('button', {
+        name: '메지루시 악세사리 산리오 캐릭터즈 2 이미지 확대',
+      }),
+    );
+    const closePreview = screen.getByRole('button', {
+      name: '확대 이미지 닫기',
+    });
+    fireEvent.pointerDown(closePreview);
+    fireEvent.click(closePreview);
+    expect(machinePicker()).toBeInTheDocument();
+    expect(groupButton('4')).toHaveTextContent('1대 중 0대 배치');
+
+    fireEvent.click(
+      within(machinePicker()).getByRole('button', {
+        name: /메지루시 악세사리 산리오 캐릭터즈 2.*배치/,
+      }),
+    );
+    expect(groupButton('4')).toHaveTextContent('1대 중 1대 배치');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('가챠 선택창을 Escape로 닫으면 열었던 버튼으로 포커스가 돌아간다', () => {
+    renderDraft();
+    setGroupCount('4', '1');
+    const trigger = screen.getByRole('button', { name: '가챠 넣기' });
+
+    fireEvent.click(trigger);
+    expect(machinePicker()).toBeInTheDocument();
+    expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    expect(
+      within(machinePicker()).getByRole('textbox', {
+        name: '매장 등록 가챠 검색',
+      }),
+    ).toHaveFocus();
+    fireEvent.keyDown(machinePicker(), { key: 'Escape' });
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+    expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    expect(groupButton('4')).toHaveTextContent('1대 중 0대 배치');
+  });
+
+  it('기기 목록의 빠른 버튼으로 선택한 기기의 검색창을 열고 Escape 후 버튼으로 돌아간다', () => {
+    renderDraft();
+    setGroupCount('4', '2');
+    fireEvent.click(machineTile(2));
+    const quickButton = screen.getByRole('button', {
+      name: '선택한 4코인 · 2번 기기에 가챠 넣기',
+    });
+
+    fireEvent.click(quickButton);
+    expect(machinePicker(2)).toBeInTheDocument();
+    expect(quickButton).toHaveAttribute('aria-expanded', 'true');
+    expect(
+      within(machinePicker(2)).getByRole('textbox', {
+        name: '매장 등록 가챠 검색',
+      }),
+    ).toHaveFocus();
+
+    fireEvent.keyDown(machinePicker(2), { key: 'Escape' });
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(quickButton).toHaveFocus();
+    expect(quickButton).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('상세 버튼과 빠른 버튼을 교차해서 눌러도 검색창이 닫히고 누른 버튼으로 돌아간다', async () => {
+    renderDraft();
+    setGroupCount('4', '1');
+    const detailButton = screen.getByRole('button', { name: '가챠 넣기' });
+    const quickButton = screen.getByRole('button', {
+      name: '선택한 4코인 · 1번 기기에 가챠 넣기',
+    });
+
+    fireEvent.click(detailButton);
+    expect(machinePicker()).toBeInTheDocument();
+    fireEvent.pointerDown(quickButton);
+    fireEvent.click(quickButton);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    await waitFor(() => expect(quickButton).toHaveFocus());
+
+    fireEvent.click(quickButton);
+    expect(machinePicker()).toBeInTheDocument();
+    fireEvent.pointerDown(detailButton);
+    fireEvent.click(detailButton);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    await waitFor(() => expect(detailButton).toHaveFocus());
+  });
+
+  it('빈 영역을 눌러 검색창을 닫으면 열었던 버튼으로 포커스가 돌아간다', async () => {
+    renderDraft();
+    setGroupCount('4', '1');
+    const trigger = screen.getByRole('button', { name: '가챠 넣기' });
+    fireEvent.click(trigger);
+    expect(machinePicker()).toBeInTheDocument();
+
+    fireEvent.pointerDown(screen.getByRole('heading', { name: '4코인 기기' }));
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    await waitFor(() => expect(trigger).toHaveFocus());
+  });
+
+  it('가챠 없이 기기 수량을 적은 뒤 CSV를 내보내면 검색창에서 오류를 바로 고칠 수 있다', async () => {
+    renderDraft();
+    setGroupCount('4', '1');
+    fireEvent.change(screen.getByLabelText(/기기 내 확인 수량/), {
+      target: { value: '5' },
+    });
+
+    fireEvent.click(
+      screen.getByRole('button', { name: '배치 초안 CSV 내려받기' }),
+    );
+
+    const picker = machinePicker();
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      '가챠 선택과 기기·보관 수량을 확인해 주세요.',
+    );
+    expect(picker).toHaveTextContent(
+      '기기 수량을 적으려면 먼저 가챠를 배치해 주세요.',
+    );
+    await waitFor(() =>
+      expect(
+        within(picker).getByRole('textbox', { name: '매장 등록 가챠 검색' }),
+      ).toHaveFocus(),
+    );
+  });
+
+  it('빈 기기 그룹에서 다른 그룹의 CSV 오류로 검색창이 열려도 Escape 포커스가 복귀한다', () => {
+    renderDraft();
+    setGroupCount('6', '1');
+    fireEvent.click(groupButton('6'));
+    fireEvent.change(screen.getByLabelText(/기기 내 확인 수량/), {
+      target: { value: '3' },
+    });
+    fireEvent.click(groupButton('4'));
+    expect(
+      screen.queryByRole('button', { name: '가챠 넣기' }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', { name: '배치 초안 CSV 내려받기' }),
+    );
+
+    const picker = screen.getByRole('dialog', {
+      name: '6코인 · 1번 기기에 넣을 가챠 선택',
+    });
+    expect(
+      within(picker).getByRole('textbox', { name: '매장 등록 가챠 검색' }),
+    ).toHaveFocus();
+    const detailTrigger = screen.getByRole('button', { name: '가챠 넣기' });
+
+    fireEvent.keyDown(picker, { key: 'Escape' });
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(detailTrigger).toHaveFocus();
   });
 
   it('내용이 있는 기기 대수를 줄이기 전에 확인받고 취소하면 유지한다', () => {
     const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
     renderDraft();
     setGroupCount('4', '2');
-    fireEvent.click(screen.getByRole('button', { name: /4코인 · 2번 기기/ }));
+    fireEvent.click(machineTile(2));
+    openMachinePicker(2);
     fireEvent.click(
-      within(machinePicker(2)).getByRole('button', { name: /다른 가챠/ }),
+      within(machinePicker(2)).getByRole('button', { name: /다른 가챠.*배치/ }),
     );
 
     setGroupCount('4', '1');
     expect(confirm).toHaveBeenCalledWith(
       '줄어드는 기기에 적힌 가챠·위치·수량 초안이 사라집니다. 계속할까요?',
     );
-    expect(
-      screen.getByRole('button', { name: /4코인 · 2번 기기/ }),
-    ).toBeInTheDocument();
+    expect(machineTile(2)).toBeInTheDocument();
     expect(document.getElementById('machine-count-4')).toHaveValue('2');
 
     confirm.mockReturnValue(true);
     setGroupCount('4', '1');
     expect(
-      screen.queryByRole('button', { name: /4코인 · 2번 기기/ }),
+      screen.queryByRole('button', { name: /^4코인 · 2번 기기/ }),
     ).not.toBeInTheDocument();
   });
 
@@ -278,9 +553,10 @@ describe('매장 기기 배치 시안', () => {
     );
     expect(screen.getByLabelText('설치 단 (선택)')).toHaveValue('2');
     expect(screen.getByLabelText(/기기 내 확인 수량/)).toHaveValue('8');
+    fireEvent.click(screen.getByRole('button', { name: '가챠 바꾸기' }));
     expect(
       within(machinePicker()).getByRole('button', {
-        name: /메지루시 악세사리 산리오 캐릭터즈 2/,
+        name: /메지루시 악세사리 산리오 캐릭터즈 2.*배치/,
         pressed: true,
       }),
     ).toBeInTheDocument();
