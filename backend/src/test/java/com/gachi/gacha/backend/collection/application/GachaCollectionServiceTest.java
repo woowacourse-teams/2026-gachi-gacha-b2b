@@ -29,6 +29,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 @ExtendWith(MockitoExtension.class)
 class GachaCollectionServiceTest {
@@ -44,6 +45,9 @@ class GachaCollectionServiceTest {
 
     @Mock
     private CategoryService categoryService;
+
+    @Mock
+    private ApplicationEventPublisher publisher;
 
     @Test
     @SuppressWarnings("unchecked")
@@ -134,7 +138,8 @@ class GachaCollectionServiceTest {
                 gachaRepository,
                 multipartUploader,
                 s3TransactionManager,
-                categoryService
+                categoryService,
+                publisher
         );
         return service;
     }
