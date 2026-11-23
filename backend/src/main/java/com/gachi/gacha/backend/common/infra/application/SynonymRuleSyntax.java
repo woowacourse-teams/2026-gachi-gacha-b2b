@@ -1,0 +1,91 @@
+package com.gachi.gacha.backend.common.infra.application;
+
+import com.gachi.gacha.backend.common.infra.exception.InvalidSynonymRuleException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+final class SynonymRuleSyntax {
+
+    private static final int MAX_LENGTH = 500;
+
+    private static final Pattern MAPPING_SEPARATOR = Pattern.compile("\\\\(?:.|$)|=>");
+    private static final Pattern TERM_SEPARATOR = Pattern.compile("\\\\(?:.|$)|,");
+    private static final Pattern ESCAPED_CHARACTER = Pattern.compile("\\\\(.)");
+
+    private SynonymRuleSyntax() {
+    }
+
+    public static void validate(String rule) {
+        validateRuleText(rule);
+
+        List<String> mappingSides = splitOnUnescapedSeparator(rule, MAPPING_SEPARATOR);
+        validateMappingCount(mappingSides.size());
+
+        int minimumTerms = mappingSides.size() == 1 ? 2 : 1;
+        for (String side : mappingSides) {
+            List<String> terms = splitOnUnescapedSeparator(side, TERM_SEPARATOR);
+            terms.forEach(SynonymRuleSyntax::validateTerm);
+            validateTermCount(terms.size(), minimumTerms);
+        }
+    }
+
+    private static List<String> splitOnUnescapedSeparator(String text, Pattern separatorPattern) {
+        List<String> parts = new ArrayList<>();
+        Matcher matcher = separatorPattern.matcher(text);
+        int partStart = 0;
+        while (matcher.find()) {
+            String match = matcher.group();
+            if (match.startsWith("\\")) {
+                validateEscape(match);
+                continue;
+            }
+            parts.add(text.substring(partStart, matcher.start()));
+            partStart = matcher.end();
+        }
+        parts.add(text.substring(partStart));
+        return parts;
+    }
+
+    private static void validateEscape(String match) {
+        if (match.length() == 1) {
+            throw new InvalidSynonymRuleException("이스케이프 기호 뒤에는 문자가 필요합니다.");
+        }
+    }
+
+    private static void validateRuleText(String rule) {
+        if (rule == null || rule.isBlank()) {
+            throw new InvalidSynonymRuleException("동의어 규칙은 필수입니다.");
+        }
+        if (rule.length() > MAX_LENGTH) {
+            throw new InvalidSynonymRuleException("동의어 규칙은 " + MAX_LENGTH + "자 이하여야 합니다.");
+        }
+        if (rule.stripLeading().startsWith("#") || rule.chars().anyMatch(SynonymRuleSyntax::isUnsupportedCharacter)) {
+            throw new InvalidSynonymRuleException("동의어 규칙에는 주석, 줄바꿈 또는 지원하지 않는 제어 문자를 사용할 수 없습니다.");
+        }
+    }
+
+    private static boolean isUnsupportedCharacter(int character) {
+        return character != '\t' && (Character.isISOControl(character) || character == 0x2028 || character == 0x2029);
+    }
+
+    private static void validateTerm(String term) {
+        String content = ESCAPED_CHARACTER.matcher(term).replaceAll("$1");
+        if (content.chars().allMatch(c -> Character.isWhitespace(c) || Character.isSpaceChar(c))) {
+            throw new InvalidSynonymRuleException("동의어 규칙에 빈 항목이 있습니다.");
+        }
+    }
+
+    private static void validateMappingCount(int sideCount) {
+        if (sideCount > 2) {
+            throw new InvalidSynonymRuleException("동의어 규칙에는 매핑 구분자(=>)를 한 번만 사용할 수 있습니다.");
+        }
+    }
+
+    private static void validateTermCount(int termCount, int minimumTerms) {
+        if (termCount < minimumTerms) {
+            throw new InvalidSynonymRuleException("쉼표 또는 매핑 구분자(=>)로 동의어를 연결해야 합니다.");
+        }
+    }
+}

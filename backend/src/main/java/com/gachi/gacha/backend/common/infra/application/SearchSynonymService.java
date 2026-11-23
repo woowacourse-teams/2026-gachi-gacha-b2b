@@ -21,6 +21,8 @@ public class SearchSynonymService {
 
     @Transactional
     public void addSearchSynonym(SearchSynonymCommand searchSynonymCommand) {
+        SynonymRuleSyntax.validate(searchSynonymCommand.synonyms());
+
         searchSynonymJpaRepository.findBySynonymSetAndRuleKey(searchSynonymCommand.synonymSet(), searchSynonymCommand.ruleKey())
                 .ifPresentOrElse(
                         existing -> existing.updateSynonyms(searchSynonymCommand.synonyms()),
