@@ -48,7 +48,13 @@ public enum ErrorCode {
     INVALID_COLLECTION_CONFIGURATION(HttpStatus.INTERNAL_SERVER_ERROR, "GCE05", "가챠 수집 설정이 유효하지 않습니다."),
     COLLECTION_ITEM_PARSE_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "GCE06", "수집 상품 정보를 해석하지 못했습니다."),
     COLLECTION_HTTP_REQUEST_FAILED(HttpStatus.BAD_GATEWAY, "GCE07", "가챠 수집 사이트 요청에 실패했습니다."),
-    COLLECTION_INTERRUPTED(HttpStatus.INTERNAL_SERVER_ERROR, "GCE08", "가챠 수집 작업이 중단되었습니다.");
+    COLLECTION_INTERRUPTED(HttpStatus.INTERNAL_SERVER_ERROR, "GCE08", "가챠 수집 작업이 중단되었습니다."),
+
+    // Store Gacha
+    STORE_GACHA_NOT_FOUND(HttpStatus.NOT_FOUND, "SGE001", "매장-가챠 연결이 존재하지 않습니다"),
+
+    // Elastic Search
+    ELASTICSEARCH_INDEX_FAILED(HttpStatus.BAD_GATEWAY, "ES001", "검색 색인 처리에 실패했습니다.");
 
     private final HttpStatus status;
     private final String code;

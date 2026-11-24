@@ -10,6 +10,7 @@ import com.gachi.gacha.backend.common.infra.application.MultipartUploader;
 import com.gachi.gacha.backend.common.infra.domain.DomainType;
 import com.gachi.gacha.backend.common.util.S3TransactionManager;
 import com.gachi.gacha.backend.gacha.application.CategoryService;
+import com.gachi.gacha.backend.gacha.application.event.GachaChangedEvent;
 import com.gachi.gacha.backend.gacha.domain.Category;
 import com.gachi.gacha.backend.gacha.domain.Gacha;
 import com.gachi.gacha.backend.gacha.domain.GachaJpaRepository;
@@ -19,6 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,6 +32,7 @@ public class GachaCollectionService {
     private final MultipartUploader multipartUploader;
     private final S3TransactionManager s3TransactionManager;
     private final CategoryService categoryService;
+    private final ApplicationEventPublisher publisher;
 
     @Transactional
     public int saveNewGachas(
@@ -42,7 +45,9 @@ public class GachaCollectionService {
         }
 
         List<Gacha> newGachas = createGachas(newCollectedGachas);
-        gachaRepository.saveAll(newGachas);
+        List<Gacha> savedGachas = gachaRepository.saveAll(newGachas);
+        List<Long> ids = savedGachas.stream().map(Gacha::getId).toList();
+        publisher.publishEvent(GachaChangedEvent.change(ids));
         return newGachas.size();
     }
 

@@ -21,10 +21,13 @@ import com.gachi.gacha.backend.store.domain.StoreImageJpaRepository;
 import com.gachi.gacha.backend.store.domain.StoreJpaRepository;
 import com.gachi.gacha.backend.store.domain.exception.InvalidNearbyRequestException;
 import com.gachi.gacha.backend.store.domain.exception.StoreNotFoundException;
+import com.gachi.gacha.backend.store.application.event.StoreChangedEvent;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
@@ -42,6 +45,7 @@ public class StoreService {
     private final StoreDetailJpaRepository storeDetailJpaRepository;
     private final StoreImageJpaRepository storeImageJpaRepository;
     private final S3TransactionManager s3TransactionManager;
+    private final ApplicationEventPublisher publisher;
 
     public StoreNearbyResult findNearbyStores(
             final Double latitude,
@@ -102,6 +106,9 @@ public class StoreService {
         Store store = storeJpaRepository.getById(storeId);
         StoreDetail storeDetail = storeDetailJpaRepository.getByStoreId(storeId);
 
+        Double oldLat = store.getLatitude();
+        Double oldLon = store.getLongitude();
+
         Store patchedStore = store.patch(
                 command.name(),
                 command.thumbnailUrl(),
@@ -111,10 +118,15 @@ public class StoreService {
                 command.floor(),
                 command.unit()
         );
+
         Store savedStore = storeJpaRepository.save(patchedStore);
         StoreDetail patchedDetail = storeDetail.patch(createStoreDetailUpdate(command));
         StoreDetail savedDetail = storeDetailJpaRepository.save(patchedDetail);
         storeJpaRepository.flush();
+
+        if (isLocationChanged(oldLat, oldLon, savedStore)) {
+            publisher.publishEvent(new StoreChangedEvent(storeId));
+        }
 
         return StoreUpdateResult.of(savedStore, savedDetail);
     }
@@ -125,11 +137,16 @@ public class StoreService {
         StoreDetail storeDetail = storeDetailJpaRepository.getByStoreId(storeId);
         List<StoreImage> storeImages = storeImageJpaRepository.findAllByStoreId(storeId);
 
+        publisher.publishEvent(new StoreChangedEvent(storeId));
+
         storeImageJpaRepository.deleteAllByStoreId(storeId);
         storeDetailJpaRepository.delete(storeDetail);
         storeJpaRepository.delete(store);
 
-        List<String> imageUrls = storeImages.stream().map(StoreImage::getImageUrl).toList();
+        List<String> imageUrls = storeImages.stream()
+                .map(StoreImage::getImageUrl)
+                .toList();
+
         s3TransactionManager.deleteImagesAfterRemoved(DomainType.STORE, storeId, imageUrls);
 
         return StoreDeleteResult.from(store);
@@ -205,5 +222,10 @@ public class StoreService {
         if (floor != null && floor == 0) {
             throw new InvalidNearbyRequestException(ErrorCode.INVALID_NEARBY_REQUEST);
         }
+    }
+
+    private boolean isLocationChanged(Double oldLat, Double oldLon, Store saved) {
+        return !Objects.equals(oldLat, saved.getLatitude())
+                || !Objects.equals(oldLon, saved.getLongitude());
     }
 }
