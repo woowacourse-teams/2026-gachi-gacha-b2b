@@ -9,6 +9,13 @@ import java.util.regex.Pattern;
 final class SynonymRuleSyntax {
 
     private static final int MAX_LENGTH = 500;
+    private static final int EQUIVALENT_RULE_SIDE_COUNT = 1;
+    private static final int MAX_MAPPING_SIDE_COUNT = 2;
+    private static final int MIN_EQUIVALENT_RULE_TERMS = 2;
+    private static final int MIN_MAPPING_SIDE_TERMS = 1;
+    private static final int UNPAIRED_ESCAPE_LENGTH = 1;
+    private static final int UNICODE_LINE_SEPARATOR = 0x2028;
+    private static final int UNICODE_PARAGRAPH_SEPARATOR = 0x2029;
 
     private static final Pattern MAPPING_SEPARATOR = Pattern.compile("\\\\(?:.|$)|=>");
     private static final Pattern TERM_SEPARATOR = Pattern.compile("\\\\(?:.|$)|,");
@@ -23,7 +30,7 @@ final class SynonymRuleSyntax {
         List<String> mappingSides = splitOnUnescapedSeparator(rule, MAPPING_SEPARATOR);
         validateMappingCount(mappingSides.size());
 
-        int minimumTerms = mappingSides.size() == 1 ? 2 : 1;
+        int minimumTerms = (mappingSides.size() == EQUIVALENT_RULE_SIDE_COUNT) ? MIN_EQUIVALENT_RULE_TERMS : MIN_MAPPING_SIDE_TERMS;
         for (String side : mappingSides) {
             List<String> terms = splitOnUnescapedSeparator(side, TERM_SEPARATOR);
             terms.forEach(SynonymRuleSyntax::validateTerm);
@@ -49,7 +56,7 @@ final class SynonymRuleSyntax {
     }
 
     private static void validateEscape(String match) {
-        if (match.length() == 1) {
+        if (match.length() == UNPAIRED_ESCAPE_LENGTH) {
             throw new InvalidSynonymRuleException("이스케이프 기호 뒤에는 문자가 필요합니다.");
         }
     }
@@ -67,7 +74,9 @@ final class SynonymRuleSyntax {
     }
 
     private static boolean isUnsupportedCharacter(int character) {
-        return character != '\t' && (Character.isISOControl(character) || character == 0x2028 || character == 0x2029);
+        return character != '\t' && (Character.isISOControl(character)
+                || character == UNICODE_LINE_SEPARATOR
+                || character == UNICODE_PARAGRAPH_SEPARATOR);
     }
 
     private static void validateTerm(String term) {
@@ -78,7 +87,7 @@ final class SynonymRuleSyntax {
     }
 
     private static void validateMappingCount(int sideCount) {
-        if (sideCount > 2) {
+        if (sideCount > MAX_MAPPING_SIDE_COUNT) {
             throw new InvalidSynonymRuleException("동의어 규칙에는 매핑 구분자(=>)를 한 번만 사용할 수 있습니다.");
         }
     }
