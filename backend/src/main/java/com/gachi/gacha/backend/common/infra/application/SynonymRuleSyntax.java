@@ -2,7 +2,9 @@ package com.gachi.gacha.backend.common.infra.application;
 
 import com.gachi.gacha.backend.common.infra.exception.InvalidSynonymRuleException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -24,13 +26,54 @@ final class SynonymRuleSyntax {
     private SynonymRuleSyntax() {
     }
 
-    public static void validate(String rule) {
+    public static void validate(final String rule) {
+        validate(rule, MIN_EQUIVALENT_RULE_TERMS);
+    }
+
+    static void validateAddition(final String rule) {
+        validate(rule, MIN_MAPPING_SIDE_TERMS);
+    }
+
+    static String merge(final String existing, final String incoming) {
+        validate(existing);
+        if (isDirectional(existing) && isDirectional(incoming)) {
+            return incoming;
+        }
+        if (isDirectional(existing) || isDirectional(incoming)) {
+            throw new InvalidSynonymRuleException("동등 규칙과 방향 규칙은 같은 키에서 합칠 수 없습니다.");
+        }
+
+        Set<String> knownTerms = new HashSet<>();
+        splitOnUnescapedSeparator(existing, TERM_SEPARATOR)
+                .forEach(term -> knownTerms.add(normalizeTerm(term)));
+
+        StringBuilder merged = new StringBuilder(existing);
+        for (String term : splitOnUnescapedSeparator(incoming, TERM_SEPARATOR)) {
+            if (knownTerms.add(normalizeTerm(term))) {
+                merged.append(", ").append(term.stripLeading());
+            }
+        }
+        String result = merged.toString();
+        validate(result);
+        return result;
+    }
+
+    private static boolean isDirectional(final String rule) {
+        return splitOnUnescapedSeparator(rule, MAPPING_SEPARATOR).size() > EQUIVALENT_RULE_SIDE_COUNT;
+    }
+
+    private static String normalizeTerm(final String term) {
+        return ESCAPED_CHARACTER.matcher(term).replaceAll("$1").strip();
+    }
+
+    private static void validate(final String rule, final int minimumEquivalentTerms) {
         validateRuleText(rule);
 
         List<String> mappingSides = splitOnUnescapedSeparator(rule, MAPPING_SEPARATOR);
         validateMappingCount(mappingSides.size());
 
-        int minimumTerms = (mappingSides.size() == EQUIVALENT_RULE_SIDE_COUNT) ? MIN_EQUIVALENT_RULE_TERMS : MIN_MAPPING_SIDE_TERMS;
+        int minimumTerms = (mappingSides.size() == EQUIVALENT_RULE_SIDE_COUNT)
+                ? minimumEquivalentTerms : MIN_MAPPING_SIDE_TERMS;
         for (String side : mappingSides) {
             List<String> terms = splitOnUnescapedSeparator(side, TERM_SEPARATOR);
             terms.forEach(SynonymRuleSyntax::validateTerm);
@@ -38,7 +81,7 @@ final class SynonymRuleSyntax {
         }
     }
 
-    private static List<String> splitOnUnescapedSeparator(String text, Pattern separatorPattern) {
+    private static List<String> splitOnUnescapedSeparator(final String text, final Pattern separatorPattern) {
         List<String> parts = new ArrayList<>();
         Matcher matcher = separatorPattern.matcher(text);
         int partStart = 0;
@@ -55,13 +98,13 @@ final class SynonymRuleSyntax {
         return parts;
     }
 
-    private static void validateEscape(String match) {
+    private static void validateEscape(final String match) {
         if (match.length() == UNPAIRED_ESCAPE_LENGTH) {
             throw new InvalidSynonymRuleException("이스케이프 기호 뒤에는 문자가 필요합니다.");
         }
     }
 
-    private static void validateRuleText(String rule) {
+    private static void validateRuleText(final String rule) {
         if (rule == null || rule.isBlank()) {
             throw new InvalidSynonymRuleException("동의어 규칙은 필수입니다.");
         }
@@ -73,20 +116,20 @@ final class SynonymRuleSyntax {
         }
     }
 
-    private static boolean isUnsupportedCharacter(int character) {
+    private static boolean isUnsupportedCharacter(final int character) {
         return character != '\t' && (Character.isISOControl(character)
                 || character == UNICODE_LINE_SEPARATOR
                 || character == UNICODE_PARAGRAPH_SEPARATOR);
     }
 
-    private static void validateTerm(String term) {
+    private static void validateTerm(final String term) {
         String content = ESCAPED_CHARACTER.matcher(term).replaceAll("$1");
         if (content.chars().allMatch(c -> Character.isWhitespace(c) || Character.isSpaceChar(c))) {
             throw new InvalidSynonymRuleException("동의어 규칙에 빈 항목이 있습니다.");
         }
     }
 
-    private static void validateMappingCount(int sideCount) {
+    private static void validateMappingCount(final int sideCount) {
         if (sideCount > MAX_MAPPING_SIDE_COUNT) {
             throw new InvalidSynonymRuleException("동의어 규칙에는 매핑 구분자(=>)를 한 번만 사용할 수 있습니다.");
         }

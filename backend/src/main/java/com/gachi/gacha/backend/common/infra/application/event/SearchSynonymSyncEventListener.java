@@ -19,9 +19,9 @@ public class SearchSynonymSyncEventListener {
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handle(SearchSynonymChangedEvent event) {
         try {
-            syncService.syncAll(event.synonymSet());
+            syncService.syncRule(event.synonymSet(), event.ruleKey());
         } catch (Exception ex) {
-            log.error("동의어 동기화 실패 set={}", event.synonymSet(), ex);
+            log.error("동의어 동기화 실패 set={}, ruleKey={}", event.synonymSet(), event.ruleKey(), ex);
         }
     }
 }

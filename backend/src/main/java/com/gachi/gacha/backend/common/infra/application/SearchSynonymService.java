@@ -21,14 +21,22 @@ public class SearchSynonymService {
 
     @Transactional
     public void addSearchSynonym(SearchSynonymCommand searchSynonymCommand) {
-        SynonymRuleSyntax.validate(searchSynonymCommand.synonyms());
+        String incoming = searchSynonymCommand.synonyms();
+        SynonymRuleSyntax.validateAddition(incoming);
 
-        searchSynonymJpaRepository.findBySynonymSetAndRuleKey(searchSynonymCommand.synonymSet(), searchSynonymCommand.ruleKey())
+        searchSynonymJpaRepository.findForUpdateBySynonymSetAndRuleKey(
+                        searchSynonymCommand.synonymSet(), searchSynonymCommand.ruleKey())
                 .ifPresentOrElse(
-                        existing -> existing.updateSynonyms(searchSynonymCommand.synonyms()),
-                        () -> searchSynonymJpaRepository.save(searchSynonymCommand.toEntity()));
+                        existing -> existing.updateSynonyms(SynonymRuleSyntax.merge(existing.getSynonyms(), incoming)),
+                        () -> saveNewRule(searchSynonymCommand));
 
-        publisher.publishEvent(new SearchSynonymChangedEvent(searchSynonymCommand.synonymSet()));
+        publisher.publishEvent(new SearchSynonymChangedEvent(
+                searchSynonymCommand.synonymSet(), searchSynonymCommand.ruleKey()));
+    }
+
+    private void saveNewRule(final SearchSynonymCommand command) {
+        SynonymRuleSyntax.validate(command.synonyms());
+        searchSynonymJpaRepository.save(command.toEntity());
     }
 
     public List<SearchSynonymInfo> findAllBySynonymSet(String synonymSet) {
